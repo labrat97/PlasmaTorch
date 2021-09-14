@@ -3,7 +3,7 @@
 </p>
 
 <div align="center">
-    <h2>PlasmaTorch</h2>
+    <h1>PlasmaTorch</h2>
     <p>If fire is for monkeys, plasma is for chimps.</p>
 </div>
 
