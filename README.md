@@ -2,8 +2,8 @@
     <img width="50%" height="50%" src="./logo.png">
 </p>
 
-<h1 div align="center">
-    <p><b>PlasmaTorch</b></p>
+<div align="center">
+    <span style="font-size:4em">PlasmaTorch</span>
     <p><small>If fire is for monkeys, plasma is for chimps.</small></p>
 </h1>
 
