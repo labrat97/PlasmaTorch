@@ -1,5 +1,5 @@
 <p align="center">
-    <img width="50%" height="50%" src="./resources/logo.png">
+    <img width="50%" height="50%" src="./logo.png">
 </p>
 
 # If fire is for monkeys, plasma is for chimps.
