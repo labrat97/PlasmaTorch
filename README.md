@@ -5,7 +5,7 @@
 # If fire is for monkeys, plasma is for chimps.
 
 This library is designed to take into account the fact that modern neural network implementations
-often ignore how natural signals naturally propagate leads to horrible conditions like gradient collapse, 
+often ignore how natural signals naturally propagate. This can lead to horrible conditions like gradient collapse
 or a signal exploding/minimizing in gain causing essentially a different flavor of gradient collapse. The main
 issue with implementing a network that behaves around the signal processing methods described in nature
 is the oscillatory properties of nature's trigonometric activation functions. Due to the oscillation of the functions,
