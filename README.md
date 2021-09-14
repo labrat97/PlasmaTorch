@@ -3,8 +3,8 @@
 </p>
 
 <div align="center">
-    <span style="font-size:4em">PlasmaTorch</span>
-    <p><small>If fire is for monkeys, plasma is for chimps.</small></p>
+    <h2>PlasmaTorch</h2>
+    <p>If fire is for monkeys, plasma is for chimps.</p>
 </div>
 
 This library is designed to take into account the fact that modern neural network implementations
