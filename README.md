@@ -2,7 +2,9 @@
     <img width="50%" height="50%" src="./logo.png">
 </p>
 
-# If fire is for monkeys, plasma is for chimps.
+<h1 align="center"><b> PlasmaTorch </br> 
+<h6 align="center"> If fire is for monkeys, plasma is for chimps. </h3>
+</b></h1>
 
 This library is designed to take into account the fact that modern neural network implementations
 often ignore how natural signals naturally propagate. This can lead to horrible conditions like gradient collapse
