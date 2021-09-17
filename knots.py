@@ -66,7 +66,7 @@ class Knot(nn.Module):
 
     self.dtype = dtype
     paramSize = (len(self.curves), self.curveSize)
-    self.regWeights = nn.Parameter(torch.ones(paramSize, dtype=dtype))
+    self.regWeights = nn.Parameter(torch.zeros(paramSize, dtype=dtype))
     self.knotRadii = nn.Parameter(torch.zeros(self.curveSize, dtype=dtype))
 
   def __init__(self, lissajousCurves:nn.ModuleList, dtype:torch.dtype=DEFAULT_DTYPE):
