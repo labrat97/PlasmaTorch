@@ -3,11 +3,10 @@ import torch.nn as nn
 
 from .distributions import *
 from .knots import *
+from .defaults import *
 
 #https://pytorch.org/docs/stable/jit_language_reference.html
 from typing import Dict, List, Tuple
-
-DEFAULT_FFT_SAMPLES = 128
 
 
 # TODO: Continue adding size safety from [ HERE MARK SAFETY SIZES ]

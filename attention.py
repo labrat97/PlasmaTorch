@@ -1,6 +1,7 @@
 from .knots import *
 from .distributions import *
 from .entanglement import *
+from .defaults import *
 
 import torch
 import torch.nn as nn
