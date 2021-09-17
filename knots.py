@@ -1,12 +1,14 @@
 import torch
 import torch.nn as nn
 
+from .defaults import *
+
 class Lissajous(nn.Module):
   """
   Holds a Lissajous-like curve to be used as a sort of activation layer as a unit
     of knowledge.
   """
-  def __init__(self, size: int):
+  def __init__(self, size:int, dtype:torch.dtype = DEFAULT_DTYPE):
     """Builds a new Lissajous-like curve structure.
 
     Args:
@@ -15,8 +17,8 @@ class Lissajous(nn.Module):
     super(Lissajous, self).__init__()
 
     self.size = size
-    self.frequency = nn.Parameter(torch.zeros([1, size]), dtype=torch.float16)
-    self.phase = nn.Parameter(torch.zeros([1, size]), dtype=torch.float16)
+    self.frequency = nn.Parameter(torch.zeros([1, size], dtype=dtype))
+    self.phase = nn.Parameter(torch.zeros([1, size], dtype=dtype))
 
   def forward(self, x: torch.Tensor) -> torch.Tensor:
     """Gets a sample or batch of samples from the contained curve.
@@ -45,12 +47,14 @@ class Knot(nn.Module):
     which allows the knot to have its parameters later entangled, modulated, and
     transformed through conventional methods.
   """
-  def __init__Helper(self, lissajousCurves: nn.ModuleList):
+  def __init__Helper(self, lissajousCurves:nn.ModuleList, dtype:torch.dtype):
     """Does the actual __init__ work for super() call reasons.
 
     Args:
         lissajousCurves (nn.ModuleList): The curves to add together to create the
           knot.
+        dtype (torch.dtype): The type of the housed parameters used for modifying
+          the value of the contained lissajous structures.
     """
     # Set up the curves for the function
     self.curves = lissajousCurves
@@ -60,39 +64,43 @@ class Knot(nn.Module):
     for curve in self.curves:
       assert curve.size == self.curveSize
 
+    self.dtype = dtype
     paramSize = (len(self.curves), self.curveSize)
-    self.regWeights = nn.Parameter(torch.ones(paramSize), dtype=torch.float16)
-    self.knotRadii = nn.Parameter(torch.zeros(self.curveSize), dtype=torch.float16)
+    self.regWeights = nn.Parameter(torch.ones(paramSize, dtype=dtype))
+    self.knotRadii = nn.Parameter(torch.zeros(self.curveSize, dtype=dtype))
 
-  def __init__(self, lissajousCurves: nn.ModuleList):
+  def __init__(self, lissajousCurves:nn.ModuleList, dtype:torch.dtype=DEFAULT_DTYPE):
     """Constructs a Knot for later use from previously constructed Lissajous curves.
 
     Args:
         lissajousCurves (nn.ModuleList): The Lissajous curves to add together to make the knot.
+        dtype (torch.dtype): The type of the housed parameters used for modifying
+          the value of the contained lissajous structures.
     """
     super(Knot, self).__init__()
 
     # Call helper init function
-    self.__init__Helper(lissajousCurves=lissajousCurves)    
+    self.__init__Helper(lissajousCurves=lissajousCurves, dtype=dtype)    
 
-  def __init__(self, knotSize: int, knotDepth: int):
+  def __init__(self, knotSize:int, knotDepth:int, dtype:torch.dtype=DEFAULT_DTYPE):
     """Constructs a Knot for later use generating all weights and storing internally.
 
     Args:
         knotSize (int): The dimensionality of the contained lissajous-like curves.
         knotDepth (int): The amount of lissajous-like curves to be added together.
+        dtype (torch.dtype): The type of the housed parameters used for modifying
+          the value of the contained lissajous structures.
     """
     super(Knot, self).__init__()
 
     # Construct and call helper function
     curves = nn.ModuleList([Lissajous(size=knotSize) for _ in range(knotDepth)])
-    self.__init__Helper(lissajousCurves=curves)
+    self.__init__Helper(lissajousCurves=curves, dtype=dtype)
 
   # TODO: Add a method to add more curves, it would be cool to have a hyperparameter
   #   that makes the neural network hold more data in almost the same space
 
-  @torch.jit.script
-  def forward(self, x: torch.Tensor) -> torch.Tensor:
+  def forward(self, x:torch.Tensor) -> torch.Tensor:
     """Pushed forward the same way as the Lissajous module. This is just an array
     of Lissajous modules summed together in a weighted way.
 
@@ -105,8 +113,8 @@ class Knot(nn.Module):
           as the dimensions of the curve.
     """
     # Create the expanded dimensions required in the output tensor
-    outputSize = torch.Size(list(x.size()).append(self.curveSize))
-    result = torch.Tensor(torch.zeros(outputSize), dtype=torch.float16)
+    outputSize = torch.Size(list(x.size()) + [self.curveSize])
+    result = torch.zeros(outputSize, dtype=self.dtype)
 
     # Add all of the curves together
     for idx, lissajous in enumerate(self.curves):
