@@ -45,7 +45,7 @@ class Knot(nn.Module):
     which allows the knot to have its parameters later entangled, modulated, and
     transformed through conventional methods.
   """
-  def ___init__Helper(self, lissajousCurves: nn.ModuleList):
+  def __init__Helper(self, lissajousCurves: nn.ModuleList):
     """Does the actual __init__ work for super() call reasons.
 
     Args:
@@ -73,7 +73,7 @@ class Knot(nn.Module):
     super(Knot, self).__init__()
 
     # Call helper init function
-    self.___init___Helper(lissajousCurves=lissajousCurves)    
+    self.__init__Helper(lissajousCurves=lissajousCurves)    
 
   def __init__(self, knotSize: int, knotDepth: int):
     """Constructs a Knot for later use generating all weights and storing internally.
@@ -86,7 +86,7 @@ class Knot(nn.Module):
 
     # Construct and call helper function
     curves = nn.ModuleList([Lissajous(size=knotSize) for _ in range(knotDepth)])
-    self.___init___Helper(lissajousCurves=curves)
+    self.__init__Helper(lissajousCurves=curves)
 
   # TODO: Add a method to add more curves, it would be cool to have a hyperparameter
   #   that makes the neural network hold more data in almost the same space
