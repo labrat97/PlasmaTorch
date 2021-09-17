@@ -119,8 +119,7 @@ class Knot(nn.Module):
     # Add all of the curves together
     for idx, lissajous in enumerate(self.curves):
       # Each lissajous curve-like structure has different weights, and therefore 
-      curve = lissajous.forward(x)
-      curve = self.regWeights[idx] * curve
-      result = result + curve
+      curve = self.regWeights[idx] * lissajous.forward(x)
+      result.add_(curve)
     
     return result + self.knotRadii
