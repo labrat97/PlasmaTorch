@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from .defaults import *
+
 @torch.jit.script
 def irregularGauss(x: torch.Tensor, mean: torch.Tensor, lowStd: torch.Tensor, highStd: torch.Tensor) -> torch.Tensor:
   """Generates an piecewise Gaussian curve according to the provided parameters.
@@ -33,19 +35,20 @@ class LinearGauss(nn.Module):
   """
   A linearly tuned irregular gaussian function to be used as an activation layer of sorts.
   """
-  def __init__(self, size: torch.Size):
+  def __init__(self, channels:int, dtype:torch.dtype = DEFAULT_DTYPE):
     """Builds a new LinearGauss structure.
 
     Args:
-        size (torch.Size): This size must be broadcastable towards the later used
-          input tensor.
+        channels (int): The amount of linear gausses to build together. Must be broadcastable to
+          the provided set of channels.
+        dtype (torch.dtype): The type of the parameters used to calculate the gaussian curves.
     """
     super(LinearGauss, self).__init__()
 
-    self.size = size
-    self.mean = nn.Parameter(torch.zeros(size), dtype=torch.float16)
-    self.lowStd = nn.Parameter(torch.zeros(size), dtype=torch.float16)
-    self.highStd = nn.Parameter(torch.zeros(size), dtype=torch.float16)
+    self.channels = channels
+    self.mean = nn.Parameter(torch.zeros((channels), dtype=dtype))
+    self.lowStd = nn.Parameter(torch.zeros((channels), dtype=dtype))
+    self.highStd = nn.Parameter(torch.zeros((channels), dtype=dtype))
 
   def forward(self, x: torch.Tensor):
     return irregularGauss(x=x, mean=self.mean, lowStd=self.lowStd, highStd=self.highStd)
