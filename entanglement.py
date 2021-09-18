@@ -88,9 +88,9 @@ class Entangle(nn.Module):
         # See how similar each signal is
         subsig = signals[:,jdx]
         subconj = torch.conj(subsig)
-        correlation = torch.mean(torch.mean(
+        correlation = torch.mean(
           torch.irfft(signal * subconj, n=self.samples, dim=-1)
-        ))
+        )
 
         # Create a superposition through a tensor product
         superposition = signal @ torch.transpose(signal)
