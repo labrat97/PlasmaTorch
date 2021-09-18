@@ -58,24 +58,30 @@ class Entangle(nn.Module):
     # If requested, use a knowledge mask at the end of the forward() call
     self.knowledgeMask:nn.Parameter = None
     if useKnowledgeMask:
+      # This should broadcast an identity matrix over the knowledge mask for collapsing
       self.knowledgeMask = nn.Parameter(torch.view_as_complex(
         torch.zeros((inputSignals, curveChannels, samples, samples), dtype=dtype) + torch.eye(samples, dtype=dtype)
       ))
   
   def forward(self, x:torch.Tensor) -> torch.Tensor:
+    # Define some constants
+    SAMPLE_POS = -1
+    CURVE_POS = -2
+    COUNT_POS = -3
+
     # Check to make sure that x is of compatible shape
     inputSize = x.shape
     inputSizeLen = len(inputSize)
     if inputSizeLen == 3: 
       x = x.unsqueeze(0)
     assert inputSizeLen == 4
-    assert inputSize[-1] == self.samples
-    assert inputSize[-2] == self.curveChannels
-    assert inputSize[-3] == self.signalCount
+    assert inputSize[SAMPLE_POS] == self.samples
+    assert inputSize[CURVE_POS] == self.curveChannels
+    assert inputSize[COUNT_POS] == self.signalCount
     isComplex = torch.is_complex(x)
 
     # Find out what the signals are made of
-    signals = torch.fft.fft(x, n=self.samples, dim=-1)
+    signals = torch.fft.fft(x, n=self.samples, dim=SAMPLE_POS)
 
     # Store where the signals are going
     y = torch.zeros_like(x)
@@ -89,15 +95,15 @@ class Entangle(nn.Module):
         subsig = signals[:,jdx]
         subconj = torch.conj(subsig)
         correlation = torch.mean(
-          torch.irfft(signal * subconj, n=self.samples, dim=-1)
-        )
+          torch.irfft(signal * subconj, n=self.samples, dim=SAMPLE_POS),
+        dim=SAMPLE_POS)
 
         # Create a superposition through a tensor product
-        superposition = signal @ torch.transpose(signal)
+        superposition = signal @ torch.transpose(signal, -2, -1)
 
         # Apply knowledge to the superposition of the subsignals if requested
         if self.knowledgeMask is not None:
-          superposition = superposition * self.knowledgeMask
+          superposition = superposition * torch.softmax(self.knowledgeMask)
 
         # Save superposition for output if needed
         if (self.outputMode & EntangleOutputMode.SUPERPOSITION) != 0:
@@ -114,11 +120,11 @@ class Entangle(nn.Module):
         # Collapse
         collapseSignal = (torch.sum(superposition), torch.sum(torch.transpose(superposition)))
         if isComplex:
-          collapseSmear = (torch.ifft(collapseSignal[0], n=self.samples, dim=-1), \
-            torch.ifft(collapseSignal[1], n=self.samples, dim=-1))
+          collapseSmear = (torch.ifft(collapseSignal[0], n=self.samples, dim=SAMPLE_POS), \
+            torch.ifft(collapseSignal[1], n=self.samples, dim=SAMPLE_POS))
         else:
-          collapseSmear = (torch.irfft(collapseSignal[0], n=self.samples, dim=-1), \
-            torch.irfft(collapseSignal[1], n=self.samples, dim=-1))
+          collapseSmear = (torch.irfft(collapseSignal[0], n=self.samples, dim=SAMPLE_POS), \
+            torch.irfft(collapseSignal[1], n=self.samples, dim=SAMPLE_POS))
         entangledSmear = (torch.cos(polarization) * collapseSmear[0]) \
           + (torch.sin(polarization) * collapseSmear[1])
 
