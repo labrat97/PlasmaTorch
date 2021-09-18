@@ -7,8 +7,6 @@ from .defaults import *
 
 from enum import Enum
 
-# TODO: Continue adding size safety from [ HERE MARK SAFETY SIZES ]
-
 # Turn a pointwise signal into a smearwise one
 class Smear(nn.Module):
   def __init__(self, samples:int = DEFAULT_FFT_SAMPLES, lowerScalar:float = 1./16, 
@@ -60,9 +58,9 @@ class Entangle(nn.Module):
     # If requested, use a knowledge mask at the end of the forward() call
     self.knowledgeMask:nn.Parameter = None
     if useKnowledgeMask:
-      self.knowledgeMask = nn.Parameter(torch.view_as_complex(torch.ones(
-        (inputSignals, curveChannels, samples, samples), dtype=dtype
-      )))
+      self.knowledgeMask = nn.Parameter(torch.view_as_complex(
+        torch.zeros((inputSignals, curveChannels, samples, samples), dtype=dtype) + torch.eye(samples, dtype=dtype)
+      ))
   
   def forward(self, x:torch.Tensor) -> torch.Tensor:
     # Check to make sure that x is of compatible shape
@@ -141,25 +139,3 @@ class Entangle(nn.Module):
     if self.outputMode == EntangleOutputMode.SUPERPOSITION:
       return s
     return y, s
-
-
-class Enzyme(nn.Module):
-  def __init__(self, knots:nn.ModuleList = None, windowSize:tuple = (32, 32), stepSize:int = 4, samples:int = 128, knotSize:int = 3):
-    super(Enzyme, self).__init__()
-
-    self.windowSize = torch.Tensor(windowSize)
-    self.stepSize = stepSize * torch.ones_like(self.windowSize)
-    self.samples = samples
-    self.knotSize = knotSize
-
-    flatWindow = 1
-    for n in windowSize:
-      flatWindow = flatWindow * n
-
-    self.knots = knots
-    if self.knots != None:
-      assert len(self.knots) == flatWindow
-      for knot in self.knots:
-        assert knot.curveSize == self.knotSize
-    else:
-      self.knots = nn.ModuleList([Knot(knotSize=knotSize, knotDepth=samples/4.) for i in range(flatWindow)])
