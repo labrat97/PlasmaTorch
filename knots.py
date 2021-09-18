@@ -28,6 +28,8 @@ class Lissajous(nn.Module):
 
     Returns:
         torch.Tensor: The evaluted samples.
+
+          [::,Samples] -> [::,Samples,Curves]
     """
     # Add another dimension to do the batch of encodes
     xFat = torch.unsqueeze(x, -1)
@@ -111,6 +113,8 @@ class Knot(nn.Module):
         torch.Tensor: The original size tensor, but every point has a Lissajous curve
           activated upon it. There will be one extra dimension that is the same in size
           as the dimensions of the curve.
+
+          [Batches,::,Samples] -> [Batches,::,Curves,Samples]
     """
     # Create the expanded dimensions required in the output tensor
     outputSize = torch.Size(list(x.size()) + [self.curveSize])
@@ -122,4 +126,5 @@ class Knot(nn.Module):
       curve = self.regWeights[idx] * lissajous.forward(x)
       result.add_(curve)
     
-    return result + self.knotRadii
+    # Swap the position of the curve and the sample (so the samples are on the rear)
+    return result.transpose(-1, -2) + self.knotRadii
