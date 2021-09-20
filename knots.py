@@ -125,6 +125,9 @@ class Knot(nn.Module):
       # Each lissajous curve-like structure has different weights, and therefore 
       curve = self.regWeights[idx] * lissajous.forward(x)
       result.add_(curve)
+
+    # Add the radius of the knot to the total of the sum of the curves
+    result.add_(self.knotRadii)
     
     # Swap the position of the curve and the sample (so the samples are on the rear)
-    return result.transpose(-1, -2) + self.knotRadii
+    return result.transpose(-1, -2)
