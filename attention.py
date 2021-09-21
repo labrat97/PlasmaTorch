@@ -9,9 +9,26 @@ import torch.nn as nn
 import torch.nn.functional as nnf
 
 class Turbulence(nn.Module):
+    """
+    Pays attention to a continuous signal by multiple methods. Three methods are primarily used, the
+    first being calculus based modulation through an observation of the feeding signal in the normal domain,
+    fft domain, and ifft domain. The second layer implemented is frequency and phase modulation through grid remapping.
+    By using this mapping method, the network can essentially choose to zoom in on certain subsections, giving downstream
+    parameters invariance over the entire observation space of the signal (potentially). The final chunk of computation used
+    for attention is amplitude modulation of the basis vector of the signal (derived by a pass through
+    a fft, an element-wise multiplication, and a pass back through an ifft).
+    """
     def __init__(self, samples:int=DEFAULT_FFT_SAMPLES, internalDimensions:int=DEFAULT_SPACE_PRIME, \
         internalWaves:int=int(DEFAULT_FFT_SAMPLES/2), sameDimOut:bool=False, sameDimWarpEntangle:bool=False, \
         dtype:torch.dtype=DEFAULT_DTYPE):
+        """Constructs a new Turbulence attention module.
+
+        Args:
+            samples (int, optional): The amount of samples to use for the natural signal. DefaultDefaults to DEFAULT_FFT_SAMPLES.
+            internalDimensions (int, optional): The amount of curves contained in each knot. DefaultDefaults to DEFAULT_DEFAULT_SPACE_PRIME.
+            sameDimOut (bool, optional): Use another entanglement step prior to the final output. DefaultDefaults to False.
+            sameDimWarpEntangle (bool, optional): Make previously stated step the same one that generates the warp. Defaults to False.
+        """
         super(Turbulence, self).__init__()
 
         # Entangle the signals together to get higher order knowledge in smaller spots
@@ -48,6 +65,22 @@ class Turbulence(nn.Module):
         self.compressorGain = nn.Parameter(torch.ones(1, dtype=complexType))
     
     def forward(self, queries:torch.Tensor, states:torch.Tensor, inter:str='bicubic', padding:str='border') -> torch.Tensor:
+        """Run a forward computation through the module. Defaults to
+
+        Args:
+            queries (torch.Tensor): The queries for what to pay attention to (of size
+                [BATCHES...,CURVES,SAMPLES]).
+            states (torch.Tensor): The signal to look at (of size
+                [BATCHES...,CURVES,SAMPLES]).
+            inter (str, optional): The interpolation to use during the grid_resample() call. Defaults to 'bicubic'.
+            padding (str, optional): The padding_mode to use during the grid_resample() call. Defaults to 'border'.
+
+        Returns:
+            torch.Tensor: An entangled and attended to attention vector. By default,
+                this vector is returned in knot form (so [BATCHES...,CURVES,SAMPLES]), 
+                but with prior configuration in the __init__() call, this can be changed to
+                just be [BATCHES..., samples].
+        """
         inputSize = queries.size()
         assert states.size() == inputSize
         
@@ -86,8 +119,10 @@ class Turbulence(nn.Module):
         # 'grid' param. This is done with the warp knot ([BATCH, curve, samples])
         # which needs to be in the shape [BATCH, 1, samples, curve].
         warpGrid = warpKnot.transpose(-1, -2)
-        warpedStateReal = nnf.grid_sample(stateEntanglements.real, grid=warpGrid.real, mode=inter, align_corners=False).unsqueeze(-1)
-        warpedStateImag = nnf.grid_sample(stateEntanglements.imag, grid=warpGrid.imag, mode=inter, align_corners=False).unsqueeze(-1)
+        warpedStateReal = nnf.grid_sample(stateEntanglements.real, grid=warpGrid.real, \
+            mode=inter, align_corners=False, padding_mode=padding).unsqueeze(-1)
+        warpedStateImag = nnf.grid_sample(stateEntanglements.imag, grid=warpGrid.imag, \
+            mode=inter, align_corners=False, padding_mode=padding).unsqueeze(-1)
         warpedState = torch.view_as_complex(torch.cat((warpedStateReal, warpedStateImag), dim=-1))
 
         # Now <warpedState> must be translated back to the format that the network
