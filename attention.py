@@ -32,11 +32,6 @@ class Turbulence(nn.Module):
             dtype=dtype)
         self.warpKnot = Knot(knotSize=2, knotDepth=internalWaves, dtype=complexType)
 
-        # Figure out how to mix n dimensions
-        self.dimEntangler = Entangle(inputSignals=internalDimensions, curveChannels=1, \
-            samples=samples, useKnowledgeMask=True, outputMode=EntangleOutputMode.COLLAPSE, \
-            dtype=complexType)
-
         # Amplify things in the things that are brought into clearer view
         self.compressorKnot = Knot(knotSize=internalDimensions, knotDepth=internalWaves, dtype=complexType)
         self.compressorGain = nn.Parameter(torch.ones(1, dtype=complexType))
@@ -54,11 +49,11 @@ class Turbulence(nn.Module):
         worldKnot = self.worldKnot.forward(states)
         integralKnot = self.integralKnot.forward(integralStates)
         basisKnot = self.basisKnot.forward(basisStates)
-        parietalEntanglements = self.parietalEntangler.forward(
+        parietalEntanglements, _ = self.parietalEntangler.forward(
             torch.stack([egoKnot, basisKnot, worldKnot, integralKnot], dim=1)
         )
         entangleSum = parietalEntanglements.sum(dim=1)
-        superTangle = self.dimEntangler.forward(
+        superTangle, _ = self.warpEntangler.forward(
             entangleSum.unsqueeze(-2)
         )
         superSum = superTangle.sum(dim=1)
