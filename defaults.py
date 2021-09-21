@@ -1,6 +1,6 @@
 import torch
 
-DEFAULT_FFT_SAMPLES = 1024
+DEFAULT_FFT_SAMPLES = 256
 KNOTS_WITHOUT_LOSS = 8
 # a peak and a trough are needed at minimum for a legible signal
 DEFAULT_KNOT_WAVES = int(DEFAULT_FFT_SAMPLES / (KNOTS_WITHOUT_LOSS * 2))

@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 
 from .defaults import *
+from .conversions import *
 
 @torch.jit.script
 def irregularGauss(x: torch.Tensor, mean: torch.Tensor, lowStd: torch.Tensor, highStd: torch.Tensor) -> torch.Tensor:
@@ -20,8 +21,8 @@ def irregularGauss(x: torch.Tensor, mean: torch.Tensor, lowStd: torch.Tensor, hi
       torch.Tensor: A sampled set of values with the same size as the input.
   """
   # Grab the correct side of the curve
-  if x <= mean: std = lowStd
-  else: std = highStd
+  belowMean = torch.le(x, mean)
+  std = (belowMean.int() * lowStd) + ((1 - belowMean.int()) * highStd)
 
   # Never hits 0 or inf., easy to take derivative
   std = torch.exp(std)
@@ -49,6 +50,21 @@ class LinearGauss(nn.Module):
     self.mean = nn.Parameter(torch.zeros((channels), dtype=dtype))
     self.lowStd = nn.Parameter(torch.zeros((channels), dtype=dtype))
     self.highStd = nn.Parameter(torch.zeros((channels), dtype=dtype))
+    self.isComplex = torch.is_complex(self.mean)
 
   def forward(self, x: torch.Tensor):
+    inputComplex = torch.is_complex(x)
+    if inputComplex and not self.isComplex:
+      real = irregularGauss(x=x.real, mean=self.mean, lowStd=self.lowStd, highStd=self.highStd)
+      imag = irregularGauss(x=x.imag, mean=self.mean, lowStd=self.lowStd, highStd=self.highStd)
+      return torch.view_as_complex(torch.stack((real, imag), dim=-1))
+    
+    if self.isComplex:
+      if not inputComplex:
+        x = toComplex(x)
+      real = irregularGauss(x=x.real, mean=self.mean.real, lowStd=self.lowStd.real, highStd=self.highStd.real)
+      imag = irregularGauss(x=x.imag, mean=self.mean.imag, lowStd=self.lowStd.imag, highStd=self.highStd.imag)
+      return torch.view_as_complex(torch.stack((real, imag), dim=-1))
+    
+
     return irregularGauss(x=x, mean=self.mean, lowStd=self.lowStd, highStd=self.highStd)

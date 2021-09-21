@@ -96,7 +96,7 @@ class Knot(nn.Module):
     super(Knot, self).__init__()
 
     # Construct and call helper function
-    curves = nn.ModuleList([Lissajous(size=knotSize) for _ in range(knotDepth)])
+    curves = nn.ModuleList([Lissajous(size=knotSize, dtype=dtype) for _ in range(knotDepth)])
     self.__init__Helper(lissajousCurves=curves, dtype=dtype)
 
   # TODO: Add a method to add more curves, it would be cool to have a hyperparameter

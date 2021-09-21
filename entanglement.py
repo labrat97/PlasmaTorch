@@ -4,38 +4,16 @@ import torch.nn as nn
 from .distributions import *
 from .knots import *
 from .defaults import *
+from .conversions import *
+from .math import *
 
-from enum import Enum
+from enum import Flag
 
-# Turn a pointwise signal into a smearwise one
-class Smear(nn.Module):
-  def __init__(self, samples:int = DEFAULT_FFT_SAMPLES, lowerScalar:float = 1./16, 
-    upperScalar:float = 1./16, dtype:torch.dtype = DEFAULT_DTYPE):
-    super(Smear, self).__init__()
 
-    self.__iter = torch.Tensor([builder / (self.samples-1) for builder in range(self.samples)], \
-      dtype=dtype).detach()
-
-    self.samples = samples
-    self.smearBias = nn.Parameter(torch.zeros(1, dtype=dtype))
-    self.smearWindow = nn.Parameter(torch.Tensor([lowerScalar, upperScalar], dtype=dtype))
-  
-  def forward(self, x:torch.Tensor) -> torch.Tensor:
-    xBias = x + self.smearBias
-    if self.samples <= 1:
-      return xBias
-
-    lowerSmear = self.smearWindow[0]
-    upperSmear = self.smearWindow[1]
-    xRange = (upperSmear - lowerSmear) * xBias
-    xLow = ((1 - lowerSmear) * xBias)
-
-    return (xRange * self.__iter) + xLow
-
-class EntangleOutputMode(Enum):
-  SUPERPOSITION = 1 << 0
-  COLLAPSE = 1 << 1
-  BOTH = SUPERPOSITION | COLLAPSE
+class EntangleOutputMode(int, Flag):
+  SUPERPOSITION:int = 1 << 0
+  COLLAPSE:int = 1 << 1
+  BOTH:int = SUPERPOSITION | COLLAPSE
 
 class Entangle(nn.Module):
   def __init__(self, inputSignals:int, curveChannels:int = DEFAULT_SPACE_PRIME, \
@@ -59,9 +37,11 @@ class Entangle(nn.Module):
     self.knowledgeMask:nn.Parameter = None
     if useKnowledgeMask:
       # This should broadcast an identity matrix over the knowledge mask for collapsing
-      self.knowledgeMask = nn.Parameter(torch.view_as_complex(
-        torch.zeros((inputSignals, curveChannels, samples, samples), dtype=dtype) + torch.eye(samples, dtype=dtype)
-      ))
+      iEye = toComplex(torch.eye(samples, dtype=dtype))
+      self.knowledgeMask = nn.Parameter(
+        toComplex(torch.zeros((inputSignals, curveChannels, samples, samples), dtype=dtype)) \
+        + iEye)
+      print(f'knowledge mask size: \t{self.knowledgeMask.size()}')
   
   def forward(self, x:torch.Tensor) -> torch.Tensor:
     # Define some constants
@@ -95,48 +75,48 @@ class Entangle(nn.Module):
         subsig = signals[:,jdx]
         subconj = torch.conj(subsig)
         correlation = torch.mean(
-          torch.irfft(signal * subconj, n=self.samples, dim=SAMPLE_POS),
+          torch.fft.irfft(signal * subconj, n=self.samples, dim=SAMPLE_POS),
         dim=SAMPLE_POS)
 
         # Create a superposition through a tensor product
-        superposition = signal @ torch.transpose(signal, -2, -1)
+        superposition = signal.unsqueeze(-1) @ torch.transpose(subsig.unsqueeze(-1), -2, -1)
 
         # Apply knowledge to the superposition of the subsignals if requested
         if self.knowledgeMask is not None:
-          superposition = superposition * torch.softmax(self.knowledgeMask)
+          superposition = superposition * isoftmax(self.knowledgeMask[jdx], dim=-2)
 
         # Save superposition for output if needed
-        if (self.outputMode & EntangleOutputMode.SUPERPOSITION) != 0:
+        if (int(self.outputMode) & int(EntangleOutputMode.SUPERPOSITION)) != 0:
           s[:,idx].add_(superposition)
 
         # No need to collapse
-        if (self.outputMode & EntangleOutputMode.COLLAPSE) == 0:
+        if (int(self.outputMode) & int(EntangleOutputMode.COLLAPSE)) == 0:
           continue
 
         # Act on correlation for collapse
-        entangleMix = self.entangleActivation[idx].forward(correlation)
+        entangleMix = self.entangleActivation[idx].forward(correlation).unsqueeze(-1)
         classicalMix = 1 - entangleMix
 
         # Collapse
-        collapseSignal = (torch.sum(superposition), torch.sum(torch.transpose(superposition)))
+        collapseSignal = (torch.sum(superposition, dim=-2), torch.sum(torch.transpose(superposition, -2, -1), dim=-2))
         if isComplex:
-          collapseSmear = (torch.ifft(collapseSignal[0], n=self.samples, dim=SAMPLE_POS), \
-            torch.ifft(collapseSignal[1], n=self.samples, dim=SAMPLE_POS))
+          collapseSmear = (torch.fft.ifft(collapseSignal[0], n=self.samples, dim=SAMPLE_POS), \
+            torch.fft.ifft(collapseSignal[1], n=self.samples, dim=SAMPLE_POS))
         else:
-          collapseSmear = (torch.irfft(collapseSignal[0], n=self.samples, dim=SAMPLE_POS), \
-            torch.irfft(collapseSignal[1], n=self.samples, dim=SAMPLE_POS))
+          collapseSmear = (torch.fft.irfft(collapseSignal[0], n=self.samples, dim=SAMPLE_POS), \
+            torch.fft.irfft(collapseSignal[1], n=self.samples, dim=SAMPLE_POS))
         entangledSmear = (torch.cos(polarization) * collapseSmear[0]) \
           + (torch.sin(polarization) * collapseSmear[1])
 
         # Put into output for signals
         y[:,idx].add_(
-          ((entangleMix * entangledSmear) + (classicalMix * x))
+          ((entangleMix * entangledSmear) + (classicalMix * x[:,idx]))
         )
     
     # Regularize
-    if (self.outputMode & EntangleOutputMode.COLLAPSE) != 0:
+    if (int(self.outputMode) & int(EntangleOutputMode.COLLAPSE)) != 0:
       y.div_(self.signalCount)
-    if (self.outputMode & EntangleOutputMode.SUPERPOSITION) != 0:
+    if (int(self.outputMode) & int(EntangleOutputMode.SUPERPOSITION)) != 0:
       s.div_(self.signalCount)
 
     # Return
