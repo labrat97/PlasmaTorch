@@ -8,8 +8,15 @@ def isoftmax(x:torch.Tensor, dim:int, dtype:torch.dtype = None) -> torch.Tensor:
     if not x.is_complex(): return torch.softmax(x, dim=dim, dtype=dtype)
 
     # Imaginary softmax
-    inter = torch.view_as_real(x)
-    softInter = torch.softmax(inter, dim=(dim-1), dtype=dtype)
-
-    # Turn back into imaginary
-    return torch.view_as_complex(softInter)
+    angle = torch.atan(x.imag/x.real)
+    magnitude = torch.sqrt(x.real.pow(2) + x.imag.pow(2))
+    softMagnitude = torch.softmax(magnitude, dim=dim, dtype=dtype)
+    
+    # Convert back to imaginary
+    newReal = softMagnitude * torch.cos(angle)
+    newImag = softMagnitude * torch.sin(angle)
+    
+    # Return in proper datatype
+    newReal.unsqueeze(-1)
+    newImag.unsqueeze(-1)
+    return torch.view_as_complex(torch.stack((newReal, newImag), dim=-1))
