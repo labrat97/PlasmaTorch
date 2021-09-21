@@ -64,7 +64,7 @@ class Turbulence(nn.Module):
         self.compressorKnot = Knot(knotSize=internalDimensions, knotDepth=internalWaves, dtype=complexType)
         self.compressorGain = nn.Parameter(torch.ones(1, dtype=complexType))
     
-    def forward(self, queries:torch.Tensor, states:torch.Tensor, inter:str='bicubic', padding:str='border') -> torch.Tensor:
+    def forward(self, queries:torch.Tensor, states:torch.Tensor, inter:str='bicubic', padding:str='border', oneD:bool=True) -> torch.Tensor:
         """Run a forward computation through the module. Defaults to
 
         Args:
@@ -74,6 +74,7 @@ class Turbulence(nn.Module):
                 [BATCHES...,CURVES,SAMPLES]).
             inter (str, optional): The interpolation to use during the grid_resample() call. Defaults to 'bicubic'.
             padding (str, optional): The padding_mode to use during the grid_resample() call. Defaults to 'border'.
+            oneD (bool, optional): Whether or not the knots evaluate the input signal as a multichannel curve. Defaults to True.
 
         Returns:
             torch.Tensor: An entangled and attended to attention vector. By default,
@@ -89,10 +90,10 @@ class Turbulence(nn.Module):
         basisStates = torch.fft.fft(states, dim=-1)
 
         # Entangle the queries and the states together
-        egoKnot = self.egoKnot.forward(queries)
-        worldKnot = self.worldKnot.forward(states)
-        integralKnot = self.integralKnot.forward(integralStates)
-        basisKnot = self.basisKnot.forward(basisStates)
+        egoKnot = self.egoKnot.forward(queries, oneD=oneD)
+        worldKnot = self.worldKnot.forward(states, oneD=oneD)
+        integralKnot = self.integralKnot.forward(integralStates, oneD=oneD)
+        basisKnot = self.basisKnot.forward(basisStates, oneD=oneD)
         parietalEntanglements, _ = self.parietalEntangler.forward(
             torch.stack([egoKnot, basisKnot, worldKnot, integralKnot], dim=1)
         )
