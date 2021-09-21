@@ -99,9 +99,6 @@ class Knot(nn.Module):
     curves = nn.ModuleList([Lissajous(size=knotSize, dtype=dtype) for _ in range(knotDepth)])
     self.__init__Helper(lissajousCurves=curves, dtype=dtype)
 
-  # TODO: Add a method to add more curves, it would be cool to have a hyperparameter
-  #   that makes the neural network hold more data in almost the same space
-
   def forward(self, x:torch.Tensor) -> torch.Tensor:
     """Pushed forward the same way as the Lissajous module. This is just an array
     of Lissajous modules summed together in a weighted way.
