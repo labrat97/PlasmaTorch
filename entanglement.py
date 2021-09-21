@@ -41,7 +41,6 @@ class Entangle(nn.Module):
       self.knowledgeMask = nn.Parameter(
         toComplex(torch.zeros((inputSignals, curveChannels, samples, samples), dtype=dtype)) \
         + iEye)
-      print(f'knowledge mask size: \t{self.knowledgeMask.size()}')
   
   def forward(self, x:torch.Tensor) -> torch.Tensor:
     # Define some constants
