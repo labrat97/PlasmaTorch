@@ -10,7 +10,8 @@ import torch.nn.functional as nnf
 
 class Turbulence(nn.Module):
     def __init__(self, samples:int=DEFAULT_FFT_SAMPLES, internalDimensions:int=DEFAULT_SPACE_PRIME, \
-        internalWaves:int=int(DEFAULT_FFT_SAMPLES/2), dtype:torch.dtype=DEFAULT_DTYPE):
+        internalWaves:int=int(DEFAULT_FFT_SAMPLES/2), sameDimOut:bool=False, sameDimWarpEntangle:bool=False, \
+        dtype:torch.dtype=DEFAULT_DTYPE):
         super(Turbulence, self).__init__()
 
         # Entangle the signals together to get higher order knowledge in smaller spots
@@ -31,6 +32,16 @@ class Turbulence(nn.Module):
             samples=samples, useKnowledgeMask=True, outputMode=EntangleOutputMode.COLLAPSE, \
             dtype=dtype)
         self.warpKnot = Knot(knotSize=2, knotDepth=internalWaves, dtype=complexType)
+
+        # Entangle the final signals if requested
+        self.finalEntangle = None
+        if sameDimOut:
+            if sameDimWarpEntangle:
+                self.finalEntangle = self.warpEntangler
+            else:
+                self.finalEntangle = Entangle(inputSignals=internalDimensions, curveChannels=1, \
+                    samples=samples, useKnowledgeMask=True, outputMode=EntangleOutputMode.COLLAPSE, \
+                    dtype=dtype)
 
         # Amplify things in the things that are brought into clearer view
         self.compressorKnot = Knot(knotSize=internalDimensions, knotDepth=internalWaves, dtype=complexType)
@@ -92,4 +103,8 @@ class Turbulence(nn.Module):
 
         # Return the signal that is constructed from the final computations. This
         # signal is back into the constructed 'current' domain.
-        return torch.fft.ifft(warpCompSignal, n=self.samples, dim=-1)
+        result = torch.fft.ifft(warpCompSignal, n=self.samples, dim=-1)
+        if self.finalEntangle is None:
+            return result
+        result, _ = self.finalEntangle.forward(result.unsqueeze(-2))
+        return result.squeeze(-2).sum(-2)
