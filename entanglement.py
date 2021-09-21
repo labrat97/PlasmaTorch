@@ -1,3 +1,4 @@
+from typing import Tuple
 import torch
 import torch.nn as nn
 
@@ -11,14 +12,34 @@ from enum import Flag
 
 
 class EntangleOutputMode(int, Flag):
+  """
+  The output mode used in the Entangle() function.
+  """
+
+  # Output the superpositions between the signals (with knowledge graphs)
   SUPERPOSITION:int = 1 << 0
+
+  # Output the collapsed, fully elaborated, signals at the end of the function
   COLLAPSE:int = 1 << 1
+
+  # Output both of the contained modes in superposition collapse order respectively.
   BOTH:int = SUPERPOSITION | COLLAPSE
 
 class Entangle(nn.Module):
+  """
+  Entangles n signals together to form a higher complexity signal.
+  """
   def __init__(self, inputSignals:int, curveChannels:int = DEFAULT_SPACE_PRIME, \
     samples:int = DEFAULT_FFT_SAMPLES, useKnowledgeMask:bool = True, \
     outputMode:EntangleOutputMode = EntangleOutputMode.BOTH, dtype:torch.dtype = DEFAULT_DTYPE):
+    """Create a new Entangle object, specifying functionality before runtime.
+
+    Args:
+        inputSignals (int): The amount of signals to entangle together.
+        curveChannels (int, optional): The amount of dimensions in the curve/knot. Defaults to DEFAULT_SPACE_PRIME.
+        useKnowledgeMask (bool, optional): Use a knowledge mask on a superposition of the signals. Defaults to True.
+        dtype (torch.dtype, optional): Specify the data type of the module. Defaults to DEFAULT_DTYPE.
+    """
     super(Entangle, self).__init__()
 
     # Store data about the signals going into/out of the module
@@ -42,7 +63,19 @@ class Entangle(nn.Module):
         toComplex(torch.zeros((inputSignals, curveChannels, samples, samples), dtype=dtype)) \
         + iEye)
   
-  def forward(self, x:torch.Tensor) -> torch.Tensor:
+  def forward(self, x:torch.Tensor) -> Tuple[torch.Tensor]:
+    """Computes the forward pass of the module.
+
+    Args:
+        x (torch.Tensor): A tensor of size [..., SIGNALS, CURVES, SAMPLES] that
+          represents the continuous signals specified in the __init__() function.
+
+    Returns:
+        Tuple[torch.Tensor]: A tensor of size [..., SIGNALS, CURVES, SAMPLES] for the first term
+          that has been entangled, and a tensor of size [..., SIGNALS, CURVES, SAMPLES, SAMPLES] for
+          the second term. The terms represent the collapsed signal and the superpositions respectively.
+    """
+
     # Define some constants
     SAMPLE_POS = -1
     CURVE_POS = -2
@@ -120,7 +153,7 @@ class Entangle(nn.Module):
 
     # Return
     if self.outputMode == EntangleOutputMode.COLLAPSE:
-      return y
+      return y, None
     if self.outputMode == EntangleOutputMode.SUPERPOSITION:
-      return s
+      return None, s
     return y, s
