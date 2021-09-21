@@ -20,26 +20,35 @@ class Lissajous(nn.Module):
     self.frequency = nn.Parameter(torch.zeros([1, size], dtype=dtype))
     self.phase = nn.Parameter(torch.zeros([1, size], dtype=dtype))
 
-  def forward(self, x: torch.Tensor) -> torch.Tensor:
+  def forward(self, x:torch.Tensor, oneD:bool = True) -> torch.Tensor:
     """Gets a sample or batch of samples from the contained curve.
 
     Args:
-        x (torch.Tensor): The sample or sampling locations.
+        x (torch.Tensor): The sample or sampling locations. If dim[-2] == self.size,
+          the input curve is believed to have the same amount of curves as the function.
+          When this is the case, instead of taking a 1D input
 
     Returns:
         torch.Tensor: The evaluted samples.
 
-          [::,Samples] -> [::,Samples,Curves]
+          [BATCHES...,Samples] -> [BATCHES...,Curves,Samples]
     """
-    # Add another dimension to do the batch of encodes
-    xFat = torch.unsqueeze(x, -1)
-    xOnes = torch.ones_like(xFat)
+    if oneD:
+      # Manipulate dimensions to broadcast in 1D sense
+      x = torch.unsqueeze(x, -1)
+      cosPos = (x @ self.frequency) + (torch.ones_like(x) @ self.phase)
+    else:
+      # Put curves in the right spot
+      assert x.size()[-2] == self.size
+      x = x.transpose(-1,-2)
 
-    # Activate inside of the curve's embedding space
-    cosinePosition = (xFat @ self.frequency) + (xOnes @ self.phase)
-    evaluated = torch.cos(cosinePosition)
+      # Maniupulate dimensions to broadcast in per-curve sense
+      freq = self.frequency.squeeze(0)
+      phase = self.phase.squeeze(0)
+      cosPos = (x * freq) + (torch.ones_like(x) + phase)
 
-    return evaluated
+    # Activate in curve's embedding space and format
+    return torch.cos(cosPos).transpose(-1, -2)
 
 
 class Knot(nn.Module):
@@ -67,9 +76,9 @@ class Knot(nn.Module):
       assert curve.size == self.curveSize
 
     self.dtype = dtype
-    paramSize = (len(self.curves), self.curveSize)
+    paramSize = (len(self.curves), self.curveSize, 1)
     self.regWeights = nn.Parameter(torch.zeros(paramSize, dtype=dtype))
-    self.knotRadii = nn.Parameter(torch.zeros(self.curveSize, dtype=dtype))
+    self.knotRadii = nn.Parameter(torch.zeros(paramSize[1:], dtype=dtype))
 
   def __init__(self, lissajousCurves:nn.ModuleList, dtype:torch.dtype=DEFAULT_DTYPE):
     """Constructs a Knot for later use from previously constructed Lissajous curves.
@@ -99,12 +108,13 @@ class Knot(nn.Module):
     curves = nn.ModuleList([Lissajous(size=knotSize, dtype=dtype) for _ in range(knotDepth)])
     self.__init__Helper(lissajousCurves=curves, dtype=dtype)
 
-  def forward(self, x:torch.Tensor) -> torch.Tensor:
+  def forward(self, x:torch.Tensor, oneD:bool = True) -> torch.Tensor:
     """Pushed forward the same way as the Lissajous module. This is just an array
     of Lissajous modules summed together in a weighted way.
 
     Args:
         x (torch.Tensor): The points to sample on the curves.
+        oneD (bool): Evaluate the tensor as if it is one dimensional (curves from 1 curve). Defaults to True.
 
     Returns:
         torch.Tensor: The original size tensor, but every point has a Lissajous curve
@@ -114,17 +124,21 @@ class Knot(nn.Module):
           [Batches,::,Samples] -> [Batches,::,Curves,Samples]
     """
     # Create the expanded dimensions required in the output tensor
-    outputSize = torch.Size(list(x.size()) + [self.curveSize])
-    result = torch.zeros(outputSize, dtype=self.dtype)
+    if oneD:
+      outputSize = torch.Size(list(x.size()) + [self.curveSize])
+      result = torch.zeros(outputSize, dtype=self.dtype).transpose(-1, -2)
+    else:
+      outputSize = x.size()
+      result = torch.zeros(outputSize, dtype=self.dtype)
 
     # Add all of the curves together
     for idx, lissajous in enumerate(self.curves):
       # Each lissajous curve-like structure has different weights, and therefore 
-      curve = self.regWeights[idx] * lissajous.forward(x)
+      curve = self.regWeights[idx] * lissajous.forward(x, oneD=oneD)
       result.add_(curve)
 
     # Add the radius of the knot to the total of the sum of the curves
     result.add_(self.knotRadii)
     
     # Swap the position of the curve and the sample (so the samples are on the rear)
-    return result.transpose(-1, -2)
+    return result
