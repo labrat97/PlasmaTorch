@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 from .distributions import *
-from .knots import *
+from .activations import *
 from .defaults import *
 from .conversions import *
 from .math import *

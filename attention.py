@@ -1,4 +1,4 @@
-from .knots import *
+from .activations import *
 from .distributions import *
 from .entanglement import *
 from .defaults import *
