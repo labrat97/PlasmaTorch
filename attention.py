@@ -72,8 +72,8 @@ class Turbulence(nn.Module):
                 [BATCHES...,CURVES,SAMPLES]).
             states (torch.Tensor): The signal to look at (of size
                 [BATCHES...,CURVES,SAMPLES]).
-            inter (str, optional): The interpolation to use during the grid_resample() call. Defaults to 'bicubic'.
-            padding (str, optional): The padding_mode to use during the grid_resample() call. Defaults to 'border'.
+            inter (str, optional): The interpolation to use during the grid_sample() call. Defaults to 'bicubic'.
+            padding (str, optional): The padding_mode to use during the grid_sample() call. Defaults to 'border'.
             oneD (bool, optional): Whether or not the knots evaluate the input signal as a multichannel curve. Defaults to True.
 
         Returns:
