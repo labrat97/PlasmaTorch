@@ -5,28 +5,29 @@ import torch.nn as nn
 
 
 # Turn a pointwise signal into a smearwise one
+@torch.jit.script
 class Smear(nn.Module):
   def __init__(self, samples:int = DEFAULT_FFT_SAMPLES, lowerScalar:float = 1./16, 
     upperScalar:float = 1./16, dtype:torch.dtype = DEFAULT_DTYPE):
     super(Smear, self).__init__()
 
-    self.samples = samples
-    self.smearBias = nn.Parameter(torch.zeros(1, dtype=dtype))
-    self.smearWindow = nn.Parameter(torch.tensor([lowerScalar, upperScalar]).type(dtype))
+    self.samples:int = samples
+    self.smearBias:nn.Parameter = nn.Parameter(torch.zeros(1, dtype=dtype))
+    self.smearWindow:nn.Parameter = nn.Parameter(torch.tensor([lowerScalar, upperScalar]).type(dtype))
 
     self.__iter = torch.Tensor(
       [builder / (self.samples-1) for builder in range(self.samples)]
     ).type(dtype).detach()
   
   def forward(self, x:torch.Tensor) -> torch.Tensor:
-    xBias = x + self.smearBias
+    xBias:torch.Tensor = x + self.smearBias
     if self.samples <= 1:
       return xBias
 
-    lowerSmear = self.smearWindow[0]
-    upperSmear = self.smearWindow[1]
-    xRange = (upperSmear - lowerSmear) * xBias
-    xLow = ((1 - lowerSmear) * xBias)
+    lowerSmear:torch.Tensor = self.smearWindow[0]
+    upperSmear:torch.Tensor = self.smearWindow[1]
+    xRange:torch.Tensor = (upperSmear - lowerSmear) * xBias
+    xLow:torch.Tensor = ((1 - lowerSmear) * xBias)
 
     return (xRange * self.__iter) + xLow
 
@@ -59,12 +60,13 @@ def toComplex(x:torch.Tensor) -> torch.Tensor:
     complexProto = torch.cat((x, y), dim=-1)
     return torch.view_as_complex(complexProto)
 
+@torch.jit.script
 class RealObserver(nn.Module):
     def __init__(self, units:int = 1, dtype:torch.dtype = DEFAULT_DTYPE):
         super(RealObserver, self).__init__()
 
         # Create the polarization parameter and type check
-        self.polarization = nn.Parameter(torch.zeros((units), dtype=dtype))
+        self.polarization:nn.Parameter = nn.Parameter(torch.zeros((units), dtype=dtype))
         assert self.polarization.is_complex() == False
     
     def forward(self, x:torch.Tensor) -> torch.Tensor:
@@ -75,12 +77,13 @@ class RealObserver(nn.Module):
         return (torch.cos(self.polarization) * x.real) \
             + (torch.sin(self.polarization) * x.imag)
 
+@torch.jit.script
 class ComplexObserver(nn.Module):
     def __init__(self, units:int = 1, dtype:torch.dtype = DEFAULT_DTYPE):
         super(ComplexObserver, self).__init__()
 
         # Create the polarization parameter then type check
-        self.polarization = nn.Parameter(torch.zeros((units), dtype=dtype))
+        self.polarization:nn.Parameter = nn.Parameter(torch.zeros((units), dtype=dtype))
         assert self.polarization.is_complex() == False
 
     def forward(self, x:torch.Tensor) -> torch.Tensor:
@@ -88,8 +91,8 @@ class ComplexObserver(nn.Module):
         assert x.is_complex() == False
 
         # Apply polarization to pull into complex plane
-        xReal = torch.cos(self.polarization) * x
-        xImag = torch.sin(self.polarization) * x
+        xReal:torch.Tensor = torch.cos(self.polarization) * x
+        xImag:torch.Tensor = torch.sin(self.polarization) * x
         
         # Resize and turn complex
         xReal.unsqueeze_(-1)

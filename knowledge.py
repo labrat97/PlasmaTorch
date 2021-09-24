@@ -39,6 +39,7 @@ class KnowledgeFilterProto(nn.Module, ABC):
         """
         pass
 
+@torch.jit.script
 class KnowledgeFilter(nn.Module):
     """
     Contains all of the addressing(ish) data needed to locate and infer through the 
@@ -67,17 +68,17 @@ class KnowledgeFilter(nn.Module):
 
         # Build a turbulence encoder to figure out what's being looked at
         if needsEncoding:
-            self.encoder = Turbulence(internalWaves=encoderDimensions, \
+            self.encoder:Turbulence = Turbulence(internalWaves=encoderDimensions, \
                 sameDimOut=encoderFullOutput, dtype=dtype)
         else:
-            self.encoder = None
+            self.encoder:Turbulence = None
         
         # Copy child interfacing parameters
-        self.inputReshape = attemptReshape
-        self.alignCorners = alignCorners
-        self.childInputSize = childInputSize
-        self.childOutMode = childOutMode
-        self.child = child
+        self.inputReshape:bool = attemptReshape
+        self.alignCorners:bool = alignCorners
+        self.childInputSize:torch.Size = childInputSize
+        self.childOutMode:KnowledgeOutputMode = childOutMode
+        self.child:KnowledgeFilterProto = child
 
         # Convert the childInputSize variable to the flattened sense of itself
         self.flatChild:int = 1
@@ -86,18 +87,18 @@ class KnowledgeFilter(nn.Module):
         
         # Add a knot activation to the last layer of the module
         if outputKnotCurves is None:
-            self.outKnot = None
+            self.outKnot:Knot = None
         else:
-            complexType = toComplex(torch.ones((1), dtype=dtype, requires_grad=False)).dtype
-            self.outKnot = Knot(knotSize=outputKnotCurves, knotDepth=int(outSmearSamples/outputKnotCurves), dtype=complexType)
+            complexType:torch.dtype = toComplex(torch.ones((1), dtype=dtype, requires_grad=False)).dtype
+            self.outKnot:Knot = Knot(knotSize=outputKnotCurves, knotDepth=int(outSmearSamples/outputKnotCurves), dtype=complexType)
 
 
     def forward(self, x:torch.Tensor, oneD:bool=False, batchDims:int=1) -> torch.Tensor:
         # Extract subportions of the original signal through embedding
         if self.encoder is None:
-            xEmbed = x
+            xEmbed:torch.Tensor = x
         else:
-            xEmbed = self.encoder.forward(queries=x, states=x, oneD=oneD).flatten(-2, -1)
+            xEmbed:torch.Tensor = self.encoder.forward(queries=x, states=x, oneD=oneD).flatten(-2, -1)
 
         # Attempt a reshaping of the input signal
         if self.inputReshape:
@@ -106,27 +107,27 @@ class KnowledgeFilter(nn.Module):
             for n in self.childInputSize:
                 knowledgeSize.append(n)
             
-            knowledgeInputs = nnf.interpolate(xEmbed, size=self.flatChild, \
+            knowledgeInputs:torch.Tensor = nnf.interpolate(xEmbed, size=self.flatChild, \
                 mode='linear', align_corners=self.alignCorners)
             knowledgeInputs = torch.reshape(knowledgeInputs, shape=knowledgeSize)
         else:
-            knowledgeInputs = xEmbed
+            knowledgeInputs:torch.Tensor = xEmbed
 
         # Run knowledge through the child
-        logits = self.child.forward(knowledgeInputs)
+        logits:torch.Tensor = self.child.forward(knowledgeInputs)
 
         # Convert knowledge to a smear if needed
         if self.childOutMode == KnowledgeOutputMode.LOGITS:
             # Reshape the logits to be smear like
-            flatLogits = torch.flatten(logits, start_dim=batchDims)
+            flatLogits:torch.Tensor = torch.flatten(logits, start_dim=batchDims)
 
             # Pad the last dimension with 0s
-            flatLogitsPadded = nnf.pad(flatLogits, pad=(0, self.outSmearSamples-flatLogits.size()), mode='constant', value=0.)
+            flatLogitsPadded:torch.Tensor = nnf.pad(flatLogits, pad=(0, self.outSmearSamples-flatLogits.size()), mode='constant', value=0.)
             
             # Interprit each activation as a 
-            smear = torch.fft.ifft(flatLogitsPadded, dim=-1)
+            smear:torch.Tensor = torch.fft.ifft(flatLogitsPadded, dim=-1)
         else:
-            smear = logits
+            smear:torch.Tensor = logits
 
         # Add a final activation if provided
         if self.outKnot is not None:

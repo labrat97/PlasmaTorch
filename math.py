@@ -3,18 +3,20 @@ from .conversions import *
 
 import torch
 
+@torch.jit.script
 def isoftmax(x:torch.Tensor, dim:int, dtype:torch.dtype = None) -> torch.Tensor:
     # Normal softmax
-    if not x.is_complex(): return torch.softmax(x, dim=dim, dtype=dtype)
+    if not x.is_complex(): 
+        return torch.softmax(x, dim=dim, dtype=dtype)
 
     # Imaginary softmax
-    angle = torch.atan(x.imag/x.real)
-    magnitude = torch.sqrt(x.real.pow(2) + x.imag.pow(2))
-    softMagnitude = torch.softmax(magnitude, dim=dim, dtype=dtype)
+    angle:torch.Tensor = torch.atan(x.imag/x.real)
+    magnitude:torch.Tensor = torch.sqrt(x.real.pow(2) + x.imag.pow(2))
+    softMagnitude:torch.Tensor = torch.softmax(magnitude, dim=dim, dtype=dtype)
     
     # Convert back to imaginary
-    newReal = softMagnitude * torch.cos(angle)
-    newImag = softMagnitude * torch.sin(angle)
+    newReal:torch.Tensor = softMagnitude * torch.cos(angle)
+    newImag:torch.Tensor = softMagnitude * torch.sin(angle)
     
     # Return in proper datatype
     newReal.unsqueeze(-1)

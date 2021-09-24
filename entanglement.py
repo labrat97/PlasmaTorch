@@ -9,6 +9,7 @@ from .conversions import *
 from .math import *
 
 from enum import Flag
+from typing import Tuple
 
 
 class EntangleOutputMode(int, Flag):
@@ -25,6 +26,7 @@ class EntangleOutputMode(int, Flag):
   # Output both of the contained modes in superposition collapse order respectively.
   BOTH:int = SUPERPOSITION | COLLAPSE
 
+@torch.jit.script
 class Entangle(nn.Module):
   """
   Entangles n signals together to form a higher complexity signal.
@@ -43,14 +45,14 @@ class Entangle(nn.Module):
     super(Entangle, self).__init__()
 
     # Store data about the signals going into/out of the module
-    self.signalCount = inputSignals
-    self.curveChannels = curveChannels
-    self.samples = samples
-    self.outputMode = outputMode
+    self.signalCount:int = inputSignals
+    self.curveChannels:int = curveChannels
+    self.samples:int = samples
+    self.outputMode:EntangleOutputMode = outputMode
 
     # Hold the entanglement parameters
-    self.entangleActivation = [LinearGauss(1, dtype=dtype) for _ in range(inputSignals)]
-    self.entanglePolarization = nn.Parameter(torch.zeros(
+    self.entangleActivation:nn.ModuleList = nn.ModuleList([LinearGauss(1, dtype=dtype) for _ in range(inputSignals)])
+    self.entanglePolarization:nn.Parameter = nn.Parameter(torch.zeros(
       (inputSignals), dtype=dtype
     ))
 
@@ -58,7 +60,7 @@ class Entangle(nn.Module):
     self.knowledgeMask:nn.Parameter = None
     if useKnowledgeMask:
       # This should broadcast an identity matrix over the knowledge mask for collapsing
-      iEye = toComplex(torch.eye(samples, dtype=dtype))
+      iEye:torch.Tensor = toComplex(torch.eye(samples, dtype=dtype, requires_grad=False))
       self.knowledgeMask = nn.Parameter(
         toComplex(torch.zeros((inputSignals, curveChannels, samples, samples), dtype=dtype)) \
         + iEye)
@@ -77,41 +79,41 @@ class Entangle(nn.Module):
     """
 
     # Define some constants
-    SAMPLE_POS = -1
-    CURVE_POS = -2
-    COUNT_POS = -3
+    SAMPLE_POS:int = -1
+    CURVE_POS:int = -2
+    COUNT_POS:int = -3
 
     # Check to make sure that x is of compatible shape
-    inputSize = x.shape
-    inputSizeLen = len(inputSize)
+    inputSize:torch.Size = x.size()
+    inputSizeLen:int = len(inputSize)
     if inputSizeLen == 3: 
       x = x.unsqueeze(0)
     assert inputSizeLen == 4
     assert inputSize[SAMPLE_POS] == self.samples
     assert inputSize[CURVE_POS] == self.curveChannels
     assert inputSize[COUNT_POS] == self.signalCount
-    isComplex = torch.is_complex(x)
+    isComplex:bool = torch.is_complex(x)
 
     # Find out what the signals are made of
-    signals = torch.fft.fft(x, n=self.samples, dim=SAMPLE_POS)
+    signals:torch.Tensor = torch.fft.fft(x, n=self.samples, dim=SAMPLE_POS)
 
     # Store where the signals are going
-    y = torch.zeros_like(x)
-    s = torch.zeros((inputSize[0], self.signalCount, self.curveChannels, self.samples, self.samples))
+    y:torch.Tensor = torch.zeros_like(x)
+    s:torch.Tensor = torch.zeros((inputSize[0], self.signalCount, self.curveChannels, self.samples, self.samples))
     for idx in range(self.signalCount):
       signal = signals[:,idx]
-      polarization = self.entanglePolarization[idx]
+      polarization:torch.Tensor = self.entanglePolarization[idx]
 
       for jdx in range(self.signalCount):
         # See how similar each signal is
         subsig = signals[:,jdx]
-        subconj = torch.conj(subsig)
-        correlation = torch.mean(
+        subconj:torch.Tensor = torch.conj(subsig)
+        correlation:torch.Tensor = torch.mean(
           torch.fft.irfft(signal * subconj, n=self.samples, dim=SAMPLE_POS),
         dim=SAMPLE_POS)
 
         # Create a superposition through a tensor product
-        superposition = signal.unsqueeze(-1) @ torch.transpose(subsig.unsqueeze(-1), -2, -1)
+        superposition:torch.Tensor = signal.unsqueeze(-1) @ torch.transpose(subsig.unsqueeze(-1), -2, -1)
 
         # Apply knowledge to the superposition of the subsignals if requested
         if self.knowledgeMask is not None:
@@ -126,18 +128,18 @@ class Entangle(nn.Module):
           continue
 
         # Act on correlation for collapse
-        entangleMix = self.entangleActivation[idx].forward(correlation).unsqueeze(-1)
-        classicalMix = 1 - entangleMix
+        entangleMix:torch.Tensor = self.entangleActivation[idx].forward(correlation).unsqueeze(-1)
+        classicalMix:torch.Tensor = 1 - entangleMix
 
         # Collapse
-        collapseSignal = (torch.sum(superposition, dim=-2), torch.sum(torch.transpose(superposition, -2, -1), dim=-2))
+        collapseSignal:Tuple[torch.Tensor] = (torch.sum(superposition, dim=-2), torch.sum(torch.transpose(superposition, -2, -1), dim=-2))
         if isComplex:
-          collapseSmear = (torch.fft.ifft(collapseSignal[0], n=self.samples, dim=SAMPLE_POS), \
+          collapseSmear:Tuple[torch.Tensor] = (torch.fft.ifft(collapseSignal[0], n=self.samples, dim=SAMPLE_POS), \
             torch.fft.ifft(collapseSignal[1], n=self.samples, dim=SAMPLE_POS))
         else:
-          collapseSmear = (torch.fft.irfft(collapseSignal[0], n=self.samples, dim=SAMPLE_POS), \
+          collapseSmear:Tuple[torch.Tensor] = (torch.fft.irfft(collapseSignal[0], n=self.samples, dim=SAMPLE_POS), \
             torch.fft.irfft(collapseSignal[1], n=self.samples, dim=SAMPLE_POS))
-        entangledSmear = (torch.cos(polarization) * collapseSmear[0]) \
+        entangledSmear:torch.Tensor = (torch.cos(polarization) * collapseSmear[0]) \
           + (torch.sin(polarization) * collapseSmear[1])
 
         # Put into output for signals
