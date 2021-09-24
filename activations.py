@@ -1,7 +1,10 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as nnf
 
 from .defaults import *
+from .conversions import *
+from .math import *
 
 class Lissajous(nn.Module):
   """
@@ -142,3 +145,37 @@ class Knot(nn.Module):
     
     # Swap the position of the curve and the sample (so the samples are on the rear)
     return result
+
+class Ringing(nn.Module):
+  def __init__(self, forks:int=DEFAULT_FFT_SAMPLES, forkHarmonicParameterWaves:int=DEFAULT_KNOT_WAVES, \
+    dtype:torch.dtype=DEFAULT_COMPLEX_DTYPE):
+    super(Ringing, self).__init__()
+
+    # The amout of forks and their current harmonic values
+    self.forks = forks
+    self.forkVals = toComplex(torch.zeros((forks), dtype=dtype, requires_grad=False))
+
+    self.tuningFlowActivation = nn.Paramter(torch.ones((1, 1), dtype=dtype))
+    self.tuningFlowSmear = Smear(samples=forks, dtype=dtype)
+    self.tuningFlowKnot = Knot(knotSize=2, knowDepth=forks, dtype=dtype)
+    self.forkMixing = nn.Parameter(torch.ones((forks), dtype=dtype))
+    self.tuning = Knot(knotSize=forks, knotDepth=forkHarmonicParameterWaves, dtype=self.forkVals.dtype)
+
+  def forward(self, x:torch.Tensor, samples:int=None) -> torch.Tensor:
+    # Gather parameters needed to have some light attention to the tunes coming in
+    xfft = torch.fft.fft(x, n=self.forks, dim=-1)
+    warpSmear = self.tuningFlowSmear.forward(self.tuningFlowActivation)
+    warpField = self.tuningFlowKnot.forward(warpSmear, oneD=True).transpose(-2, -1)
+    
+    # Handle complex vs normal warping
+    if torch.is_complex(warpField):
+      xfftWarp = nnf.grid_sample(xfft, grid=warpField, mode='bilinear')
+
+    tuning = isoftmax(self.tuning.forward(xfft, oneD=False))
+    yfft = (xfft * tuning) + toComplex(self.forkMixing)
+    yfftMixed = (yfft * )
+
+    if samples is None: samples = self.forks
+    y = torch.fft.ifft(yfft, n=self.forks, dim=-1)
+
+    return y
