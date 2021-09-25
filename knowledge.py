@@ -39,7 +39,6 @@ class KnowledgeFilterProto(nn.Module, ABC):
         """
         pass
 
-@torch.jit.script
 class KnowledgeFilter(nn.Module):
     """
     Contains all of the addressing(ish) data needed to locate and infer through the 
@@ -91,7 +90,6 @@ class KnowledgeFilter(nn.Module):
         else:
             complexType:torch.dtype = toComplex(torch.ones((1), dtype=dtype, requires_grad=False)).dtype
             self.outKnot:Knot = Knot(knotSize=outputKnotCurves, knotDepth=int(outSmearSamples/outputKnotCurves), dtype=complexType)
-
 
     def forward(self, x:torch.Tensor, oneD:bool=False, batchDims:int=1) -> torch.Tensor:
         # Extract subportions of the original signal through embedding
