@@ -5,7 +5,6 @@ import torch.nn as nn
 
 
 # Turn a pointwise signal into a smearwise one
-@torch.jit.script
 class Smear(nn.Module):
   def __init__(self, samples:int = DEFAULT_FFT_SAMPLES, lowerScalar:float = 1./16, 
     upperScalar:float = 1./16, dtype:torch.dtype = DEFAULT_DTYPE):
@@ -60,7 +59,7 @@ def toComplex(x:torch.Tensor) -> torch.Tensor:
     complexProto = torch.cat((x, y), dim=-1)
     return torch.view_as_complex(complexProto)
 
-@torch.jit.script
+
 class RealObserver(nn.Module):
     def __init__(self, units:int = 1, dtype:torch.dtype = DEFAULT_DTYPE):
         super(RealObserver, self).__init__()
@@ -77,7 +76,7 @@ class RealObserver(nn.Module):
         return (torch.cos(self.polarization) * x.real) \
             + (torch.sin(self.polarization) * x.imag)
 
-@torch.jit.script
+
 class ComplexObserver(nn.Module):
     def __init__(self, units:int = 1, dtype:torch.dtype = DEFAULT_DTYPE):
         super(ComplexObserver, self).__init__()

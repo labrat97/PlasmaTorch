@@ -5,7 +5,7 @@ from .defaults import *
 
 from typing import List
 
-@torch.jit.script
+
 class Lissajous(nn.Module):
   """
   Holds a Lissajous-like curve to be used as a sort of activation layer as a unit
@@ -54,7 +54,6 @@ class Lissajous(nn.Module):
     return torch.cos(cosPos).transpose(-1, -2)
 
 
-@torch.jit.script
 class Knot(nn.Module):
   """
   Creates a Lissajous-Knot-like structure for encoding information. All information

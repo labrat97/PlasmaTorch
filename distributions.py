@@ -32,7 +32,7 @@ def irregularGauss(x: torch.Tensor, mean: torch.Tensor, lowStd: torch.Tensor, hi
   bottom = torch.square(std)
   return torch.exp((-0.5) * (top / bottom))
 
-@torch.jit.script
+
 class LinearGauss(nn.Module):
   """
   A linearly tuned irregular gaussian function to be used as an activation layer of sorts.

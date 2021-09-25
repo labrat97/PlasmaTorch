@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as nnf
 
+
 class Turbulence(nn.Module):
     """
     Pays attention to a continuous signal by multiple methods. Three methods are primarily used, the

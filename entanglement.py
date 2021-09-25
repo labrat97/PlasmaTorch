@@ -26,7 +26,7 @@ class EntangleOutputMode(int, Flag):
   # Output both of the contained modes in superposition collapse order respectively.
   BOTH:int = SUPERPOSITION | COLLAPSE
 
-@torch.jit.script
+
 class Entangle(nn.Module):
   """
   Entangles n signals together to form a higher complexity signal.
