@@ -1,36 +1,16 @@
-from ..defaults import *
+import sys
+import os
+import importlib.util
 
-from abc import ABC, abstractmethod
+PARENT_DIR_NAME = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(f'..{os.path.sep}{PARENT_DIR_NAME}')
+spec = importlib.util.spec_from_file_location('plasmatorch', PARENT_DIR_NAME+os.path.sep+'__init__.py')
+modul = importlib.util.module_from_spec(spec)
+sys.modules['plasmatorch'] = modul
+spec.loader.exec_module(modul)
 
+from plasmatorch import defaults
 
-KLYBATCH = 23
-DEFAULT_COMPLEX = True
-TEST_FFT_SAMPLES = DEFAULT_FFT_SAMPLES + 1
-
-
-
-class Test(ABC):
-    tests = []
-    def __init__(self, hardFail:bool):
-        super(Test, self).__init__()
-        Test.tests.append(self)
-        self.complex:bool = DEFAULT_COMPLEX
-        self.hardFail:bool = hardFail
-
-    @abstractmethod
-    def test(self):
-        pass
-
-    def log(self, msg:str, passed:bool):
-        # Print pass fail message
-        if passed:
-            passMark = 'Y'
-            passMsg = 'PASSED'
-        else:
-            passMark = 'N'
-            passMsg = 'FAILED'
-        print(f'[{passMark}]   {msg}\t->\t << {passMsg} >>')
-        
-        # Stop execution of the program
-        if self.hardFail and not passed:
-            assert passed
+KLYBATCH:int = 23
+TEST_DEFAULT_COMPLEX:bool = True
+TEST_FFT_SAMPLES:int = defaults.DEFAULT_FFT_SAMPLES + 1
