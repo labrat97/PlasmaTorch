@@ -2,6 +2,7 @@ import sys
 import os
 import importlib.util
 
+# Force plasmatorch into my heart
 PARENT_DIR_NAME = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(f'..{os.path.sep}{PARENT_DIR_NAME}')
 spec = importlib.util.spec_from_file_location('plasmatorch', PARENT_DIR_NAME+os.path.sep+'__init__.py')
