@@ -45,7 +45,7 @@ class SmearTest(unittest.TestCase):
 
 class SmearResampleTest(unittest.TestCase):
     def testEquivalence(self):
-        EPSILON = 1e-3
+        EPSILON = 1e-4
         
         sx, _ = getsmear(DEFAULT_DTYPE)
         sxc, _ = getsmear(DEFAULT_COMPLEX_DTYPE)
@@ -81,3 +81,69 @@ class SmearResampleTest(unittest.TestCase):
         FORWARD_BACK_FORWARD_COMPL = not torch.all(torch.view_as_real(randcResizeFFT - randcResizeReturnFFT) >= EPSILON)
         self.assertTrue(FORWARD_BACK_FORWARD_REAL, msg='Forward back forward test (real)')
         self.assertTrue(FORWARD_BACK_FORWARD_COMPL, msg='Forward back forward test (imag)')
+
+class ToComplexTest(unittest.TestCase):
+    def testSmallToComplex(self):
+        x = torch.ones((1), dtype=DEFAULT_DTYPE)
+        xc = torch.ones((1), dtype=DEFAULT_COMPLEX_DTYPE)
+
+        convertX = toComplex(x)
+        convertXC = toComplex(xc)
+
+        self.assertTrue(torch.is_complex(convertX), msg='Convert \'x\' (real)')
+        self.assertTrue(torch.is_complex(convertXC), msg='Convert \'xc\' (complex)')
+        self.assertTrue(torch.all(convertX.imag == torch.zeros_like(convertX.real)), msg='Empty imaginary from conversion (\'x\')')
+        self.assertTrue(torch.all(xc == convertXC), msg='Already complex (\'xc\')')
+
+    def testLargeToComplex(self):
+        x = torch.ones((8, 8, 8, 8, 8), dtype=DEFAULT_DTYPE)
+        xc = torch.ones((8, 8, 8, 8, 8), dtype=DEFAULT_COMPLEX_DTYPE)
+
+        convertX = toComplex(x)
+        convertXC = toComplex(xc)
+
+        self.assertTrue(torch.is_complex(convertX), msg='Convert \'x\' (real)')
+        self.assertTrue(torch.is_complex(convertXC), msg='Convert \'xc\' (complex)')
+        self.assertTrue(torch.all(convertX.imag == torch.zeros_like(convertX.real)), msg='Empty imaginary from conversion (\'x\')')
+        self.assertTrue(torch.all(xc == convertXC), msg='Already complex (\'xc\')')
+
+class RealObserverTest(unittest.TestCase):
+    def testSmallExample(self):
+        x = torch.ones((1), dtype=DEFAULT_COMPLEX_DTYPE)
+        
+        observer = RealObserver(units=1, dtype=DEFAULT_DTYPE)
+        observeX = observer.forward(x)
+
+        self.assertTrue(not torch.is_complex(observeX), msg='Observed value is real')
+        self.assertTrue(torch.all(observeX == x.real), msg='Expected real initialization')
+        self.assertTrue(torch.all(torch.zeros_like(observeX) == x.imag), msg='Expected imag initialization')
+
+    def testLargeExample(self):
+        x = torch.ones((8, 8, 8, 8, 8), dtype=DEFAULT_COMPLEX_DTYPE)
+        
+        observer = RealObserver(units=1, dtype=DEFAULT_DTYPE)
+        observeX = observer.forward(x)
+
+        self.assertTrue(not torch.is_complex(observeX), msg='Observed value is real')
+        self.assertTrue(torch.all(observeX == x.real), msg='Expected real initialization')
+        self.assertTrue(torch.all(torch.zeros_like(observeX) == x.imag), msg='Expected imag initialization')
+class ComplexObserverTest(unittest.TestCase):
+    def testSmallExample(self):
+        x = torch.ones((1), dtype=DEFAULT_DTYPE)
+        
+        observer = ComplexObserver(units=1, dtype=DEFAULT_DTYPE)
+        observeX = observer.forward(x)
+
+        self.assertTrue(torch.is_complex(observeX), msg='Observed value is complex')
+        self.assertTrue(torch.all(observeX.real == x), msg='Expected real initialization')
+        self.assertTrue(torch.all(observeX.imag == torch.zeros_like(x)), msg='Expected imag initialization')
+
+    def testLargeExample(self):
+        x = torch.ones((8, 8, 8, 8, 8), dtype=DEFAULT_DTYPE)
+        
+        observer = ComplexObserver(units=1, dtype=DEFAULT_DTYPE)
+        observeX = observer.forward(x)
+
+        self.assertTrue(torch.is_complex(observeX), msg='Observed value is complex')
+        self.assertTrue(torch.all(observeX.real == x), msg='Expected real initialization')
+        self.assertTrue(torch.all(observeX.imag == torch.zeros_like(x)), msg='Expected imag initialization')
