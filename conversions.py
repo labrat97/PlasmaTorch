@@ -12,7 +12,7 @@ class Smear(nn.Module):
 
     self.samples:int = samples
     self.smearBias:nn.Parameter = nn.Parameter(torch.zeros(1, dtype=dtype))
-    self.smearWindow:nn.Parameter = nn.Parameter(torch.tensor([lowerScalar, upperScalar]).type(dtype))
+    self.smearWindow:nn.Parameter = nn.Parameter(torch.tensor([-lowerScalar, upperScalar]).type(dtype))
 
     self.__iter = torch.Tensor(
       [builder / (self.samples-1) for builder in range(self.samples)]
@@ -26,7 +26,7 @@ class Smear(nn.Module):
     lowerSmear:torch.Tensor = self.smearWindow[0]
     upperSmear:torch.Tensor = self.smearWindow[1]
     xRange:torch.Tensor = (upperSmear - lowerSmear) * xBias
-    xLow:torch.Tensor = ((1 - lowerSmear) * xBias)
+    xLow:torch.Tensor = ((1 + lowerSmear) * xBias)
 
     return (xRange * self.__iter) + xLow
 
