@@ -1,4 +1,7 @@
 import torch
+import torch.nn as nn
+import torch.nn.functional as nnf
+
 from typing import Tuple
 
 DEFAULT_FFT_SAMPLES:int = 256
