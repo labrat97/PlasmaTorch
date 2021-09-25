@@ -2,26 +2,25 @@ import unittest
 import test
 
 import torch
-from .. import *
+from plasmatorch import *
 
-@torch.jit.script
-def __getsmear(dtype:torch.dtype):
-        # The smear to test
-        smear = Smear(samples=test.TEST_FFT_SAMPLES, lowerScalar=1/16, upperScalar=1/16, dtype=dtype)
-        x = torch.zeros((test.KLYBATCH,1), dtype=dtype)
-        return smear.forward(x), smear
+def getsmear(dtype:torch.dtype):
+            # The smear to test
+            smear = Smear(samples=test.TEST_FFT_SAMPLES, lowerScalar=1/16, upperScalar=1/16, dtype=dtype)
+            x = torch.zeros((test.KLYBATCH,1), dtype=dtype)
+            return smear.forward(x), smear
 
 class SmearTest(unittest.TestCase):
     def testSizing(self):
-        sx, _ = __getsmear(DEFAULT_DTYPE)
-        sxc, _ = __getsmear(DEFAULT_COMPLEX_DTYPE)
+        sx, _ = getsmear(DEFAULT_DTYPE)
+        sxc, _ = getsmear(DEFAULT_COMPLEX_DTYPE)
         
         self.assertEqual(sx.size(), torch.Size((test.KLYBATCH, test.TEST_FFT_SAMPLES)), msg='Sizing test (real)')
         self.assertEqual(sxc.size(), torch.Size((test.KLYBATCH, test.TEST_FFT_SAMPLES)), msg='Sizing test (imag)')
 
     def testValues(self):
-        sx, smear = __getsmear(DEFAULT_DTYPE)
-        sxc, smearc = __getsmear(DEFAULT_COMPLEX_DTYPE)
+        sx, smear = getsmear(DEFAULT_DTYPE)
+        sxc, smearc = getsmear(DEFAULT_COMPLEX_DTYPE)
 
         self.assertEqual(sx, torch.zeros_like(sx), msg='Zero test (real)')
         self.assertEqual(sxc, torch.zeros_like(sxc), msg='Zero test (imag)')
@@ -40,8 +39,8 @@ class SmearTest(unittest.TestCase):
 
 class SmearResampleTest(unittest.TestCase):
     def testEquivalence(self):
-        sx, smear = __getsmear(DEFAULT_DTYPE)
-        sxc, smearc = __getsmear(DEFAULT_COMPLEX_DTYPE)
+        sx, _ = getsmear(DEFAULT_DTYPE)
+        sxc, _ = getsmear(DEFAULT_COMPLEX_DTYPE)
         sxRand = torch.rand_like(sx)
         sxcRand = torch.rand_like(sxc)
 
