@@ -131,4 +131,3 @@ class KnowledgeFilter(nn.Module):
         if self.outKnot is not None:
             return self.outKnot.forward(smear, oneD=True)
         return smear
-        

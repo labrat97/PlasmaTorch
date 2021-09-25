@@ -4,7 +4,7 @@ from .conversions import *
 import torch
 
 @torch.jit.script
-def isoftmax(x:torch.Tensor, dim:int, dtype:torch.dtype = None) -> torch.Tensor:
+def isoftmax(x:torch.Tensor, dim:int, dtype:torch.dtype = -1) -> torch.Tensor:
     # Normal softmax
     if not x.is_complex(): 
         return torch.softmax(x, dim=dim, dtype=dtype)
