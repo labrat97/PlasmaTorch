@@ -32,6 +32,7 @@ def irregularGauss(x: torch.Tensor, mean: torch.Tensor, lowStd: torch.Tensor, hi
   bottom = torch.square(std)
   return torch.exp((-0.5) * (top / bottom))
 
+
 class LinearGauss(nn.Module):
   """
   A linearly tuned irregular gaussian function to be used as an activation layer of sorts.
@@ -46,24 +47,24 @@ class LinearGauss(nn.Module):
     """
     super(LinearGauss, self).__init__()
 
-    self.channels = channels
-    self.mean = nn.Parameter(torch.zeros((channels), dtype=dtype))
-    self.lowStd = nn.Parameter(torch.zeros((channels), dtype=dtype))
-    self.highStd = nn.Parameter(torch.zeros((channels), dtype=dtype))
-    self.isComplex = torch.is_complex(self.mean)
+    self.channels:int = channels
+    self.mean:nn.Parameter = nn.Parameter(torch.zeros((channels), dtype=dtype))
+    self.lowStd:nn.Parameter = nn.Parameter(torch.zeros((channels), dtype=dtype))
+    self.highStd:nn.Parameter = nn.Parameter(torch.zeros((channels), dtype=dtype))
+    self.isComplex:bool = torch.is_complex(self.mean)
 
-  def forward(self, x: torch.Tensor):
-    inputComplex = torch.is_complex(x)
+  def forward(self, x: torch.Tensor) -> torch.Tensor:
+    inputComplex:bool = torch.is_complex(x)
     if inputComplex and not self.isComplex:
-      real = irregularGauss(x=x.real, mean=self.mean, lowStd=self.lowStd, highStd=self.highStd)
-      imag = irregularGauss(x=x.imag, mean=self.mean, lowStd=self.lowStd, highStd=self.highStd)
+      real:torch.Tensor = irregularGauss(x=x.real, mean=self.mean, lowStd=self.lowStd, highStd=self.highStd)
+      imag:torch.Tensor = irregularGauss(x=x.imag, mean=self.mean, lowStd=self.lowStd, highStd=self.highStd)
       return torch.view_as_complex(torch.stack((real, imag), dim=-1))
     
     if self.isComplex:
       if not inputComplex:
         x = toComplex(x)
-      real = irregularGauss(x=x.real, mean=self.mean.real, lowStd=self.lowStd.real, highStd=self.highStd.real)
-      imag = irregularGauss(x=x.imag, mean=self.mean.imag, lowStd=self.lowStd.imag, highStd=self.highStd.imag)
+      real:torch.Tensor = irregularGauss(x=x.real, mean=self.mean.real, lowStd=self.lowStd.real, highStd=self.highStd.real)
+      imag:torch.Tensor = irregularGauss(x=x.imag, mean=self.mean.imag, lowStd=self.lowStd.imag, highStd=self.highStd.imag)
       return torch.view_as_complex(torch.stack((real, imag), dim=-1))
     
 
