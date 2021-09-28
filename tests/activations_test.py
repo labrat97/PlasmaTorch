@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as nnf
 from plasmatorch import *
 
+
 class LissajousTest(unittest.TestCase):
     def testSizing(self):
         # Default conversions and logits
@@ -121,3 +122,58 @@ class LissajousTest(unittest.TestCase):
         finalc0 = lisac.forward(xc, oneD=False)
         self.assertTrue(torch.all(final0 == torch.cos(x+1)), msg="Composite values don't check out for real values.")
         self.assertTrue(torch.all(finalc0 == torch.cos(xc+1)), msg="Composite values don't check out for complex values.")
+
+
+class KnotTest(unittest.TestCase):
+    def testSizing(self):
+        # Generate all testing datatypes
+        x = torch.ones((test.KLYBATCH, 1), dtype=DEFAULT_DTYPE)
+        xl = torch.ones((test.KLYBATCH, DEFAULT_SPACE_PRIME, 1), dtype=DEFAULT_DTYPE)
+        xc = torch.ones((test.KLYBATCH, 1), dtype=DEFAULT_COMPLEX_DTYPE)
+        xcl = torch.ones((test.KLYBATCH, DEFAULT_SPACE_PRIME, 1), dtype=DEFAULT_COMPLEX_DTYPE)
+
+        s, smear = test.getsmear(DEFAULT_DTYPE)
+        sc, smearc = test.getsmear(DEFAULT_COMPLEX_DTYPE)
+
+        xSmear = smear.forward(x)
+        xlSmear = smear.forward(xl)
+        xcSmear = smearc.forward(xc)
+        xclSmear = smearc.forward(xcl)
+
+        # Hold the testing knots
+        knot = Knot(knotSize=DEFAULT_SPACE_PRIME, knotDepth=test.KLYBATCH, dtype=DEFAULT_DTYPE)
+        knotc = Knot(knotSize=DEFAULT_SPACE_PRIME, knotDepth=test.KLYBATCH, dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Test sizing for testing chunk 0
+        kx = knot.forward(x, oneD=True)
+        self.assertTrue(kx.size() == (test.KLYBATCH, DEFAULT_SPACE_PRIME, 1), msg=f'size: {kx.size()}')
+        kxll = knot.forward(xl, oneD=True)
+        self.assertTrue(kxll.size() == (test.KLYBATCH, DEFAULT_SPACE_PRIME, DEFAULT_SPACE_PRIME, 1), msg=f'size: {kxll.size()}')
+        kxl = knot.forward(xl, oneD=False)
+        self.assertTrue(kxl.size() == (test.KLYBATCH, DEFAULT_SPACE_PRIME, 1), msg=f'size: {kxl.size()}')
+        kxc = knotc.forward(xc, oneD=True)
+        self.assertTrue(kxc.size() == (test.KLYBATCH, DEFAULT_SPACE_PRIME, 1), msg=f'size: {kxc.size()}')
+        kxcll = knotc.forward(xcl, oneD=True)
+        self.assertTrue(kxcll.size() == (test.KLYBATCH, DEFAULT_SPACE_PRIME, DEFAULT_SPACE_PRIME, 1), msg=f'size: {kxcll.size()}')
+        kxcl = knotc.forward(xcl, oneD=False)
+        self.assertTrue(kxcl.size() == (test.KLYBATCH, DEFAULT_SPACE_PRIME, 1), msg=f'size: {kxcl.size()}')
+
+        # Test sizing for testing chunk 1
+        ks = knot.forward(s, oneD=True)
+        self.assertTrue(ks.size() == (test.KLYBATCH, DEFAULT_SPACE_PRIME, s.size()[-1]), msg=f'size: {ks.size()}')
+        ksc = knotc.forward(sc, oneD=True)
+        self.assertTrue(ksc.size() == (test.KLYBATCH, DEFAULT_SPACE_PRIME, sc.size()[-1]), msg=f'size: {ksc.size()}')
+
+        # Test sizing for testing chunk 2
+        kxs = knot.forward(xSmear, oneD=True)
+        self.assertTrue(kxs.size() == (test.KLYBATCH, DEFAULT_SPACE_PRIME, xSmear.size()[-1]), msg=f'size: {kxs.size()}')
+        kxls = knot.forward(xlSmear, oneD=True)
+        self.assertTrue(kxls.size() == (test.KLYBATCH, DEFAULT_SPACE_PRIME, DEFAULT_SPACE_PRIME, xlSmear.size()[-1]), msg=f'size: {kxls.size()}')
+        kxlsl = knot.forward(xlSmear, oneD=False)
+        self.assertTrue(kxlsl.size() == (test.KLYBATCH, DEFAULT_SPACE_PRIME, xlSmear.size()[-1]), msg=f'size: {kxlsl.size()}')
+        kxcs = knotc.forward(xcSmear, oneD=True)
+        self.assertTrue(kxcs.size() == (test.KLYBATCH, DEFAULT_SPACE_PRIME, xcSmear.size()[-1]), msg=f'size: {kxcs.size()}')
+        kxcls = knotc.forward(xclSmear, oneD=True)
+        self.assertTrue(kxcls.size() == (test.KLYBATCH, DEFAULT_SPACE_PRIME, DEFAULT_SPACE_PRIME, xclSmear.size()[-1]), msg=f'size: {kxcls.size()}')
+        kxclsl = knotc.forward(xclSmear, oneD=False)
+        self.assertTrue(kxclsl.size() == (test.KLYBATCH, DEFAULT_SPACE_PRIME, xclSmear.size()[-1]), msg=f'size: {kxlsl.size()}')
