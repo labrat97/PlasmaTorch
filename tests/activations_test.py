@@ -95,16 +95,29 @@ class LissajousTest(unittest.TestCase):
         self.assertTrue(torch.all(lcl10 != lcl11), msg="Frequency delta not working (!oneD, complex).")
         self.assertTrue(torch.all(lcl11 == torch.cos(xc)), msg="Cos values don't check out for complex values.")
 
-        # Assuming the other things work, this should complete testing
+        # Phase testing
         lisa.frequency = nn.Parameter(lisa.frequency * 0)
+        lisa.phase = nn.Parameter(lisa.phase + 1)
         lisac.frequency = nn.Parameter(lisac.frequency * 0)
+        lisac.phase = nn.Parameter(lisac.phase + 1)
 
         # Should have all of the same delta due to phasing
         phi0 = lisa.forward(torch.zeros_like(x), oneD=True)
         self.assertTrue(torch.all(phi0[:,:,:,:-1] == phi0[:,:,:,1:]), msg='Phi not consistent (oneD, real).')
         phil0 = lisa.forward(torch.zeros_like(x), oneD=False)
         self.assertTrue(torch.all(phil0[:,:,:-1] == phil0[:,:,1:]), msg='Phi not consistent (!oneD, real).')
+        self.assertTrue(torch.all(phil0 == torch.cos(torch.ones_like(phil0))), msg="Phi values don't check out for real values.")
         phic0 = lisac.forward(torch.zeros_like(xc), oneD=True)
         self.assertTrue(torch.all(phic0[:,:,:,:-1] == phic0[:,:,:,1:]), msg='Phi not consistent (oneD, complex).')
         phicl0 = lisac.forward(torch.zeros_like(xc), oneD=False)
         self.assertTrue(torch.all(phicl0[:,:,:-1] == phicl0[:,:,1:]), msg='Phi not consistent (!oneD, complex).')
+        self.assertTrue(torch.all(phicl0 == torch.cos(torch.ones_like(phicl0))), msg="Phi values don't check out for complex values.")
+
+        # Final value testing, both phase and frequency
+        lisa.frequency = nn.Parameter(lisa.frequency + 1)
+        lisac.frequency = nn.Parameter(lisac.frequency + 1)
+
+        final0 = lisa.forward(x, oneD=False)
+        finalc0 = lisac.forward(xc, oneD=False)
+        self.assertTrue(torch.all(final0 == torch.cos(x+1)), msg="Composite values don't check out for real values.")
+        self.assertTrue(torch.all(finalc0 == torch.cos(xc+1)), msg="Composite values don't check out for complex values.")
