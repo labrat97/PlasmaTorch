@@ -48,7 +48,7 @@ class Lissajous(nn.Module):
       # Maniupulate dimensions to broadcast in per-curve sense
       freq:torch.Tensor = self.frequency.squeeze(0)
       phase:torch.Tensor = self.phase.squeeze(0)
-      cosPos:torch.Tensor = (x * freq) + (torch.ones_like(x) + phase)
+      cosPos:torch.Tensor = (x * freq) + (torch.ones_like(x) * phase)
 
     # Activate in curve's embedding space and format
     return torch.cos(cosPos).transpose(-1, -2)
