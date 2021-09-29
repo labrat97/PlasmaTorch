@@ -50,8 +50,17 @@ class Lissajous(nn.Module):
       phase:torch.Tensor = self.phase.squeeze(0)
       cosPos:torch.Tensor = (x * freq) + (torch.ones_like(x) * phase)
 
-    # Activate in curve's embedding space and format
-    return torch.cos(cosPos).transpose(-1, -2)
+    # Activate in curve's embedding space depending on the working datatype.
+    # This is done due to the non-converging nature of the non-convergence of the
+    # cos function during the operation on complex numbers. To solve this, a sin function
+    # is called in the imaginary place to emulate the e^ix behavior for sinusoidal signals.
+    if torch.is_complex(cosPos):
+      result = torch.view_as_complex(torch.stack((
+        torch.cos(cosPos.real), torch.sin(cosPos.imag)
+      ), dim=-1))
+    else:
+      result = torch.cos(cosPos)
+    return result.transpose(-1, -2)
 
 
 class Knot(nn.Module):

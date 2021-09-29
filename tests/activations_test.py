@@ -94,7 +94,8 @@ class LissajousTest(unittest.TestCase):
         lcl10 = lisac.forward(torch.zeros_like(xc), oneD=False)
         lcl11 = lisac.forward(xc, oneD=False)
         self.assertFalse(torch.all(lcl10 == lcl11), msg="Frequency delta not working (!oneD, complex).")
-        self.assertTrue(torch.all(lcl11 == torch.cos(xc)), msg="Cos values don't check out for complex values.")
+        self.assertTrue(torch.all(lcl11 == torch.view_as_complex(torch.stack((torch.cos(xc.real), torch.sin(xc.imag)), dim=-1))), \
+            msg="Cos values don't check out for complex values.")
 
         # Phase testing
         lisa.frequency = nn.Parameter(lisa.frequency * 0)
@@ -112,7 +113,8 @@ class LissajousTest(unittest.TestCase):
         self.assertTrue(torch.all(phic0[:,:,:,:-1] == phic0[:,:,:,1:]), msg='Phi not consistent (oneD, complex).')
         phicl0 = lisac.forward(torch.zeros_like(xc), oneD=False)
         self.assertTrue(torch.all(phicl0[:,:,:-1] == phicl0[:,:,1:]), msg='Phi not consistent (!oneD, complex).')
-        self.assertTrue(torch.all(phicl0 == torch.cos(torch.ones_like(phicl0))), msg="Phi values don't check out for complex values.")
+        self.assertTrue(torch.all(phicl0 == torch.view_as_complex(torch.stack((torch.cos(torch.ones_like(xc.real)), \
+            torch.sin(torch.zeros_like(xc.imag))), dim=-1))), msg="Phi values don't check out for complex values.")
 
         # Final value testing, both phase and frequency
         lisa.frequency = nn.Parameter(lisa.frequency + 1)
@@ -121,7 +123,8 @@ class LissajousTest(unittest.TestCase):
         final0 = lisa.forward(x, oneD=False)
         finalc0 = lisac.forward(xc, oneD=False)
         self.assertTrue(torch.all(final0 == torch.cos(x+1)), msg="Composite values don't check out for real values.")
-        self.assertTrue(torch.all(finalc0 == torch.cos(xc+1)), msg="Composite values don't check out for complex values.")
+        self.assertTrue(torch.all(finalc0 == torch.view_as_complex(torch.stack((torch.cos(xc.real+1), torch.sin(xc.imag)), dim=-1))), \
+            msg="Composite values don't check out for complex values.")
 
 
 class KnotTest(unittest.TestCase):
