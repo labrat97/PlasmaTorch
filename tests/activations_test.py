@@ -55,8 +55,8 @@ class LissajousTest(unittest.TestCase):
         self.assertTrue(lscl.size() == (1, test.KLYBATCH, sc.size()[-1]), msg=f'size: {lscl.size()}')
 
     def testValues(self):
-        x = torch.exp(torch.randn((test.KLYBATCH, DEFAULT_SPACE_PRIME, test.TEST_FFT_SAMPLES), dtype=DEFAULT_DTYPE))
-        xc = torch.exp(torch.randn((test.KLYBATCH, DEFAULT_SPACE_PRIME, test.TEST_FFT_SAMPLES), dtype=DEFAULT_COMPLEX_DTYPE))
+        x = torch.randn((test.KLYBATCH, DEFAULT_SPACE_PRIME, test.TEST_FFT_SAMPLES), dtype=DEFAULT_DTYPE)
+        xc = torch.randn((test.KLYBATCH, DEFAULT_SPACE_PRIME, test.TEST_FFT_SAMPLES), dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Assuming zero value for initial training
         lisa = Lissajous(size=DEFAULT_SPACE_PRIME, dtype=DEFAULT_DTYPE)
@@ -83,17 +83,17 @@ class LissajousTest(unittest.TestCase):
         # Should have delta 
         l10 = lisa.forward(torch.zeros_like(x), oneD=True)
         l11 = lisa.forward(x, oneD=True)
-        self.assertTrue(torch.all(l10 != l11), msg="Frequency delta not working (oneD, real).")
+        self.assertFalse(torch.all(l10 == l11), msg="Frequency delta not working (oneD, real).")
         ll10 = lisa.forward(torch.zeros_like(x), oneD=False)
         ll11 = lisa.forward(x, oneD=False)
-        self.assertTrue(torch.all(ll10 != ll11), msg="Frequency delta not working (!oneD, real).")
+        self.assertFalse(torch.all(ll10 == ll11), msg="Frequency delta not working (!oneD, real).")
         self.assertTrue(torch.all(ll11 == torch.cos(x)), msg="Cos values don't check out for real values.")
         lc10 = lisac.forward(torch.zeros_like(xc), oneD=True)
         lc11 = lisac.forward(xc, oneD=True)
-        self.assertTrue(torch.all(lc10 != lc11), msg="Frequency delta not working (oneD, complex).")
+        self.assertFalse(torch.all(lc10 == lc11), msg="Frequency delta not working (oneD, complex).")
         lcl10 = lisac.forward(torch.zeros_like(xc), oneD=False)
         lcl11 = lisac.forward(xc, oneD=False)
-        self.assertTrue(torch.all(lcl10 != lcl11), msg="Frequency delta not working (!oneD, complex).")
+        self.assertFalse(torch.all(lcl10 == lcl11), msg="Frequency delta not working (!oneD, complex).")
         self.assertTrue(torch.all(lcl11 == torch.cos(xc)), msg="Cos values don't check out for complex values.")
 
         # Phase testing
@@ -177,3 +177,70 @@ class KnotTest(unittest.TestCase):
         self.assertTrue(kxcls.size() == (test.KLYBATCH, DEFAULT_SPACE_PRIME, DEFAULT_SPACE_PRIME, xclSmear.size()[-1]), msg=f'size: {kxcls.size()}')
         kxclsl = knotc.forward(xclSmear, oneD=False)
         self.assertTrue(kxclsl.size() == (test.KLYBATCH, DEFAULT_SPACE_PRIME, xclSmear.size()[-1]), msg=f'size: {kxlsl.size()}')
+
+    def testValues(self):
+        # Generate all testing datatypes
+        x = torch.randn((test.KLYBATCH, 1), dtype=DEFAULT_DTYPE)
+        xl = torch.randn((test.KLYBATCH, DEFAULT_SPACE_PRIME, 1), dtype=DEFAULT_DTYPE)
+        xc = torch.randn((test.KLYBATCH, 1), dtype=DEFAULT_COMPLEX_DTYPE)
+        xcl = torch.randn((test.KLYBATCH, DEFAULT_SPACE_PRIME, 1), dtype=DEFAULT_COMPLEX_DTYPE)
+
+        s, smear = test.getsmear(DEFAULT_DTYPE)
+        sc, smearc = test.getsmear(DEFAULT_COMPLEX_DTYPE)
+
+        xSmear = smear.forward(x)
+        xlSmear = smear.forward(xl)
+        xcSmear = smearc.forward(xc)
+        xclSmear = smearc.forward(xcl)
+
+        # Construct some knots to test, make sure values come out at 1.13
+        knot = Knot(knotSize=DEFAULT_SPACE_PRIME, knotDepth=test.KLYBATCH, dtype=DEFAULT_DTYPE)
+        knot.regWeights = nn.Parameter(knot.regWeights+(1/len(knot.curves)))
+        knot.knotRadii = nn.Parameter(knot.knotRadii+(test.KLYBATCH/100))
+        knotc = Knot(knotSize=DEFAULT_SPACE_PRIME, knotDepth=test.KLYBATCH, dtype=DEFAULT_COMPLEX_DTYPE)
+        knotc.regWeights = nn.Parameter(torch.randn_like(knot.regWeights))
+        knotc.knotRadii = nn.Parameter(torch.randn_like(knot.knotRadii))
+        
+        # No change from these values should occur according to the lissajous tests
+        dummy = torch.zeros((1), dtype=DEFAULT_DTYPE)
+        dummyc = torch.zeros((1), dtype=DEFAULT_COMPLEX_DTYPE)
+        d = knot.forward(dummy, oneD=True)
+        dc = knotc.forward(dummyc, oneD=True)
+
+
+        # I don't even know how to begin to handle these fucking values...
+        # Like, I just dealt with testing lissajous shit, now I have to do the
+        # same thing over again with a little more weights. God damn, this is the
+        # non-reproducability of programming. This is what really "grinds my gears."
+        # Fuck boilerplate code, if you can be automated by an AI you weren't a very
+        # good one.
+        kx = knot.forward(x, oneD=True)
+        self.assertTrue(torch.all(kx == d))
+        kxll = knot.forward(xl, oneD=True)
+        self.assertTrue(torch.all(kxll == d))
+        kxl = knot.forward(xl, oneD=False)
+        self.assertTrue(torch.all(kxl == d))
+        kxc = knotc.forward(xc, oneD=True)
+        self.assertTrue(torch.all(kxc == dc))
+        kxcll = knotc.forward(xcl, oneD=True)
+        self.assertTrue(torch.all(kxcll == dc))
+        kxcl = knotc.forward(xcl, oneD=False)
+        self.assertTrue(torch.all(kxcl == dc))
+
+        ks = knot.forward(s, oneD=True)
+        self.assertTrue(torch.all(ks == d))
+        ksc = knotc.forward(sc, oneD=True)
+        self.assertTrue(torch.all(ksc == dc))
+
+        kxs = knot.forward(xSmear, oneD=True)
+        self.assertTrue(torch.all(kxs == d))
+        kxls = knot.forward(xlSmear, oneD=True)
+        self.assertTrue(torch.all(kxls == d))
+        kxlsl = knot.forward(xlSmear, oneD=False)
+        self.assertTrue(torch.all(kxlsl == d))
+        kxcs = knotc.forward(xcSmear, oneD=True)
+        self.assertTrue(torch.all(kxcs == dc))
+        kxcls = knotc.forward(xclSmear, oneD=True)
+        self.assertTrue(torch.all(kxcls == dc))
+        kxclsl = knotc.forward(xclSmear, oneD=False)
+        self.assertTrue(torch.all(kxclsl == dc))
