@@ -22,3 +22,25 @@ def isoftmax(x:torch.Tensor, dim:int, dtype:torch.dtype = -1) -> torch.Tensor:
     newReal.unsqueeze(-1)
     newImag.unsqueeze(-1)
     return torch.view_as_complex(torch.stack((newReal, newImag), dim=-1))
+
+@torch.jit.script
+def icos(x:torch.Tensor) -> torch.Tensor:
+    # Normal cos
+    if not x.is_complex():
+        return torch.cos(x)
+
+    # Main conversion
+    real = torch.cos(x.real)
+    imag = torch.cos(x.imag)
+    return torch.view_as_complex(torch.stack((real, imag), dim=-1))
+
+@torch.jit.script
+def isin(x:torch.Tensor) -> torch.Tensor:
+    # Normal sin
+    if not x.is_complex():
+        return torch.sin(x)
+
+    # Main conversion
+    real = torch.sin(x.real)
+    imag = torch.sin(x.imag)
+    return torch.view_as_complex(torch.stack((real, imag), dim=-1))
