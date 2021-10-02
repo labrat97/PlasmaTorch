@@ -24,12 +24,10 @@ def irregularGauss(x: torch.Tensor, mean: torch.Tensor, lowStd: torch.Tensor, hi
   belowMean = torch.le(x, mean)
   std = (belowMean.int() * lowStd) + ((1 - belowMean.int()) * highStd)
 
-  # Never hits 0 or inf., easy to take derivative
-  std = torch.exp(std)
-
   # Calculate the gaussian curve
   top = torch.square(x - mean)
-  bottom = torch.square(std)
+  # Never hits 0 or inf., easy to take derivative, easy squaring
+  bottom = torch.exp(2 * std)
   return torch.exp((-0.5) * (top / bottom))
 
 
@@ -54,12 +52,14 @@ class LinearGauss(nn.Module):
     self.isComplex:bool = torch.is_complex(self.mean)
 
   def forward(self, x: torch.Tensor) -> torch.Tensor:
+    # Handle the evaluation of a complex number in a non-complex system`
     inputComplex:bool = torch.is_complex(x)
     if inputComplex and not self.isComplex:
       real:torch.Tensor = irregularGauss(x=x.real, mean=self.mean, lowStd=self.lowStd, highStd=self.highStd)
       imag:torch.Tensor = irregularGauss(x=x.imag, mean=self.mean, lowStd=self.lowStd, highStd=self.highStd)
       return torch.view_as_complex(torch.stack((real, imag), dim=-1))
     
+    # Handle evaluation in a complex system
     if self.isComplex:
       if not inputComplex:
         x = toComplex(x)

@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 
 from .defaults import *
+from .math import *
 
 from typing import List
 
@@ -50,8 +51,11 @@ class Lissajous(nn.Module):
       phase:torch.Tensor = self.phase.squeeze(0)
       cosPos:torch.Tensor = (x * freq) + (torch.ones_like(x) * phase)
 
-    # Activate in curve's embedding space and format
-    return torch.cos(cosPos).transpose(-1, -2)
+    # Activate in curve's embedding space depending on the working datatype.
+    # This is done due to the non-converging nature of the non-convergence of the
+    # cos function during the operation on complex numbers. To solve this, a sin function
+    # is called in the imaginary place to emulate the e^ix behavior for sinusoidal signals.
+    return icos(cosPos).transpose(-1, -2)
 
 
 class Knot(nn.Module):
