@@ -2,17 +2,31 @@ from .defaults import *
 from .conversions import *
 
 import torch
+import math
 
 @torch.jit.script
-def isoftmax(x:torch.Tensor, dim:int, dtype:torch.dtype = -1) -> torch.Tensor:
+def imagnitude(x:torch.Tensor) -> torch.Tensor:
+    if not x.is_complex():
+        return x
+
+    # Main conversion
+    return torch.sqrt(x.real.pow(2) + x.imag.pow(2))
+
+@torch.jit.script
+def ipolarization(x:torch.Tensor) -> torch.Tensor:
+    # Main conversion
+    return torch.angle(x)
+
+@torch.jit.script
+def isoftmax(x:torch.Tensor, dim:int) -> torch.Tensor:
     # Normal softmax
     if not x.is_complex(): 
-        return torch.softmax(x, dim=dim, dtype=dtype)
+        return torch.softmax(x, dim=dim)
 
     # Imaginary softmax
-    angle:torch.Tensor = torch.atan(x.imag/x.real)
-    magnitude:torch.Tensor = torch.sqrt(x.real.pow(2) + x.imag.pow(2))
-    softMagnitude:torch.Tensor = torch.softmax(magnitude, dim=dim, dtype=dtype)
+    angle:torch.Tensor = ipolarization(x)
+    magnitude:torch.Tensor = imagnitude(x)
+    softMagnitude:torch.Tensor = torch.softmax(magnitude, dim=dim)
     
     # Convert back to imaginary
     newReal:torch.Tensor = softMagnitude * torch.cos(angle)
