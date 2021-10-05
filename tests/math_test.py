@@ -170,3 +170,4 @@ class TrigTest(unittest.TestCase):
 
         # Should just be a complex phase shift of icos
         self.assertTrue(torch.all(sinxc == (i() * icos(xc))))
+        self.assertTrue(torch.all(sinxc != icos(xc)), msg='Check i logic.')
