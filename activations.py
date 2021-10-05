@@ -128,6 +128,11 @@ class Knot(nn.Module):
     return result
 
 class Ringing(nn.Module):
+  """
+  Creates a structure that acts as a set of tuning forks, dampening over time. Because
+    time is not really relevant here, this is actually dampening over forward iteration
+    unless specified not to.
+  """
   def __init__(self, forks:int=DEFAULT_FFT_SAMPLES, forkHarmonicParameterWaves:int=DEFAULT_KNOT_WAVES, \
     dtype:torch.dtype=DEFAULT_COMPLEX_DTYPE):
     super(Ringing, self).__init__()
