@@ -140,6 +140,7 @@ class TrigTest(unittest.TestCase):
         # Seeding tensors
         x = torch.randn(self.SIZE, dtype=DEFAULT_DTYPE)
         xc = torch.randn(self.SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+        I = i()
 
         # Calculate
         cosx = icos(x)
@@ -148,13 +149,16 @@ class TrigTest(unittest.TestCase):
         # Test the values and assert lack of runaway
         self.assertTrue(torch.all(cosx == torch.cos(x)))
         self.assertFalse(torch.all(cosxc == torch.cos(xc)))
-        self.assertTrue(torch.all(cosxc.real == torch.cos(xc.real)))
-        self.assertTrue(torch.all(cosxc.imag == torch.cos(xc.imag)))
+
+        self.assertTrue(torch.all(
+            cosxc == (torch.exp(i() * xc.real) + torch.exp(i() * xc.imag) - 1)
+        ))
     
     def testSin(self):
         # Seeding tensors
         x = torch.randn(self.SIZE, dtype=DEFAULT_DTYPE)
         xc = torch.randn(self.SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+        I = i()
 
         # Calculate
         sinx = isin(x)
@@ -163,5 +167,6 @@ class TrigTest(unittest.TestCase):
         # Test the values and assert lack of runaway
         self.assertTrue(torch.all(sinx == torch.sin(x)))
         self.assertFalse(torch.all(sinxc == torch.sin(xc)))
-        self.assertTrue(torch.all(sinxc.real == torch.sin(xc.real)))
-        self.assertTrue(torch.all(sinxc.imag == torch.sin(xc.imag)))
+
+        # Should just be a complex phase shift of icos
+        self.assertTrue(torch.all(sinxc == (i() * icos(xc))))

@@ -5,6 +5,12 @@ import torch
 import math
 
 @torch.jit.script
+def i() -> torch.Tensor:
+    return torch.view_as_complex(torch.stack(
+        (torch.zeros(1), torch.ones(1)), \
+        dim=-1)).detach()
+
+@torch.jit.script
 def imagnitude(x:torch.Tensor) -> torch.Tensor:
     if not x.is_complex():
         return x
@@ -44,9 +50,8 @@ def icos(x:torch.Tensor) -> torch.Tensor:
         return torch.cos(x)
 
     # Main conversion
-    real = torch.cos(x.real)
-    imag = torch.cos(x.imag)
-    return torch.view_as_complex(torch.stack((real, imag), dim=-1))
+    I = i()
+    return torch.exp(I * x.real) + torch.exp(I * x.imag) - 1
 
 @torch.jit.script
 def isin(x:torch.Tensor) -> torch.Tensor:
@@ -55,6 +60,4 @@ def isin(x:torch.Tensor) -> torch.Tensor:
         return torch.sin(x)
 
     # Main conversion
-    real = torch.sin(x.real)
-    imag = torch.sin(x.imag)
-    return torch.view_as_complex(torch.stack((real, imag), dim=-1))
+    return i() * icos(x)
