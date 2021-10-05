@@ -51,10 +51,13 @@ class Lissajous(nn.Module):
       # Maniupulate dimensions to broadcast in per-curve sense
       freq:torch.Tensor = self.frequency.squeeze(0)
       phase:torch.Tensor = self.phase.squeeze(0)
-      cosPos:torch.Tensor = (x * freq) + (torch.ones_like(x) + phase)
+      cosPos:torch.Tensor = (x * freq) + (torch.ones_like(x) * phase)
 
-    # Activate in curve's embedding space and format
-    return torch.cos(cosPos).transpose(-1, -2)
+    # Activate in curve's embedding space depending on the working datatype.
+    # This is done due to the non-converging nature of the non-convergence of the
+    # cos function during the operation on complex numbers. To solve this, a sin function
+    # is called in the imaginary place to emulate the e^ix behavior for sinusoidal signals.
+    return icos(cosPos).transpose(-1, -2)
 
 
 class Knot(nn.Module):
@@ -64,41 +67,6 @@ class Knot(nn.Module):
     which allows the knot to have its parameters later entangled, modulated, and
     transformed through conventional methods.
   """
-  def __init__Helper(self, lissajousCurves:nn.ModuleList, dtype:torch.dtype):
-    """Does the actual __init__ work for super() call reasons.
-
-    Args:
-        lissajousCurves (nn.ModuleList): The curves to add together to create the
-          knot.
-        dtype (torch.dtype): The type of the housed parameters used for modifying
-          the value of the contained lissajous structures.
-    """
-    # Set up the curves for the function
-    self.curves:nn.ModuleList = lissajousCurves
-    self.curveSize:int = self.curves[0].size
-
-    # Size assertion
-    for curve in self.curves:
-      assert curve.size == self.curveSize
-
-    self.dtype:torch.dtype = dtype
-    paramSize:List[int] = [len(self.curves), self.curveSize, 1]
-    self.regWeights:nn.Parameter = nn.Parameter(torch.zeros(paramSize, dtype=dtype))
-    self.knotRadii:nn.Parameter = nn.Parameter(torch.zeros(paramSize[1:], dtype=dtype))
-
-  def __init__(self, lissajousCurves:nn.ModuleList, dtype:torch.dtype=DEFAULT_DTYPE):
-    """Constructs a Knot for later use from previously constructed Lissajous curves.
-
-    Args:
-        lissajousCurves (nn.ModuleList): The Lissajous curves to add together to make the knot.
-        dtype (torch.dtype): The type of the housed parameters used for modifying
-          the value of the contained lissajous structures.
-    """
-    super(Knot, self).__init__()
-
-    # Call helper init function
-    self.__init__Helper(lissajousCurves=lissajousCurves, dtype=dtype)    
-
   def __init__(self, knotSize:int, knotDepth:int, dtype:torch.dtype=DEFAULT_DTYPE):
     """Constructs a Knot for later use generating all weights and storing internally.
 
@@ -110,9 +78,19 @@ class Knot(nn.Module):
     """
     super(Knot, self).__init__()
 
-    # Construct and call helper function
-    curves:nn.ModuleList = nn.ModuleList([Lissajous(size=knotSize, dtype=dtype) for _ in range(knotDepth)])
-    self.__init__Helper(lissajousCurves=curves, dtype=dtype)
+    # Set up the curves for the function
+    self.curves:nn.ModuleList = nn.ModuleList([Lissajous(size=knotSize, dtype=dtype) for _ in range(knotDepth)])
+    self.curveSize:int = self.curves[0].size
+
+    # Size assertion
+    for curve in self.curves:
+      assert curve.size == self.curveSize
+
+    # Add some linearly trained weighted goodness
+    self.dtype:torch.dtype = dtype
+    paramSize:List[int] = [len(self.curves), self.curveSize, 1]
+    self.regWeights:nn.Parameter = nn.Parameter(torch.zeros(paramSize, dtype=dtype))
+    self.knotRadii:nn.Parameter = nn.Parameter(torch.zeros(paramSize[1:], dtype=dtype))
 
   def forward(self, x:torch.Tensor, oneD:bool = True) -> torch.Tensor:
     """Pushed forward the same way as the Lissajous module. This is just an array
