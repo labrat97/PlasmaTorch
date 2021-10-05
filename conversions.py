@@ -50,13 +50,9 @@ def resampleSmear(x:torch.Tensor, samples:int, dim:int = -1) -> torch.Tensor:
 def toComplex(x:torch.Tensor) -> torch.Tensor:
     # Already done
     if x.is_complex(): return x
-
-    # Expand dims required for complex generation
-    x.unsqueeze_(-1)
-    y = torch.zeros_like(x)
     
     # Turn into a complex number
-    complexProto = torch.cat((x, y), dim=-1)
+    complexProto = torch.stack((x, torch.zeros_like(x)), dim=-1)
     return torch.view_as_complex(complexProto)
 
 
