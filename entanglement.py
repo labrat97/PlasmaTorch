@@ -99,7 +99,8 @@ class Entangle(nn.Module):
 
     # Store where the signals are going
     y:torch.Tensor = torch.zeros_like(x)
-    s:torch.Tensor = torch.zeros((inputSize[0], self.signalCount, self.curveChannels, self.samples, self.samples))
+    s:torch.Tensor = torch.zeros((inputSize[0], self.signalCount, self.curveChannels, self.samples, self.samples), \
+      dtype=self.knowledgeMask.dtype)
     for idx in range(self.signalCount):
       signal = signals[:,idx]
       polarization:torch.Tensor = self.entanglePolarization[idx]

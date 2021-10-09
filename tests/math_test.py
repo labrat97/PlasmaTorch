@@ -150,9 +150,12 @@ class TrigTest(unittest.TestCase):
         self.assertTrue(torch.all(cosx == torch.cos(x)))
         self.assertFalse(torch.all(cosxc == torch.cos(xc)))
 
+        # Test the values of the exp construction to assert some cos() equivalence
         self.assertTrue(torch.all(
             cosxc == (torch.exp(i() * xc.real) + torch.exp(i() * xc.imag) - 1)
         ))
+        self.assertTrue(torch.all(icos(torch.zeros_like(xc)) == torch.ones_like(xc)))
+        self.assertTrue(torch.all(toComplex(icos(torch.zeros_like(x))) == icos(torch.zeros_like(xc))))
     
     def testSin(self):
         # Seeding tensors
@@ -171,3 +174,7 @@ class TrigTest(unittest.TestCase):
         # Should just be a complex phase shift of icos
         self.assertTrue(torch.all(sinxc == (i() * icos(xc))))
         self.assertTrue(torch.all(sinxc != icos(xc)), msg='Check i logic.')
+
+        # Double check by asserting that the real value of the function is 0 and the imaginary is one
+        sinTester = i() * toComplex(torch.ones(1, dtype=DEFAULT_DTYPE))
+        self.assertTrue(torch.all(isin(torch.zeros_like(xc)) == sinTester))
