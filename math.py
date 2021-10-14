@@ -2,7 +2,16 @@ from .defaults import *
 from .conversions import *
 
 import torch
-import math
+
+def pi() -> torch.Tensor:
+    return (torch.ones((1)) * 3.141592653589793238462643383279502).detach()
+
+@torch.jit.script
+def golden() -> torch.Tensor:
+    one = torch.ones((1)).detach()
+    square = torch.sqrt(one * 5)
+
+    return (one + square) / 2
 
 @torch.jit.script
 def i() -> torch.Tensor:

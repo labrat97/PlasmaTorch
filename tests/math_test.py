@@ -5,6 +5,21 @@ import math
 import torch
 from plasmatorch import *
 
+class ConstantsTest(unittest.TestCase):
+    def testGolden(self):
+        self.assertTrue(torch.all(golden() - 1.61803398875 < 0.0001))
+    
+    def testPi(self):
+        self.assertTrue(torch.all(pi() - 3.1415926535 < 0.0001))
+    
+    def testI(self):
+        built = i()
+        homebrew = torch.sqrt(-1 * torch.ones((1), 
+            dtype=DEFAULT_COMPLEX_DTYPE))
+
+        self.assertTrue(torch.all(built.real - homebrew.real < 0.0001))
+        self.assertTrue(torch.all(built.imag - homebrew.imag < 0.0001))
+
 class ComplexQualiaTest(unittest.TestCase):
     SIZE = (97, 23, 256)
 
@@ -72,8 +87,8 @@ class ComplexQualiaTest(unittest.TestCase):
         self.assertTrue(torch.all(zpolc == zeros))
         self.assertTrue(torch.all(opol == zeros))
         self.assertTrue(torch.all(opolc == zeros))
-        self.assertTrue(torch.all(ipol - math.pi/2 < 0.0001))
-        self.assertTrue(torch.all(iroot2 - math.pi/4 < 0.0001))
+        self.assertTrue(torch.all(ipol - pi()/2 < 0.0001))
+        self.assertTrue(torch.all(iroot2 - pi()/4 < 0.0001))
 
 class SoftmaxTest(unittest.TestCase):
     SIZE = (97, 11, 13, 128)
