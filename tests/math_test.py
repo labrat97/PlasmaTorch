@@ -12,6 +12,7 @@ class ConstantsTest(unittest.TestCase):
     def testLattice(self):
         paramControl = latticeParams(10)
         paramSub = latticeParams(7)
+        # Going over roughly this number will cause float innacuracy with a 32-bit float
         paramLong = latticeParams(192)
 
         self.assertTrue(torch.all(paramSub == paramControl[:7]))
