@@ -197,7 +197,7 @@ class KnotTest(unittest.TestCase):
 
         # Construct some knots to test, make sure values come out at 1.13
         knot = Knot(knotSize=DEFAULT_SPACE_PRIME, knotDepth=test.KLYBATCH, dtype=DEFAULT_DTYPE)
-        knot.regWeights = nn.Parameter(knot.regWeights+(1/len(knot.curves)))
+        knot.regWeights = nn.Parameter(knot.regWeights+(1/knot.knotSize))
         knot.knotRadii = nn.Parameter(knot.knotRadii+(test.KLYBATCH/100))
         knotc = Knot(knotSize=DEFAULT_SPACE_PRIME, knotDepth=test.KLYBATCH, dtype=DEFAULT_COMPLEX_DTYPE)
         knotc.regWeights = nn.Parameter(torch.randn_like(knot.regWeights))
@@ -246,3 +246,144 @@ class KnotTest(unittest.TestCase):
         self.assertTrue(torch.all(kxcls == dc))
         kxclsl = knotc.forward(xclSmear, oneD=False)
         self.assertTrue(torch.all(kxclsl == dc))
+
+    def testHarmonicPhaseStacking(self):
+        # Generate all testing datatypes
+        x = torch.ones((test.KLYBATCH, 1), dtype=DEFAULT_DTYPE)
+        xl = torch.ones((test.KLYBATCH, DEFAULT_SPACE_PRIME, 1), dtype=DEFAULT_DTYPE)
+        xc = torch.ones((test.KLYBATCH, 1), dtype=DEFAULT_COMPLEX_DTYPE)
+        xcl = torch.ones((test.KLYBATCH, DEFAULT_SPACE_PRIME, 1), dtype=DEFAULT_COMPLEX_DTYPE)
+        r = torch.randn_like(x)
+        rl = torch.randn_like(xl)
+        rc = torch.randn_like(xc)
+        rcl = torch.randn_like(xcl)
+
+        _, smear = test.getsmear(DEFAULT_DTYPE)
+        _, smearc = test.getsmear(DEFAULT_COMPLEX_DTYPE)
+
+        xSmear = smear.forward(x)
+        rSmear = smear.forward(r)
+        xlSmear = smear.forward(xl)
+        rlSmear = smear.forward(rl)
+        xcSmear = smearc.forward(xc)
+        rcSmear = smearc.forward(rc)
+        xclSmear = smearc.forward(xcl)
+        rclSmear = smearc.forward(rcl)
+
+        CONSTANTS = [x, xl, xc, xcl, xSmear, xlSmear, xcSmear, xclSmear]
+        RANDOMS =   [r, rl, rc, rcl, rSmear, rlSmear, rcSmear, rclSmear]
+
+        # Construct knots for testing
+        knot = Knot(knotSize=DEFAULT_SPACE_PRIME, knotDepth=test.KLYBATCH, dtype=DEFAULT_DTYPE)
+        phaseProto = torch.zeros_like(knot.phases)
+        phaseProto[:,0] = -2
+        knot.phases = nn.Parameter(phaseProto)
+        self.assertTrue(torch.all(knot.phases[:,0] == -2))
+        knotc = Knot(knotSize=DEFAULT_SPACE_PRIME, knotDepth=test.KLYBATCH, dtype=DEFAULT_COMPLEX_DTYPE)
+        phasecProto = torch.zeros_like(knotc.phases)
+        phasecProto[:,0] = -2
+        knotc.phases = nn.Parameter(phasecProto)
+        self.assertTrue(torch.all(knotc.phases[:,0] == toComplex(torch.ones((1)) * -2)))
+
+        # Test phase stacking with only the most significant phase seeded
+        cout = [knotc.forward(c) if torch.is_complex(c) else knot.forward(c) for c in CONSTANTS]
+        rout = [knotc.forward(c) if torch.is_complex(c) else knot.forward(c) for c in RANDOMS]
+
+        # Because of frequency zeroing, all values should be equal
+        for idx in range(len(cout)):
+            self.assertTrue(torch.all(cout[idx] == rout[idx]))
+
+            if torch.is_complex(cout[idx]):
+                self.assertTrue(torch.all(cout[idx].real - icos(torch.ones((1)) * -2) < 0.0001))
+            else:
+                self.assertTrue(torch.all(cout[idx] - icos(torch.ones((1)) * -2) < 0.0001))
+
+        # Make sure that the phasing of the signal is stacking at a rate of phi
+        phaseProto = torch.zeros_like(knot.phases)
+        phaseProto[:,0] = torch.ones((1))
+        phaseProto[:,1] = phi()
+        phaseProto[:,2] = phi() * phi()
+        knot.phases = nn.Parameter(phaseProto)
+
+        phasecProto = torch.zeros_like(knotc.phases)
+        phasecProto[:,0].real = torch.ones((1))
+        phasecProto[:,1].real = phi()
+        phasecProto[:,2].real = phi() * phi()
+        knotc.phases = nn.Parameter(phasecProto)
+
+        # Test phase with three phases seeded according to phi
+        cout = [knotc.forward(c) if torch.is_complex(c) else knot.forward(c) for c in CONSTANTS]
+        rout = [knotc.forward(c) if torch.is_complex(c) else knot.forward(c) for c in RANDOMS]
+        stackedVal = (icos(torch.ones((1))) + icos(torch.ones((1)) * 2) + ((test.KLYBATCH - 2) * icos(torch.ones((1)) * 3))) / test.KLYBATCH
+
+        # Because of frequency zeroing, all values should be equal
+        for idx in range(len(cout)):
+            self.assertTrue(torch.all(cout[idx] == rout[idx]))
+
+            if torch.is_complex(cout[idx]):
+                self.assertTrue(torch.all(cout[idx].real - stackedVal < 0.0001))
+            else:
+                self.assertTrue(torch.all(cout[idx] - stackedVal < 0.0001))
+
+    def testHarmonicFrequencyStacking(self):
+        # Generate all testing datatypes
+        x = torch.ones((test.KLYBATCH, 1), dtype=DEFAULT_DTYPE)
+        xl = torch.ones((test.KLYBATCH, DEFAULT_SPACE_PRIME, 1), dtype=DEFAULT_DTYPE)
+        xc = torch.ones((test.KLYBATCH, 1), dtype=DEFAULT_COMPLEX_DTYPE)
+        xcl = torch.ones((test.KLYBATCH, DEFAULT_SPACE_PRIME, 1), dtype=DEFAULT_COMPLEX_DTYPE)
+        r = torch.randn_like(x)
+        rl = torch.randn_like(xl)
+        rc = torch.randn_like(xc)
+        rcl = torch.randn_like(xcl)
+
+        CONSTANTS = [x, xl, xc, xcl]
+        RANDOMS =   [r, rl, rc, rcl]
+
+        # Construct knots for testing
+        knot = Knot(knotSize=DEFAULT_SPACE_PRIME, knotDepth=test.KLYBATCH, dtype=DEFAULT_DTYPE)
+        freqProto = torch.zeros_like(knot.frequencies)
+        freqProto[:,0] = 1
+        knot.frequencies = nn.Parameter(freqProto)
+        knotc = Knot(knotSize=DEFAULT_SPACE_PRIME, knotDepth=test.KLYBATCH, dtype=DEFAULT_COMPLEX_DTYPE)
+        freqcProto = torch.zeros_like(knotc.frequencies)
+        freqcProto[:,0] = 1
+        knotc.frequencies = nn.Parameter(freqcProto)
+
+        # Verify that the most significant frequency of the signal is the one present
+        cout = [knotc.forward(c) if torch.is_complex(c) else knot.forward(c) for c in CONSTANTS]
+        rout = [knotc.forward(c) if torch.is_complex(c) else knot.forward(c) for c in RANDOMS]
+
+        for idx in range(len(cout)):
+            self.assertFalse(torch.all(cout[idx] == rout[idx]))
+
+            if torch.is_complex(cout[idx]):
+                self.assertTrue(torch.all(cout[idx].real - icos(toComplex(torch.ones((1)))).real < 0.0001))
+                self.assertTrue(torch.all(cout[idx].imag - icos(toComplex(torch.ones((1)))).imag < 0.0001))
+            else:
+                self.assertTrue(torch.all(cout[idx] - icos(torch.ones((1))) < 0.0001))
+        
+        # Add stacked frequency definition
+        freqProto = torch.zeros_like(knot.frequencies)
+        freqProto[:,0] = 1
+        freqProto[:,1] = phi()
+        freqProto[:,2] = phi() * phi()
+        knot.frequencies = nn.Parameter(freqProto)
+
+        freqcProto = torch.zeros_like(knotc.frequencies)
+        freqcProto[:,0] = 1
+        freqcProto[:,1] = phi()
+        freqcProto[:,2] = phi() * phi()
+        knotc.frequencies = nn.Parameter(freqcProto)
+
+        # Verify frequency stacking property
+        cout = [knotc.forward(c) if torch.is_complex(c) else knot.forward(c) for c in CONSTANTS]
+        rout = [knotc.forward(c) if torch.is_complex(c) else knot.forward(c) for c in RANDOMS]
+        stackedVal = (icos(torch.ones((1))) + icos(torch.ones((1)) * 2) + ((test.KLYBATCH - 2) * icos(torch.ones((1)) * 3))) / test.KLYBATCH
+        
+        for idx in range(len(cout)):
+            self.assertFalse(torch.all(cout[idx] == rout[idx]))
+
+            if torch.is_complex(cout[idx]):
+                self.assertTrue(torch.all(cout[idx].real - stackedVal < 0.0001))
+            else:
+                self.assertTrue(torch.all(cout[idx] - stackedVal < 0.0001))

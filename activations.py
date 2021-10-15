@@ -7,6 +7,27 @@ from .math import *
 from typing import List
 
 
+def lissajous(x:torch.Tensor, freqs:torch.Tensor, phases:torch.Tensor, oneD:bool = True):
+  assert freqs.size() == phases.size()
+  
+  if oneD:
+    # Manipulate dimensions to broadcast in 1D sense
+    x = torch.unsqueeze(x, -1)
+    cosPos:torch.Tensor = (x @ freqs) + (torch.ones_like(x) @ phases)
+  else:
+    # Put curves in the right spot
+    assert x.size()[-2] == freqs.size()[-1]
+    x = x.transpose(-1,-2)
+
+    # Maniupulate dimensions to broadcast in per-curve sense
+    cosPos:torch.Tensor = (x * freqs.unsqueeze(0)) + (torch.ones_like(x) * phases.unsqueeze(0))
+
+  # Activate in curve's embedding space depending on the working datatype.
+  # This is done due to the non-converging nature of the non-convergence of the
+  # cos function during the operation on complex numbers. To solve this, a sin function
+  # is called in the imaginary place to emulate the e^ix behavior for sinusoidal signals.
+  return icos(cosPos).transpose(-1, -2)
+
 class Lissajous(nn.Module):
   """
   Holds a Lissajous-like curve to be used as a sort of activation layer as a unit
@@ -30,32 +51,16 @@ class Lissajous(nn.Module):
     Args:
         x (torch.Tensor): The sample or sampling locations. If dim[-2] == self.size,
           the input curve is believed to have the same amount of curves as the function.
-          When this is the case, instead of taking a 1D input
+          When this is the case, instead of taking a 1D input.
+        oneD (bool): If true, expand every leaf logit into the required amount of
+          internal signals.
 
     Returns:
         torch.Tensor: The evaluted samples.
 
           [BATCHES...,Samples] -> [BATCHES...,Curves,Samples]
     """
-    if oneD:
-      # Manipulate dimensions to broadcast in 1D sense
-      x = torch.unsqueeze(x, -1)
-      cosPos:torch.Tensor = (x @ self.frequency) + (torch.ones_like(x) @ self.phase)
-    else:
-      # Put curves in the right spot
-      assert x.size()[-2] == self.size
-      x = x.transpose(-1,-2)
-
-      # Maniupulate dimensions to broadcast in per-curve sense
-      freq:torch.Tensor = self.frequency.squeeze(0)
-      phase:torch.Tensor = self.phase.squeeze(0)
-      cosPos:torch.Tensor = (x * freq) + (torch.ones_like(x) * phase)
-
-    # Activate in curve's embedding space depending on the working datatype.
-    # This is done due to the non-converging nature of the non-convergence of the
-    # cos function during the operation on complex numbers. To solve this, a sin function
-    # is called in the imaginary place to emulate the e^ix behavior for sinusoidal signals.
-    return icos(cosPos).transpose(-1, -2)
+    return lissajous(x, freqs=self.frequency, phases=self.phase, oneD=oneD)
 
 
 class Knot(nn.Module):
@@ -77,17 +82,19 @@ class Knot(nn.Module):
     super(Knot, self).__init__()
 
     # Set up the curves for the function
-    self.curves:nn.ModuleList = nn.ModuleList([Lissajous(size=knotSize, dtype=dtype) for _ in range(knotDepth)])
-    self.curveSize:int = self.curves[0].size
-
-    # Size assertion
-    for curve in self.curves:
-      assert curve.size == self.curveSize
+    self.knotDepth = knotDepth
+    self.knotSize = knotSize
 
     # Add some linearly trained weighted goodness
     self.dtype:torch.dtype = dtype
-    paramSize:List[int] = [len(self.curves), self.curveSize, 1]
-    self.regWeights:nn.Parameter = nn.Parameter(torch.zeros(paramSize, dtype=dtype))
+    paramSize:List[int] = [self.knotDepth, self.knotSize, 1]
+    self.regWeights:nn.Parameter = nn.Parameter(torch.ones(paramSize, dtype=dtype) / self.knotDepth)
+    
+    self.frequencies:nn.Parameter = nn.Parameter(torch.zeros((self.knotSize, self.knotDepth), dtype=dtype))
+    self.phases:nn.Parameter = nn.Parameter(torch.zeros((self.knotSize, self.knotDepth), dtype=dtype))
+    self.__triu:torch.Tensor = torch.triu(torch.ones((self.knotDepth, self.knotDepth), dtype=dtype), diagonal=0).detach()
+    self.__latticeParams:torch.Tensor = latticeParams(self.knotDepth)
+
     self.knotRadii:nn.Parameter = nn.Parameter(torch.zeros(paramSize[1:], dtype=dtype))
 
   def forward(self, x:torch.Tensor, oneD:bool = True) -> torch.Tensor:
@@ -107,16 +114,25 @@ class Knot(nn.Module):
     """
     # Create the expanded dimensions required in the output tensor
     if oneD:
-      outputSize:torch.Size = torch.Size(list(x.size()) + [self.curveSize])
+      outputSize:torch.Size = torch.Size(list(x.size()) + [self.knotSize])
       result:torch.Tensor = torch.zeros(outputSize, dtype=self.dtype).transpose(-1, -2)
     else:
       outputSize:torch.Size = x.size()
       result:torch.Tensor = torch.zeros(outputSize, dtype=self.dtype)
+    
+    # Add the frequencies together
+    freqs:torch.Tensor = ((self.frequencies * self.__latticeParams) @ self.__triu).transpose(0, 1)
+    phases:torch.Tensor = ((self.phases * self.__latticeParams) @ self.__triu).transpose(0, 1)
 
     # Add all of the curves together
-    for idx, lissajous in enumerate(self.curves):
+    for idx in range(self.knotDepth):
+      # Pass the frequencies to the curves
+      freqn:torch.Tensor = freqs[idx].unsqueeze(0)
+      phasen:torch.Tensor = phases[idx].unsqueeze(0)
+      regn:torch.Tensor = self.regWeights[idx]
+
       # Each lissajous curve-like structure has different weights, and therefore 
-      curve:torch.Tensor = self.regWeights[idx] * lissajous.forward(x, oneD=oneD)
+      curve:torch.Tensor = regn * lissajous(x=x, freqs=freqn, phases=phasen, oneD=oneD)
       result.add_(curve)
 
     # Add the radius of the knot to the total of the sum of the curves

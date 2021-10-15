@@ -140,8 +140,8 @@ class Entangle(nn.Module):
         else:
           collapseSmear:Tuple[torch.Tensor] = (torch.fft.irfft(collapseSignal[0], n=self.samples, dim=SAMPLE_POS), \
             torch.fft.irfft(collapseSignal[1], n=self.samples, dim=SAMPLE_POS))
-        entangledSmear:torch.Tensor = (torch.cos(polarization) * collapseSmear[0]) \
-          + (torch.sin(polarization) * collapseSmear[1])
+        entangledSmear:torch.Tensor = (icos(polarization) * collapseSmear[0]) \
+          + (isin(polarization) * collapseSmear[1])
 
         # Put into output for signals
         y[:,idx].add_(
