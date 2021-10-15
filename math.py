@@ -2,7 +2,23 @@ from .defaults import *
 from .conversions import *
 
 import torch
-import math
+
+@torch.jit.script
+def pi() -> torch.Tensor:
+    return (torch.ones((1)) * 3.141592653589793238462643383279502).detach()
+
+@torch.jit.script
+def phi() -> torch.Tensor:
+    one = torch.ones((1)).detach()
+    square = torch.sqrt(one * 5)
+
+    return (one + square) / 2
+
+@torch.jit.script
+def latticeParams(dims:int) -> torch.Tensor:
+    powers = torch.triu(torch.ones((dims, dims)), diagonal=1).transpose(-1,-2).sum(dim=-1)
+
+    return phi() ** (-powers)
 
 @torch.jit.script
 def i() -> torch.Tensor:

@@ -5,6 +5,37 @@ import math
 import torch
 from plasmatorch import *
 
+class ConstantsTest(unittest.TestCase):
+    def testPhi(self):
+        self.assertTrue(torch.all(phi() - 1.61803398875 < 0.0001))
+    
+    def testLattice(self):
+        paramControl = latticeParams(10)
+        paramSub = latticeParams(7)
+        # Going over roughly this number will cause float innacuracy with a 32-bit float
+        paramLong = latticeParams(192)
+
+        self.assertTrue(torch.all(paramSub == paramControl[:7]))
+        self.assertEqual(paramControl[0], 1.)
+        self.assertTrue(paramControl[1] - (1./phi()) < 0.0001)
+        self.assertTrue(paramControl[9] - (1./(phi() ** 9)) < 0.0001)
+        self.assertEqual(paramSub[0], 1.)
+        self.assertTrue(paramSub[1] - (1./phi()) < 0.0001)
+        self.assertTrue(paramSub[6] - (1./(phi() ** 6)) < 0.0001)
+
+        self.assertTrue(torch.all((paramLong[1:]/paramLong[:-1]) - (1/phi()) < 0.0001))
+
+    def testPi(self):
+        self.assertTrue(torch.all(pi() - 3.1415926535 < 0.0001))
+    
+    def testI(self):
+        built = i()
+        homebrew = torch.sqrt(-1 * torch.ones((1), 
+            dtype=DEFAULT_COMPLEX_DTYPE))
+
+        self.assertTrue(torch.all(built.real - homebrew.real < 0.0001))
+        self.assertTrue(torch.all(built.imag - homebrew.imag < 0.0001))
+
 class ComplexQualiaTest(unittest.TestCase):
     SIZE = (97, 23, 256)
 
@@ -72,8 +103,8 @@ class ComplexQualiaTest(unittest.TestCase):
         self.assertTrue(torch.all(zpolc == zeros))
         self.assertTrue(torch.all(opol == zeros))
         self.assertTrue(torch.all(opolc == zeros))
-        self.assertTrue(torch.all(ipol - math.pi/2 < 0.0001))
-        self.assertTrue(torch.all(iroot2 - math.pi/4 < 0.0001))
+        self.assertTrue(torch.all(ipol - pi()/2 < 0.0001))
+        self.assertTrue(torch.all(iroot2 - pi()/4 < 0.0001))
 
 class SoftmaxTest(unittest.TestCase):
     SIZE = (97, 11, 13, 128)
@@ -150,9 +181,12 @@ class TrigTest(unittest.TestCase):
         self.assertTrue(torch.all(cosx == torch.cos(x)))
         self.assertFalse(torch.all(cosxc == torch.cos(xc)))
 
+        # Test the values of the exp construction to assert some cos() equivalence
         self.assertTrue(torch.all(
             cosxc == (torch.exp(i() * xc.real) + torch.exp(i() * xc.imag) - 1)
         ))
+        self.assertTrue(torch.all(icos(torch.zeros_like(xc)) == torch.ones_like(xc)))
+        self.assertTrue(torch.all(toComplex(icos(torch.zeros_like(x))) == icos(torch.zeros_like(xc))))
     
     def testSin(self):
         # Seeding tensors
@@ -171,3 +205,7 @@ class TrigTest(unittest.TestCase):
         # Should just be a complex phase shift of icos
         self.assertTrue(torch.all(sinxc == (i() * icos(xc))))
         self.assertTrue(torch.all(sinxc != icos(xc)), msg='Check i logic.')
+
+        # Double check by asserting that the real value of the function is 0 and the imaginary is one
+        sinTester = i() * toComplex(torch.ones(1, dtype=DEFAULT_DTYPE))
+        self.assertTrue(torch.all(isin(torch.zeros_like(xc)) == sinTester))

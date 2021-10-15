@@ -88,6 +88,8 @@ class ToComplexTest(unittest.TestCase):
         self.assertTrue(torch.is_complex(convertXC), msg='Convert \'xc\' (complex)')
         self.assertTrue(torch.all(convertX.imag == torch.zeros_like(convertX.real)), msg='Empty imaginary from conversion (\'x\')')
         self.assertTrue(torch.all(xc == convertXC), msg='Already complex (\'xc\')')
+        self.assertEqual(x.size(), convertX.size())
+        self.assertEqual(xc.size(), convertXC.size())
 
     def testLargeToComplex(self):
         x = torch.ones((8, 8, 8, 8, 8), dtype=DEFAULT_DTYPE)
@@ -100,6 +102,8 @@ class ToComplexTest(unittest.TestCase):
         self.assertTrue(torch.is_complex(convertXC), msg='Convert \'xc\' (complex)')
         self.assertTrue(torch.all(convertX.imag == torch.zeros_like(convertX.real)), msg='Empty imaginary from conversion (\'x\')')
         self.assertTrue(torch.all(xc == convertXC), msg='Already complex (\'xc\')')
+        self.assertEqual(x.size(), convertX.size())
+        self.assertEqual(xc.size(), convertXC.size())
 
 class RealObserverTest(unittest.TestCase):
     def testSmallExample(self):
