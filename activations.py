@@ -153,31 +153,34 @@ class Ringing(nn.Module):
     dtype:torch.dtype=DEFAULT_COMPLEX_DTYPE):
     super(Ringing, self).__init__()
 
-    # The amout of forks and their current harmonic values
-    self.forks = forks
-    self.forkVals = toComplex(torch.zeros((forks), dtype=dtype, requires_grad=False))
+    # The positions and values of the enclosed forks
+    self.forkPos = nn.Parameter(toComplex(torch.zeros((forks), dtype=dtype, requires_grad=False)).real)
+    self.forkVals = nn.Parameter(toComplex(torch.zeros((forks), dtype=dtype, requires_grad=False)))
+    self.forkDecay = nn.Parameter(torch.ones((forks), dtype=dtype) * \
+      (-torch.log(phi() - 1))\
+      .type(dtype)) # After a sigmoid eval this should come to 1/phi()
 
-    self.tuningFlowActivation = nn.Paramter(torch.ones((1, 1), dtype=dtype))
-    self.tuningFlowSmear = Smear(samples=forks, dtype=dtype)
-    self.tuningFlowKnot = Knot(knotSize=2, knowDepth=forks, dtype=dtype)
-    self.forkMixing = nn.Parameter(torch.ones((forks), dtype=dtype))
-    self.tuning = Knot(knotSize=forks, knotDepth=forkHarmonicParameterWaves, dtype=self.forkVals.dtype)
-
-  def forward(self, x:torch.Tensor, samples:int=None) -> torch.Tensor:
+  def forward(self, x:torch.Tensor, irfft:bool=False) -> torch.Tensor:
     # Gather parameters needed to have some light attention to the tunes coming in
-    xfft = torch.fft.fft(x, n=self.forks, dim=-1)
-    warpSmear = self.tuningFlowSmear.forward(self.tuningFlowActivation)
-    warpField = self.tuningFlowKnot.forward(warpSmear, oneD=True).transpose(-2, -1)
+    xfft = torch.fft.fft(x, dim=-1)
+    xsamples = x.size()[-1]
+    positions = nnf.sigmoid(self.forkPos) * (xsamples - 1)
+
+    # Extract the target parameters from the signal
+    posLow = positions.type(torch.int64)
+    posHigh = posLow + 1
+    posMix = positions - posLow # [1, 0] -> [HIGH, 1-LOW]
+    xvals = ((1 - posMix) * xfft[..., posLow]) + (posMix * xfft[..., posHigh])
+
+    # Add the input signals to the enclosed signals
+    self.forkVals = (self.forkVals * nnf.sigmoid(self.forkDecay)) + xvals
     
-    # Handle complex vs normal warping
-    if torch.is_complex(warpField):
-      xfftWarp = nnf.grid_sample(xfft, grid=warpField, mode='bilinear')
+    # Create the output signal
+    yfft = torch.zeros_like(xfft)
+    yfft[..., posLow] = (1 - posMix) * self.forkVals
+    yfft[..., posHigh] = posMix * self.forkVals
 
-    tuning = isoftmax(self.tuning.forward(xfft, oneD=False))
-    yfft = (xfft * tuning) + toComplex(self.forkMixing)
-    yfftMixed = (yfft * )
-
-    if samples is None: samples = self.forks
-    y = torch.fft.ifft(yfft, n=self.forks, dim=-1)
-
-    return y
+    # Real or complex output
+    if irfft:
+      return torch.fft.irfft(yfft, n=xsamples, dim=-1)
+    return torch.fft.ifft(yfft, n=xsamples, dim=-1)
