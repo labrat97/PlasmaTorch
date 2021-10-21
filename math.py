@@ -60,6 +60,24 @@ def isoftmax(x:torch.Tensor, dim:int) -> torch.Tensor:
     return torch.view_as_complex(torch.stack((newReal, newImag), dim=-1))
 
 @torch.jit.script
+def isigmoid(x:torch.Tensor) -> torch.Tensor:
+    # Normal sigmoid
+    if not x.is_complex():
+        return torch.sigmoid(x)
+    
+    # Imaginary sigmoid
+    angle:torch.Tensor = ipolarization(x)
+    magnitude:torch.Tensor = imagnitude(x)
+    sigmag:torch.Tensor = nnf.sigmoid(magnitude)
+
+    # Convert back to imaginary
+    newReal:torch.Tensor = sigmag * torch.cos(angle)
+    newImag:torch.Tensor = sigmag * torch.sin(angle)
+
+    # Return in proper datatype
+    return torch.view_as_complex(torch.stack((newReal, newImag), dim=-1))
+
+@torch.jit.script
 def icos(x:torch.Tensor) -> torch.Tensor:
     # Normal cos
     if not x.is_complex():
