@@ -57,6 +57,24 @@ def isoftmax(x:torch.Tensor, dim:int) -> torch.Tensor:
     # Return in proper datatype
     return torch.view_as_complex(torch.stack((newReal, newImag), dim=-1))
 
+@torch.jit.script()
+def realprimedist(x:torch.Tensor, relative:bool=True) -> torch.Tensor:
+    # Collect inverse 6k+-1 values
+    primeGuessTop:torch.Tensor = ((x - 1) / 6).type(torch.int64).unsqueeze(-1)
+    primeGuessTop = torch.stack((primeGuessTop, primeGuessTop+1), dim=-1)
+    primeGuessBot:torch.Tensor = ((x + 1) / 6).type(torch.int64).unsqueeze(-1)
+    primeGuessBot = torch.stack((primeGuessBot, primeGuessBot+1), dim=-1)
+
+    
+
+    
+
+def gaussianprimedist(x:torch.Tensor, relative:bool=True) -> torch.Tensor:
+
+
+def iprimedist(x:torch.Tensor, relative:bool=True) -> torch.Tensor:
+
+
 @torch.jit.script
 def isigmoid(x:torch.Tensor) -> torch.Tensor:
     # Normal sigmoid
