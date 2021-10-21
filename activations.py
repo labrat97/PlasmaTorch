@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as nnf
 
 from .defaults import *
 from .conversions import *
@@ -164,7 +163,7 @@ class Ringing(nn.Module):
     # Gather parameters needed to have some light attention to the tunes coming in
     xfft = torch.fft.fft(x, dim=-1)
     xsamples = x.size()[-1]
-    positions = nnf.sigmoid(self.forkPos) * (xsamples - 1)
+    positions = isigmoid(self.forkPos) * (xsamples - 1)
 
     # Extract the target parameters from the signal
     posLow = positions.type(torch.int64)
@@ -173,13 +172,13 @@ class Ringing(nn.Module):
     xvals = ((1 - posMix) * xfft[..., posLow]) + (posMix * xfft[..., posHigh])
 
     # Add the input signals to the enclosed signals
-    self.forkVals = (self.forkVals * nnf.sigmoid(self.forkDecay)) + xvals
+    self.forkVals = (self.forkVals * isigmoid(self.forkDecay)) + xvals
     
     # Create the output signal
     yfft = torch.zeros_like(xfft)
     yfft[..., posLow] = (1 - posMix) * self.forkVals
     yfft[..., posHigh] = posMix * self.forkVals
-    yfft.add_(xfft * nnf.sigmoid(self.signalDecay))
+    yfft.add_(xfft * isigmoid(self.signalDecay))
 
     # Real or complex output
     if irfft:
