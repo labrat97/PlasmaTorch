@@ -48,8 +48,6 @@ def isoftmax(x:torch.Tensor, dim:int) -> torch.Tensor:
     newImag:torch.Tensor = softMagnitude * torch.sin(angle)
     
     # Return in proper datatype
-    newReal.unsqueeze(-1)
-    newImag.unsqueeze(-1)
     return torch.view_as_complex(torch.stack((newReal, newImag), dim=-1))
 
 @torch.jit.script
