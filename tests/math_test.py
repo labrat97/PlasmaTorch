@@ -6,9 +6,25 @@ import torch
 from plasmatorch import *
 
 class ConstantsTest(unittest.TestCase):
-    def testGolden(self):
-        self.assertTrue(torch.all(golden() - 1.61803398875 < 0.0001))
+    def testPhi(self):
+        self.assertTrue(torch.all(phi() - 1.61803398875 < 0.0001))
     
+    def testLattice(self):
+        paramControl = latticeParams(10)
+        paramSub = latticeParams(7)
+        # Going over roughly this number will cause float innacuracy with a 32-bit float
+        paramLong = latticeParams(192)
+
+        self.assertTrue(torch.all(paramSub == paramControl[:7]))
+        self.assertEqual(paramControl[0], 1.)
+        self.assertTrue(paramControl[1] - (1./phi()) < 0.0001)
+        self.assertTrue(paramControl[9] - (1./(phi() ** 9)) < 0.0001)
+        self.assertEqual(paramSub[0], 1.)
+        self.assertTrue(paramSub[1] - (1./phi()) < 0.0001)
+        self.assertTrue(paramSub[6] - (1./(phi() ** 6)) < 0.0001)
+
+        self.assertTrue(torch.all((paramLong[1:]/paramLong[:-1]) - (1/phi()) < 0.0001))
+
     def testPi(self):
         self.assertTrue(torch.all(pi() - 3.1415926535 < 0.0001))
     
