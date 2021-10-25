@@ -5,6 +5,8 @@ import math
 import torch
 from plasmatorch import *
 
+from random import randint
+
 class ConstantsTest(unittest.TestCase):
     def testPhi(self):
         self.assertTrue(torch.all(phi() - 1.61803398875 < 0.0001))
@@ -209,3 +211,27 @@ class TrigTest(unittest.TestCase):
         # Double check by asserting that the real value of the function is 0 and the imaginary is one
         sinTester = i() * toComplex(torch.ones(1, dtype=DEFAULT_DTYPE))
         self.assertTrue(torch.all(isin(torch.zeros_like(xc)) == sinTester))
+
+class PrimishDistTest(unittest.TestCase):
+    def testSizing(self):
+        SIZELEN = randint(1, 5)
+        SIZE = torch.randn(SIZELEN, dtype=torch.int64)
+        
+        x = torch.randn(SIZE, dtype=DEFAULT_DTYPE)
+        xc = torch.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+
+
+
+class PrimishValsTest(unittest.TestCase):
+    def testSizing(self):
+        SIZE = randint(1, 100)
+        SIZE2 = randint(1, 100) + SIZE
+
+        x = primishvals(n=SIZE)
+        y = primishvals(n=SIZE2, base=x)
+        z = primishvals(n=SIZE, base=y)
+
+        self.assertTrue(len(x.size()) == len(y.size()) == len(z.size()) == 1)
+        self.assertTrue(x.size() == (SIZE))
+        self.assertTrue(y.size() == (SIZE2))
+        self.assertTrue(z.size() == (SIZE))
