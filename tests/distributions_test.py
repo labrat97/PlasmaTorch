@@ -5,7 +5,7 @@ import torch
 from plasmatorch import *
 
 class IrregularGaussTest(unittest.TestCase):
-    SIZE = (97, 11, 13, 128)
+    SIZE = (11, 11, 13, 128)
 
     def testSizing(self):
         # Seeding tensors, no complex support
@@ -128,12 +128,12 @@ class LinearGaussTest(unittest.TestCase):
         self.assertEqual(bigGauss.size(), bigGaussc.size())
         for idx in range(self.SIZE[-2]):
             testGauss = irregularGauss(x=x[:,:,idx,:], mean=altMean[idx], lowStd=altLow[idx], highStd=altHigh[idx])
-            self.assertTrue(torch.all(testGauss == bigGauss[:,:,idx,:]), msg=f'Values not properly distributing to channels in position -2.')
+            self.assertTrue(torch.all(torch.abs(testGauss - bigGauss[:,:,idx,:]) < 0.0001), msg=f'Values not properly distributing to channels in position -2.')
 
             testGaussr = irregularGauss(x=xc.real[:,:,idx,:], mean=altMean[idx], lowStd=altLow[idx], highStd=altHigh[idx])
             testGaussi = irregularGauss(x=xc.imag[:,:,idx,:], mean=altMean[idx], lowStd=altLow[idx], highStd=altHigh[idx])
             testGaussc = torch.view_as_complex(torch.stack((testGaussr, testGaussi), dim=-1))
-            self.assertTrue(torch.all(testGaussc == bigGaussc[:,:,idx,:]))
+            self.assertTrue(torch.all(torch.abs(imagnitude(testGaussc - bigGaussc[:,:,idx,:])) < 0.0001))
 
     def testValuesComplex(self):
         # Seeding tensor
