@@ -274,6 +274,29 @@ class PrimishDistTest(unittest.TestCase):
         self.assertTrue(torch.all((tagres - agres).abs() < 1e-4), msg=f'{tagres} != {agres}')
         self.assertTrue(torch.all((trgres - rgres).abs() < 1e-4), msg=f'{trgres} != {rgres}')
 
+    def testValuesGauss(self):
+        # Generate random sizing
+        SIZELEN = randint(1, 5)
+        SIZE = torch.Size((torch.randn((SIZELEN), dtype=DEFAULT_DTYPE) * SIZELEN).type(dtype=torch.int64).abs() + 1)
+        
+        # Generate the randomized control tensors
+        trandr = torch.randn(SIZE, dtype=DEFAULT_DTYPE)
+        trandrc = toComplex(trandr)
+
+        # Compute the gaussian distances for both formats of the randomized input
+        agres = gaussianprimishdist(trandr, relative=False)
+        agces = gaussianprimishdist(trandrc, relative=False)
+        agies = iprimishdist(trandrc, relative=False)
+        rgres = gaussianprimishdist(trandr, relative=True)
+        rgces = gaussianprimishdist(trandrc, relative=True)
+        rgies = iprimishdist(trandrc, relative=True)
+
+        # Assert conversion equivalencies
+        self.assertTrue(torch.all((agres - agces).abs() < 1e-4), msg=f'{agres} != {agces}')
+        self.assertTrue(torch.all((agces - agies).abs() < 1e-4), msg=f'{agces} != {agies}')
+        self.assertTrue(torch.all((rgres - rgces).abs() < 1e-4), msg=f'{rgres} != {rgces}')
+        self.assertTrue(torch.all((rgres - rgies).abs() < 1e-4), msg=f'{rgres} != {rgies}')
+
 class PrimishValsTest(unittest.TestCase):
     def testSizing(self):
         # Generate two random sizes, one being dependent
