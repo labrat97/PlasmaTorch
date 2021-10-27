@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as nnf
 
 from plasmatorch import *
+from random import randint
 
 class LissajousTest(unittest.TestCase):
     def testSizing(self):
@@ -387,3 +388,17 @@ class KnotTest(unittest.TestCase):
                 self.assertTrue(torch.all(cout[idx].real - stackedVal < 0.0001))
             else:
                 self.assertTrue(torch.all(cout[idx] - stackedVal < 0.0001))
+
+
+class RingingTest(unittest.TestCase):
+    def testSizing(self):
+        # Generate random sizing
+        SIZELEN = randint(1, 5)
+        SIZE = torch.Size((torch.randn((SIZELEN), dtype=DEFAULT_DTYPE)).type(dtype=torch.int64).abs() + 1)
+        
+        # Generate the control tensors to test against
+        x = torch.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+        y = x.real
+        yc = toComplex(y)
+
+        # Compute the ringing results
