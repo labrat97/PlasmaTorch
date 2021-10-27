@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 
 from .defaults import *
+from .conversions import *
 from .math import *
 
 from typing import List
@@ -140,3 +141,46 @@ class Knot(nn.Module):
     
     # Swap the position of the curve and the sample (so the samples are on the rear)
     return result
+
+class Ringing(nn.Module):
+  """
+  Creates a structure that acts as a set of tuning forks, dampening over time. Because
+    time is not really relevant here, this is actually dampening over forward iteration
+    unless specified not to.
+  """
+  def __init__(self, forks:int=DEFAULT_FFT_SAMPLES, forkHarmonicParameterWaves:int=DEFAULT_KNOT_WAVES, \
+    dtype:torch.dtype=DEFAULT_COMPLEX_DTYPE):
+    super(Ringing, self).__init__()
+
+    # The positions and values of the enclosed forks
+    DECAY_SEED = (-torch.log(phi() - 1)).type(dtype) # After a sigmoid eval this should come to 1/phi()
+    self.forkPos = nn.Parameter(toComplex(torch.zeros((forks), dtype=dtype, requires_grad=False)).real)
+    self.forkVals = nn.Parameter(toComplex(torch.zeros((forks), dtype=dtype, requires_grad=False)))
+    self.forkDecay = nn.Parameter(torch.ones((forks), dtype=dtype) * DECAY_SEED)
+    self.signalDecay = nn.Parameter(torch.ones((1), dtype=dtype) * DECAY_SEED)
+
+  def forward(self, x:torch.Tensor, irfft:bool=False) -> torch.Tensor:
+    # Gather parameters needed to have some light attention to the tunes coming in
+    xfft = torch.fft.fft(x, dim=-1)
+    xsamples = x.size()[-1]
+    positions = isigmoid(self.forkPos) * (xsamples - 1)
+
+    # Extract the target parameters from the signal
+    posLow = positions.type(torch.int64)
+    posHigh = posLow + 1
+    posMix = positions - posLow # [1, 0] -> [HIGH, 1-LOW]
+    xvals = ((1 - posMix) * xfft[..., posLow]) + (posMix * xfft[..., posHigh])
+
+    # Add the input signals to the enclosed signals
+    self.forkVals = (self.forkVals * isigmoid(self.forkDecay)) + xvals
+    
+    # Create the output signal
+    yfft = torch.zeros_like(xfft)
+    yfft[..., posLow] = (1 - posMix) * self.forkVals
+    yfft[..., posHigh] = posMix * self.forkVals
+    yfft.add_(xfft * isigmoid(self.signalDecay))
+
+    # Real or complex output
+    if irfft:
+      return torch.fft.irfft(yfft, n=xsamples, dim=-1)
+    return torch.fft.ifft(yfft, n=xsamples, dim=-1)
