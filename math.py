@@ -15,13 +15,13 @@ def phi() -> torch.Tensor:
     return (one + square) / 2
 
 @torch.jit.script
-def xbias(dims:int, bias:int=0):
-    composer = torch.triu(torch.ones((dims, dims)), diagonal=1-bias)
+def xbias(n:int, bias:int=0):
+    composer = torch.triu(torch.ones((n, n)), diagonal=1-bias)
     return composer.transpose(-1,-2).sum(dim=-1)
 
 @torch.jit.script
 def latticeParams(dims:int) -> torch.Tensor:
-    powers = xbias(dims=dims, bias=0)
+    powers = xbias(n=dims, bias=0)
     return phi() ** (-powers)
 
 @torch.jit.script
@@ -133,7 +133,8 @@ def realprimishdist(x:torch.Tensor, relative:bool=True, gaussApprox:bool=False) 
 
     # Turn into one tensor
     result:torch.Tensor = (highLower.type(torch.int64) * highDist) + ((1 - highLower.type(torch.int64)) * lowDist)
-    if relative:
+    # Can ignore gaussApprox due to the normalized range being equal to one
+    if relative and not gaussApprox:
         # Only ever traversing half of the maximum space
         totalDistance:torch.Tensor = (high - low) / 2
         result.div_(totalDistance) 
@@ -155,8 +156,8 @@ def gaussianprimishdist(x:torch.Tensor, relative:bool=True) -> torch.Tensor:
     gaussdist = torch.sqrt(realprimishdist(gauss, relative=relative, gaussApprox=False))
 
     # Calculate the other distances
-    rdgauss = realprimishdist(real, relative=True, gaussApprox=True)
-    idgauss = realprimishdist(imag, relative=True, gaussApprox=True)
+    rdgauss = realprimishdist(real, gaussApprox=True)
+    idgauss = realprimishdist(imag, gaussApprox=True)
     # 4k +- 3 leaves only a space of 2 between normal values
     # To normalize, divide by the size of the space (which is 2)
     rdgaussi = imag.abs() / 2
