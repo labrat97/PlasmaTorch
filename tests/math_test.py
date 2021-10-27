@@ -248,7 +248,7 @@ class PrimishDistTest(unittest.TestCase):
     
     def testValuesReal(self):
         # Generate the control tensors
-        tprimes = torch.tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, ]).type(dtype=DEFAULT_DTYPE)
+        tprimes = torch.tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).type(dtype=DEFAULT_DTYPE)
         tapres =   torch.tensor([1, 0, 0, 0, 1, 0, 1, 0, 1, 2]).type(dtype=DEFAULT_DTYPE)
         trpres =   torch.tensor([1, 0, 0, 0, 1, 0, 1, 0, 1/2., 1]).type(dtype=DEFAULT_DTYPE)
         tgrimes = torch.tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).type(dtype=DEFAULT_DTYPE)
@@ -274,28 +274,52 @@ class PrimishDistTest(unittest.TestCase):
         self.assertTrue(torch.all((tagres - agres).abs() < 1e-4), msg=f'{tagres} != {agres}')
         self.assertTrue(torch.all((trgres - rgres).abs() < 1e-4), msg=f'{trgres} != {rgres}')
 
-    def testValuesGauss(self):
+    def testConsistencyGauss(self):
         # Generate random sizing
         SIZELEN = randint(1, 5)
-        SIZE = torch.Size((torch.randn((SIZELEN), dtype=DEFAULT_DTYPE) * SIZELEN).type(dtype=torch.int64).abs() + 1)
+        SIZE = torch.Size((torch.randn((SIZELEN), dtype=DEFAULT_DTYPE)).type(dtype=torch.int64).abs() + 1)
         
         # Generate the randomized control tensors
         trandr = torch.randn(SIZE, dtype=DEFAULT_DTYPE)
         trandrc = toComplex(trandr)
+        trandrci = trandrc * i()
 
         # Compute the gaussian distances for both formats of the randomized input
         agres = gaussianprimishdist(trandr, relative=False)
         agces = gaussianprimishdist(trandrc, relative=False)
+        agcesi = gaussianprimishdist(trandrci, relative=False)
         agies = iprimishdist(trandrc, relative=False)
         rgres = gaussianprimishdist(trandr, relative=True)
         rgces = gaussianprimishdist(trandrc, relative=True)
         rgies = iprimishdist(trandrc, relative=True)
+        rgcesi = gaussianprimishdist(trandrci, relative=True)
 
         # Assert conversion equivalencies
         self.assertTrue(torch.all((agres - agces).abs() < 1e-4), msg=f'{agres} != {agces}')
         self.assertTrue(torch.all((agces - agies).abs() < 1e-4), msg=f'{agces} != {agies}')
+        self.assertTrue(torch.all((agces - agcesi).abs() < 1e-4), msg=f'{agces} != {agcesi}')
         self.assertTrue(torch.all((rgres - rgces).abs() < 1e-4), msg=f'{rgres} != {rgces}')
-        self.assertTrue(torch.all((rgres - rgies).abs() < 1e-4), msg=f'{rgres} != {rgies}')
+        self.assertTrue(torch.all((rgces - rgies).abs() < 1e-4), msg=f'{rgces} != {rgies}')
+        self.assertTrue(torch.all((rgces - rgcesi).abs() < 1e-4), msg=f'{rgces} != {rgcesi}')
+        self.assertTrue(torch.all((agres - rgres).abs() < 1e-4), msg=f'{agres} != {rgres}')
+
+    def testValuesGauss(self):
+        # Generate the control tensors
+        tprimes = xbias(n=10, bias=0).type(dtype=DEFAULT_COMPLEX_DTYPE)
+        tpres = torch.tensor([1, 0, 0, 0, 1, 0, 1, 0, 1, 0]).type(dtype=DEFAULT_DTYPE)
+        tgaussians = torch.tensor([2+(3*i()), 2-(3*i()), -2+(3*i()), -2-(3*i()), 6+(3*i())])
+        tgres = torch.tensor([0, 0, 0, 0, torch.sqrt(torch.ones(1) * 2)]).type(dtype=DEFAULT_DTYPE)
+        trgres = torch.tensor([0, 0, 0, 0, 1])
+
+        # Compute the result of the test vectors
+        pres = gaussianprimishdist(tprimes, relative=False)
+        gres = gaussianprimishdist(tgaussians, relative=False)
+        rgres = gaussianprimishdist(tgaussians, relative=True)
+
+        # Assert the precomputed values
+        self.assertTrue(torch.all((tpres - pres).abs() < 1e-4), msg=f'{tpres} != {pres}')
+        self.assertTrue(torch.all((tgres - gres).abs() < 1e-4), msg=f'{tgres} != {gres}')
+        self.assertTrue(torch.all((trgres - rgres).abs() < 1e-4), msg=f'{trgres} != {rgres}')
 
 class PrimishValsTest(unittest.TestCase):
     def testSizing(self):
