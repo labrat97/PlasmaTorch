@@ -136,7 +136,7 @@ def realprimishdist(x:torch.Tensor, relative:bool=True, gaussApprox:bool=False) 
     if relative:
         # Only ever traversing half of the maximum space
         totalDistance:torch.Tensor = (high - low) / 2
-        result.div_(totalDistance / 2) 
+        result.div_(totalDistance) 
     
     return result
 
