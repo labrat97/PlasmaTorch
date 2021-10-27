@@ -15,9 +15,13 @@ def phi() -> torch.Tensor:
     return (one + square) / 2
 
 @torch.jit.script
-def latticeParams(dims:int) -> torch.Tensor:
-    powers = torch.triu(torch.ones((dims, dims)), diagonal=1).transpose(-1,-2).sum(dim=-1)
+def xbias(dims:int, bias:int=0):
+    composer = torch.triu(torch.ones((dims, dims)), diagonal=1-bias)
+    return composer.transpose(-1,-2).sum(dim=-1)
 
+@torch.jit.script
+def latticeParams(dims:int) -> torch.Tensor:
+    powers = xbias(dims=dims, bias=0)
     return phi() ** (-powers)
 
 @torch.jit.script
@@ -93,29 +97,34 @@ def realprimishdist(x:torch.Tensor, relative:bool=True, gaussApprox:bool=False) 
 
     # Collect inverse values
     if gaussApprox:
-        iprimeGuessTop:torch.Tensor = ((x - 3) / 4).type(torch.int64)
-        iprimeGuessBot:torch.Tensor = ((x + 3) / 4).type(torch.int64)
+        iprimeGuessTop:torch.Tensor = ((x - 3.) / 4.).type(torch.int64)
+        iprimeGuessBot:torch.Tensor = ((x + 3.) / 4.).type(torch.int64)
     else:
-        iprimeGuessTop:torch.Tensor = ((x - 1) / 6).type(torch.int64)
-        iprimeGuessBot:torch.Tensor = ((x + 1) / 6).type(torch.int64)
+        iprimeGuessTop:torch.Tensor = ((x - 1.) / 6.).type(torch.int64)
+        iprimeGuessBot:torch.Tensor = ((x + 1.) / 6.).type(torch.int64)
     iprimeGuessTop = torch.stack((iprimeGuessTop, iprimeGuessTop+1), dim=-1)
     iprimeGuessBot = torch.stack((iprimeGuessBot, iprimeGuessBot+1), dim=-1)
 
-    # Test nearest values
+    # Compute nearest values
     if gaussApprox:
         primishTop:torch.Tensor = (iprimeGuessTop * 4) + 3
         primishBot:torch.Tensor = (iprimeGuessBot * 4) - 3
     else:
         primishTop:torch.Tensor = (iprimeGuessTop * 6) + 1
         primishBot:torch.Tensor = (iprimeGuessBot * 6) - 1
-    primish:torch.Tensor = torch.cat((primishTop, primishBot), dim=-1).sort(dim=-1)[0]
-    xish:torch.Tensor = torch.ones_like(primish) * x.unsqueeze(-1)
 
-    # Determine the distance
-    lowidx:torch.Tensor = torch.nonzero(xish >= primish)[0].max(dim=-1)[0]
-    highidx:torch.Tensor = torch.nonzero(xish < primish)[0].min(dim=-1)[0]
-    low:torch.Tensor = primish.index_select(dim=-1, index=lowidx).squeeze(0)
-    high:torch.Tensor = primish.index_select(dim=-1, index=highidx).squeeze(0)
+    # Collect the primes into one tensor, add the special primes to the tensor, sort
+    primish:torch.Tensor = torch.cat((primishTop, primishBot), dim=-1)
+    specialPrimes:torch.Tensor = torch.ones_like(primish)[...,:4] * torch.tensor([-1, 1, 2, 3])
+    primish = torch.cat((primish, specialPrimes), dim=-1)
+    primish = primish.sort(dim=-1, descending=False).values
+
+    # Find the closest prime approximates
+    xish:torch.Tensor = torch.ones_like(primish) * x.unsqueeze(-1)
+    lowidx:torch.Tensor = (xish >= primish).type(dtype=x.dtype)
+    highidx:torch.Tensor = (xish < primish).type(dtype=x.dtype)
+    low:torch.Tensor = ((primish * lowidx) + ((1 - lowidx) * primish[...,0].unsqueeze(-1))).max(dim=-1).values
+    high:torch.Tensor = ((primish * highidx) + ((1 - highidx) * primish[...,-1].unsqueeze(-1))).min(dim=-1).values
     totalDistance:torch.Tensor = high - low
     lowDist:torch.Tensor = x - low
     highDist:torch.Tensor = high - x
@@ -124,7 +133,7 @@ def realprimishdist(x:torch.Tensor, relative:bool=True, gaussApprox:bool=False) 
     # Turn into one tensor
     result:torch.Tensor = (highLower.type(torch.int64) * highDist) + ((1 - highLower.type(torch.int64)) * lowDist)
     if relative:
-        result.div_(totalDistance / 2) # Only ever traversing maximum half of the space
+        result.div_(totalDistance / 2) # Only ever traversing half of the maximum space
     
     return result
 

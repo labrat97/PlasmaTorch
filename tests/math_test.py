@@ -248,12 +248,12 @@ class PrimishDistTest(unittest.TestCase):
     
     def testValuesReal(self):
         # Generate the control tensors
-        tprimes = torch.Tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).type(dtype=DEFAULT_DTYPE)
-        tapres =   torch.Tensor([1, 0, 0, 0, 1, 0, 1, 0, 1, 2]).type(dtype=DEFAULT_DTYPE)
-        trpres =   torch.Tensor([1, 0, 0, 0, 1, 0, 1, 0, 1/2.5, 2/2.5]).type(dtype=DEFAULT_DTYPE)
-        tgrimes = torch.Tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).type(dtype=DEFAULT_DTYPE)
-        tagres =   torch.Tensor([1, 0, 0, 0, 1, 0, 1, 0, 1, 0]).type(dtype=DEFAULT_DTYPE)
-        trgres =   torch.Tensor([1, 0, 0, 0, 1, 0, 1, 0, 1, 0]).type(dtype=DEFAULT_DTYPE)
+        tprimes = torch.tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, ]).type(dtype=DEFAULT_DTYPE)
+        tapres =   torch.tensor([1, 0, 0, 0, 1, 0, 1, 0, 1, 2]).type(dtype=DEFAULT_DTYPE)
+        trpres =   torch.tensor([1, 0, 0, 0, 1, 0, 1, 0, 1/2., 1]).type(dtype=DEFAULT_DTYPE)
+        tgrimes = torch.tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).type(dtype=DEFAULT_DTYPE)
+        tagres =   torch.tensor([1, 0, 0, 0, 1, 0, 1, 0, 1, 0]).type(dtype=DEFAULT_DTYPE)
+        trgres =   torch.tensor([1, 0, 0, 0, 1, 0, 1, 0, 1, 0]).type(dtype=DEFAULT_DTYPE)
 
         # Compute
         apres = realprimishdist(tprimes, relative=False, gaussApprox=False)
