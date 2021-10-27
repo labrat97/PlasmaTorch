@@ -125,7 +125,8 @@ def realprimishdist(x:torch.Tensor, relative:bool=True, gaussApprox:bool=False) 
     highidx:torch.Tensor = (xish < primish).type(dtype=x.dtype)
     low:torch.Tensor = ((primish * lowidx) + ((1 - lowidx) * primish[...,0].unsqueeze(-1))).max(dim=-1).values
     high:torch.Tensor = ((primish * highidx) + ((1 - highidx) * primish[...,-1].unsqueeze(-1))).min(dim=-1).values
-    totalDistance:torch.Tensor = high - low
+    
+    # Calculate approach distance to nearest primes
     lowDist:torch.Tensor = x - low
     highDist:torch.Tensor = high - x
     highLower:torch.Tensor = highDist < lowDist
@@ -133,25 +134,40 @@ def realprimishdist(x:torch.Tensor, relative:bool=True, gaussApprox:bool=False) 
     # Turn into one tensor
     result:torch.Tensor = (highLower.type(torch.int64) * highDist) + ((1 - highLower.type(torch.int64)) * lowDist)
     if relative:
-        result.div_(totalDistance / 2) # Only ever traversing half of the maximum space
+        # Only ever traversing half of the maximum space
+        totalDistance:torch.Tensor = (high - low) / 2
+        result.div_(totalDistance / 2) 
     
     return result
 
 @torch.jit.script
 def gaussianprimishdist(x:torch.Tensor, relative:bool=True) -> torch.Tensor:
+    # Force complex type
     if not torch.is_complex(x):
         x = toComplex(x)
 
+    # Extract values to compute against
     real = x.real
     imag = x.imag
     gauss = (x.real * x.real) + (x.imag * x.imag)
 
+    # Simple first distance calculation for the magnitude
     gaussdist = torch.sqrt(realprimishdist(gauss, relative=relative, gaussApprox=False))
-    realdistgauss = realprimishdist(real, relative=relative, gaussApprox=True)
-    imagdistgauss = realprimishdist(imag, relative=relative, gaussApprox=True)
 
-    magnitudePerc = realdistgauss.max(other=imagdistgauss)
-    return magnitudePerc.max(other=gaussdist)
+    # Calculate the other distances
+    rdgauss = realprimishdist(real, relative=True, gaussApprox=True)
+    idgauss = realprimishdist(imag, relative=True, gaussApprox=True)
+    # 4k +- 3 leaves only a space of 2 between normal values
+    # To normalize, divide by the size of the space (which is 2)
+    rdgaussi = imag.abs() / 2
+    idgaussi = real.abs() / 2
+    # Raw distance function
+    rdcomposite = torch.sqrt((rdgauss * rdgauss) + (rdgaussi * rdgaussi))
+    idcomposite = torch.sqrt((idgauss * idgauss) + (idgaussi * idgaussi))
+
+    # Take the minimum distance
+    magnitudePerc = rdcomposite.min(other=idcomposite)
+    return magnitudePerc.min(other=gaussdist)
     
 @torch.jit.script
 def iprimishdist(x:torch.Tensor, relative:bool=True) -> torch.Tensor:
