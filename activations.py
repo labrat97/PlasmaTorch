@@ -160,9 +160,12 @@ class Ringing(nn.Module):
     self.signalDecay = nn.Parameter(torch.ones((1), dtype=dtype) * DECAY_SEED)
 
   def __createOutputSignal(self, xfft:torch.Tensor, posLow:torch.Tensor, posHigh:torch.Tensor, posMix:torch.Tensor) -> torch.Tensor:
+    # Create tensor for constructing output
     yfft = torch.zeros_like(xfft)
-    yfft[..., posLow] = (1 - posMix) * self.forkVals
-    yfft[..., posHigh] = posMix * self.forkVals
+
+    # Apply fork signals to appropriate locations
+    yfft[..., posLow] += (1 - posMix) * self.forkVals
+    yfft[..., posHigh] += posMix * self.forkVals
     yfft.add_(xfft * isigmoid(self.signalDecay))
 
     return yfft
@@ -183,9 +186,10 @@ class Ringing(nn.Module):
 
   def view(self, samples:int=DEFAULT_FFT_SAMPLES, irfft:bool=False) -> torch.Tensor:
     # Generate metadata needed to create the output signal
+    assert samples >= 1
     positions = isigmoid(self.forkPos) * (samples - 1)
     posLow = positions.type(torch.int64)
-    posHigh = posLow + 1
+    posHigh = (posLow + 1).clamp_max(samples - 1)
     posMix = positions - posLow
     xfft = torch.zeros((samples), dtype=self.forkVals.dtype)
 
@@ -205,7 +209,7 @@ class Ringing(nn.Module):
 
     # Extract the target parameters from the signal
     posLow = positions.type(torch.int64)
-    posHigh = posLow + 1
+    posHigh = (posLow + 1).clamp_max(xsamples - 1)
     posMix = positions - posLow # [1, 0] -> [HIGH, 1-LOW]
     xvals = ((1 - posMix) * xfft[..., posLow]) + (posMix * xfft[..., posHigh])
 
