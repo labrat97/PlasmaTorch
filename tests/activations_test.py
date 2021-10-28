@@ -391,7 +391,7 @@ class KnotTest(unittest.TestCase):
 
 
 class RingingTest(unittest.TestCase):
-    def testSizing(self):
+    def testForwardSizing(self):
         # Generate random sizing
         SIZELEN:int = randint(6, 10)
         FORK_DISP:int = randint(0, 5)
@@ -424,3 +424,51 @@ class RingingTest(unittest.TestCase):
         self.assertEqual(x.size(), sxc.size())
         self.assertEqual(x.size(), sxrr.size())
         self.assertEqual(x.size(), sxcr.size())
+
+    def testViewSizing(self):
+        # Generate random sizing
+        SAMPLES = randint(10, 1024)
+        FORKS = (randint(1, 10))
+        
+        # Generate the control tensor to test against
+        x = torch.randn((SAMPLES), dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Construct the required classes for Ringing and testing
+        ring = Ringing(forks=FORKS, dtype=DEFAULT_DTYPE)
+        ringc = Ringing(forks=FORKS, dtype=DEFAULT_COMPLEX_DTYPE)
+        _ = ring.forward(x)
+        _ = ringc.forward(x)
+
+        # FFT Sample Generation from the view function should also be consist
+        vrc = ring.view(samples=SAMPLES, irfft=False)
+        vrr = ring.view(samples=SAMPLES, irfft=True)
+        vcc = ringc.view(samples=SAMPLES, irfft=False)
+        vcr = ringc.view(samples=SAMPLES, irfft=True)
+
+        # Make sure that all of the lengths that come out have the appropriate samples and dims
+        self.assertTrue(vrc.size() == vrr.size() == vcc.size() == vcr.size())
+        self.assertEqual(len(vrc.size()), 1)
+    
+    def testSmallSizing(self):
+        # Are these next tests useful to output? Not really from what I can see, however
+        # they are quite good for stability reasons
+        SAMPLES = 1
+        FORKS = randint(1, 3)
+
+        # Generate the control tensor to test against
+        x = torch.randn((SAMPLES), dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Construct the required classes for Ringing
+        ring = Ringing(forks=FORKS, dtype=DEFAULT_DTYPE)
+        ringc = Ringing(forks=FORKS, dtype=DEFAULT_COMPLEX_DTYPE)
+        
+        # Push values through
+        xr = ring.forward(x)
+        xc = ringc.forward(x)
+
+        # View the system
+        vr = ring.view(samples=SAMPLES)
+        vc = ringc.view(samples=SAMPLES)
+
+        # Assert that the sizes that come out are all (1)
+        self.assertTrue(xr.size() == xc.size() == vr.size() == vc.size() == (1))
