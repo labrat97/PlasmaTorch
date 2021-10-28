@@ -391,7 +391,7 @@ class KnotTest(unittest.TestCase):
 
 
 class RingingTest(unittest.TestCase):
-    def testSizing(self):
+    def testForwardSizing(self):
         # Generate random sizing
         SIZELEN:int = randint(6, 10)
         FORK_DISP:int = randint(0, 5)
@@ -424,3 +424,14 @@ class RingingTest(unittest.TestCase):
         self.assertEqual(x.size(), sxc.size())
         self.assertEqual(x.size(), sxrr.size())
         self.assertEqual(x.size(), sxcr.size())
+
+    def testViewSizing(self):
+        # FFT Sample Generation from the view function should also be consist
+        SAMPLES = randint(1, 1024)
+        vrc = ring.view(samples=SAMPLES, irfft=False)
+        vrr = ring.view(samples=SAMPLES, irfft=True)
+        vcc = ringc.view(samples=SAMPLES, irfft=False)
+        vcr = ringc.view(samples=SAMPLES, irfft=True)
+
+        self.assertTrue(vrc.size() == vrr.size() == vcc.size() == vcr.size())
+        self.assertEqual(len(vrc.size()), 1)
