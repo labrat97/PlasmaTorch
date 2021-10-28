@@ -500,7 +500,7 @@ class RingingTest(unittest.TestCase):
         xr = ring.forward(x, irfft=False, stopTime=False)
         xc = ringc.forward(x, irfft=False, stopTime=False)
         vr = ring.view(samples=x.size()[-1])
-        vc = ringc.view(samples.x.size()[-1])
+        vc = ringc.view(samples=x.size()[-1])
         xr2 = ring.forward(x, irfft=False, stopTime=False)
         xc2 = ringc.forward(x, irfft=False, stopTime=False)
         vr2 = ring.view(samples=x.size()[-1])
