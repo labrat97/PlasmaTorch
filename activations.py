@@ -166,7 +166,7 @@ class Ringing(nn.Module):
 
     return yfft
 
-  def view(self, samples:int=DEFAULT_FFT_SAMPLES, irfft:bool=True):
+  def view(self, samples:int=DEFAULT_FFT_SAMPLES, irfft:bool=False):
     # Generate metadata needed to create the output signal
     positions = isigmoid(self.forkPos) * (samples - 1)
     posLow = positions.type(torch.int64)
