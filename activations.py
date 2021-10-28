@@ -166,8 +166,22 @@ class Ringing(nn.Module):
     yfft.add_(xfft * isigmoid(self.signalDecay))
 
     return yfft
+  
+  def dampen(self, stop:bool=False):
+    # Don't modify in-place
+    result:torch.Tensor = self.forkVals
 
-  def view(self, samples:int=DEFAULT_FFT_SAMPLES, irfft:bool=False):
+    # If stopping, fully decaying
+    if stop:
+      self.forkVals = self.forkVals * 0
+    # Regular 1/phi() decay
+    else:
+      self.forkVals = self.forkVals * isigmoid(self.forkDecay)
+
+    return result
+    
+
+  def view(self, samples:int=DEFAULT_FFT_SAMPLES, irfft:bool=False) -> torch.Tensor:
     # Generate metadata needed to create the output signal
     positions = isigmoid(self.forkPos) * (samples - 1)
     posLow = positions.type(torch.int64)
