@@ -510,10 +510,8 @@ class RingingTest(unittest.TestCase):
         vr3 = ring.view(samples=x.size()[-1])
         vc3 = ringc.view(samples=x.size()[-1])
 
-        # Check for proper signal degredations
-        self.assertTrue(torch.all(((xr / x) - (1 / phi())).abs() < 1e-4), msg=f'xr/x ({(xr/x).abs()}) != 1/phi ({1/phi()})')
-        self.assertTrue(torch.all(((xc / x) - (1 / phi())).abs() < 1e-4), msg=f'xc/x ({(xc/x).abs()}) != 1/phi ({1/phi()})')
-        self.assertTrue(torch.all(((xr2 / xr) - (1 / phi())).abs() < 1e-4), msg=f'xr2/xr ({(xr2/xr).abs()}) != 1/phi ({1/phi()})')
-        self.assertTrue(torch.all(((xc2 / xc) - (1 / phi())).abs() < 1e-4), msg=f'xc2/xc ({(xc2/xc).abs()}) != 1/phi ({1/phi()})')
-        self.assertTrue(torch.all(((xr3 * phi()) - xr2).abs() < 1e-4), msg=f'xr2/xr3 ({(xr2/xr3).abs()}) != phi ({phi()})')
-        self.assertTrue(torch.all(((xc3 * phi()) - xc2).abs() < 1e-4), msg=f'xc2/xc3 ({(xc2/xc3).abs()}) != phi ({phi()}')
+        # Check for proper signal degredations on forks
+        self.assertTrue(torch.all(((vr2 / vr) - (1 / phi())).abs() < 1e-4), msg=f'xr/x ({(vr2/vr).abs()}) != 1/phi ({1/phi()})')
+        self.assertTrue(torch.all(((vc2 / vc) - (1 / phi())).abs() < 1e-4), msg=f'xc/x ({(vc2/vc).abs()}) != 1/phi ({1/phi()})')
+        self.assertTrue(torch.all(((vr3 / vr2) - (1 / phi())).abs() < 1e-4), msg=f'xr2/xr ({(vr3/vr2).abs()}) != 1/phi ({1/phi()})')
+        self.assertTrue(torch.all(((vc3 / vc2) - (1 / phi())).abs() < 1e-4), msg=f'xc2/xc ({(xc2/xc).abs()}) != 1/phi ({1/phi()})')
