@@ -426,12 +426,25 @@ class RingingTest(unittest.TestCase):
         self.assertEqual(x.size(), sxcr.size())
 
     def testViewSizing(self):
+        # Generate random sizing
+        SAMPLES = randint(10, 1024)
+        FORKS = (randint(1, 10))
+        
+        # Generate the control tensors to test against
+        x = torch.randn((SAMPLES), dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Construct the required classes for Ringing and testing
+        ring = Ringing(forks=FORKS, dtype=DEFAULT_DTYPE)
+        ringc = Ringing(forks=FORKS, dtype=DEFAULT_COMPLEX_DTYPE)
+        _ = ring.forward(x)
+        _ = ringc.forward(x)
+
         # FFT Sample Generation from the view function should also be consist
-        SAMPLES = randint(1, 1024)
         vrc = ring.view(samples=SAMPLES, irfft=False)
         vrr = ring.view(samples=SAMPLES, irfft=True)
         vcc = ringc.view(samples=SAMPLES, irfft=False)
         vcr = ringc.view(samples=SAMPLES, irfft=True)
 
+        # Make sure that all of the lengths that come out have the appropriate samples and dims
         self.assertTrue(vrc.size() == vrr.size() == vcc.size() == vcr.size())
         self.assertEqual(len(vrc.size()), 1)
