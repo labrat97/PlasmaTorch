@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as nnf
 
 from plasmatorch import *
+from random import randint
 
 class LissajousTest(unittest.TestCase):
     def testSizing(self):
@@ -387,3 +388,88 @@ class KnotTest(unittest.TestCase):
                 self.assertTrue(torch.all(cout[idx].real - stackedVal < 0.0001))
             else:
                 self.assertTrue(torch.all(cout[idx] - stackedVal < 0.0001))
+
+
+class RingingTest(unittest.TestCase):
+    def testForwardSizing(self):
+        # Generate random sizing
+        SIZELEN:int = randint(6, 10)
+        FORK_DISP:int = randint(0, 5)
+        FORKS:int = SIZELEN - FORK_DISP
+        SIZE = torch.Size((torch.randn((SIZELEN), dtype=DEFAULT_DTYPE) * SIZELEN).type(dtype=torch.int64).abs() + 1)
+        
+        # Generate the control tensors to test against
+        x = torch.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Construct the required classes for Ringing
+        ring = Ringing(forks=FORKS, dtype=DEFAULT_DTYPE)
+        ringc = Ringing(forks=FORKS, dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Compute the ringing results
+        xr = ring.forward(x, irfft=False, stopTime=False)
+        xc = ringc.forward(x, irfft=False, stopTime=False)
+        xrr = ring.forward(x, irfft=True, stopTime=False)
+        xcr = ringc.forward(x, irfft=True, stopTime=False)
+        sxr = ring.forward(x, irfft=False, stopTime=True)
+        sxc = ringc.forward(x, irfft=False, stopTime=True)
+        sxrr = ring.forward(x, irfft=True, stopTime=True)
+        sxcr = ringc.forward(x, irfft=True, stopTime=True)
+
+        # Make sure the sizes translated through properly
+        self.assertEqual(x.size(), xr.size())
+        self.assertEqual(x.size(), xc.size())
+        self.assertEqual(x.size(), xrr.size())
+        self.assertEqual(x.size(), xcr.size())
+        self.assertEqual(x.size(), sxr.size())
+        self.assertEqual(x.size(), sxc.size())
+        self.assertEqual(x.size(), sxrr.size())
+        self.assertEqual(x.size(), sxcr.size())
+
+    def testViewSizing(self):
+        # Generate random sizing
+        SAMPLES = randint(10, 1024)
+        FORKS = (randint(1, 10))
+        
+        # Generate the control tensor to test against
+        x = torch.randn((SAMPLES), dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Construct the required classes for Ringing and testing
+        ring = Ringing(forks=FORKS, dtype=DEFAULT_DTYPE)
+        ringc = Ringing(forks=FORKS, dtype=DEFAULT_COMPLEX_DTYPE)
+        _ = ring.forward(x)
+        _ = ringc.forward(x)
+
+        # FFT Sample Generation from the view function should also be consist
+        vrc = ring.view(samples=SAMPLES, irfft=False)
+        vrr = ring.view(samples=SAMPLES, irfft=True)
+        vcc = ringc.view(samples=SAMPLES, irfft=False)
+        vcr = ringc.view(samples=SAMPLES, irfft=True)
+
+        # Make sure that all of the lengths that come out have the appropriate samples and dims
+        self.assertTrue(vrc.size() == vrr.size() == vcc.size() == vcr.size())
+        self.assertEqual(len(vrc.size()), 1)
+    
+    def testSmallSizing(self):
+        # Are these next tests useful to output? Not really from what I can see, however
+        # they are quite good for stability reasons
+        SAMPLES:int = 1
+        FORKS:int = randint(1, 3)
+
+        # Generate the control tensor to test against
+        x = torch.randn((SAMPLES), dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Construct the required classes for Ringing
+        ring = Ringing(forks=FORKS, dtype=DEFAULT_DTYPE)
+        ringc = Ringing(forks=FORKS, dtype=DEFAULT_COMPLEX_DTYPE)
+        
+        # Push values through
+        xr = ring.forward(x)
+        xc = ringc.forward(x)
+
+        # View the system
+        vr = ring.view(samples=SAMPLES)
+        vc = ringc.view(samples=SAMPLES)
+
+        # Assert that the sizes that come out are all (1)
+        self.assertTrue(xr.size() == xc.size() == vr.size() == vc.size())
+        self.assertTrue(x.size() == xr.size())

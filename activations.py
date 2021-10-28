@@ -148,18 +148,60 @@ class Ringing(nn.Module):
     time is not really relevant here, this is actually dampening over forward iteration
     unless specified not to.
   """
-  def __init__(self, forks:int=DEFAULT_FFT_SAMPLES, forkHarmonicParameterWaves:int=DEFAULT_KNOT_WAVES, \
-    dtype:torch.dtype=DEFAULT_COMPLEX_DTYPE):
+  def __init__(self, forks:int=DEFAULT_FFT_SAMPLES, dtype:torch.dtype=DEFAULT_COMPLEX_DTYPE):
     super(Ringing, self).__init__()
 
     # The positions and values of the enclosed forks
+    forks = int(forks)
     DECAY_SEED = (-torch.log(phi() - 1)).type(dtype) # After a sigmoid eval this should come to 1/phi()
-    self.forkPos = nn.Parameter(toComplex(torch.zeros((forks), dtype=dtype, requires_grad=False)).real)
-    self.forkVals = nn.Parameter(toComplex(torch.zeros((forks), dtype=dtype, requires_grad=False)))
+    self.forkPos = nn.Parameter(toComplex(torch.zeros((forks), dtype=dtype)).real)
+    self.forkVals = toComplex(torch.zeros((forks), dtype=dtype, requires_grad=False))
     self.forkDecay = nn.Parameter(torch.ones((forks), dtype=dtype) * DECAY_SEED)
     self.signalDecay = nn.Parameter(torch.ones((1), dtype=dtype) * DECAY_SEED)
 
-  def forward(self, x:torch.Tensor, irfft:bool=False) -> torch.Tensor:
+  def __createOutputSignal(self, xfft:torch.Tensor, posLow:torch.Tensor, posHigh:torch.Tensor, posMix:torch.Tensor) -> torch.Tensor:
+    # Create tensor for constructing output
+    yfft = torch.zeros_like(xfft)
+
+    # Apply fork signals to appropriate locations
+    yfft[..., posLow] += (1 - posMix) * self.forkVals
+    yfft[..., posHigh] += posMix * self.forkVals
+    yfft.add_(xfft * isigmoid(self.signalDecay))
+
+    return yfft
+  
+  def dampen(self, stop:bool=False):
+    # Don't modify in-place
+    result:torch.Tensor = self.forkVals
+
+    # If stopping, fully decaying
+    if stop:
+      self.forkVals = self.forkVals * 0
+    # Regular 1/phi() decay
+    else:
+      self.forkVals = self.forkVals * isigmoid(self.forkDecay)
+
+    return result
+    
+
+  def view(self, samples:int=DEFAULT_FFT_SAMPLES, irfft:bool=False) -> torch.Tensor:
+    # Generate metadata needed to create the output signal
+    assert samples >= 1
+    positions = isigmoid(self.forkPos) * (samples - 1)
+    posLow = positions.type(torch.int64)
+    posHigh = (posLow + 1).clamp_max(samples - 1)
+    posMix = positions - posLow
+    xfft = torch.zeros((samples), dtype=self.forkVals.dtype)
+
+    # Generate the output signal
+    yfft = self.__createOutputSignal(xfft=xfft, posLow=posLow, posHigh=posHigh, posMix=posMix)
+
+    # Real or complex output
+    if irfft:
+      return torch.fft.irfft(yfft, n=samples, dim=-1)
+    return torch.fft.ifft(yfft, n=samples, dim=-1)
+
+  def forward(self, x:torch.Tensor, irfft:bool=False, stopTime:bool=False) -> torch.Tensor:
     # Gather parameters needed to have some light attention to the tunes coming in
     xfft = torch.fft.fft(x, dim=-1)
     xsamples = x.size()[-1]
@@ -167,18 +209,17 @@ class Ringing(nn.Module):
 
     # Extract the target parameters from the signal
     posLow = positions.type(torch.int64)
-    posHigh = posLow + 1
+    posHigh = (posLow + 1).clamp_max(xsamples - 1)
     posMix = positions - posLow # [1, 0] -> [HIGH, 1-LOW]
     xvals = ((1 - posMix) * xfft[..., posLow]) + (posMix * xfft[..., posHigh])
 
     # Add the input signals to the enclosed signals
-    self.forkVals = (self.forkVals * isigmoid(self.forkDecay)) + xvals
+    forkVals = (self.forkVals * isigmoid(self.forkDecay)) + xvals
+    if not stopTime:
+      self.forkVals = forkVals
     
     # Create the output signal
-    yfft = torch.zeros_like(xfft)
-    yfft[..., posLow] = (1 - posMix) * self.forkVals
-    yfft[..., posHigh] = posMix * self.forkVals
-    yfft.add_(xfft * isigmoid(self.signalDecay))
+    yfft = self.__createOutputSignal(xfft=xfft, posLow=posLow, posHigh=posHigh, posMix=posMix)
 
     # Real or complex output
     if irfft:
