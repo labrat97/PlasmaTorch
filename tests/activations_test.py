@@ -430,7 +430,7 @@ class RingingTest(unittest.TestCase):
         SAMPLES = randint(10, 1024)
         FORKS = (randint(1, 10))
         
-        # Generate the control tensors to test against
+        # Generate the control tensor to test against
         x = torch.randn((SAMPLES), dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Construct the required classes for Ringing and testing
@@ -448,3 +448,27 @@ class RingingTest(unittest.TestCase):
         # Make sure that all of the lengths that come out have the appropriate samples and dims
         self.assertTrue(vrc.size() == vrr.size() == vcc.size() == vcr.size())
         self.assertEqual(len(vrc.size()), 1)
+    
+    def testSmallSizing(self):
+        # Are these next tests useful to output? Not really from what I can see, however
+        # they are quite good for stability reasons
+        SAMPLES = 1
+        FORKS = randint(1, 3)
+
+        # Generate the control tensor to test against
+        x = torch.randn((SAMPLES), dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Construct the required classes for Ringing
+        ring = Ringing(forks=FORKS, dtype=DEFAULT_DTYPE)
+        ringc = Ringing(forks=FORKS, dtype=DEFAULT_COMPLEX_DTYPE)
+        
+        # Push values through
+        xr = ring.forward(x)
+        xc = ringc.forward(x)
+
+        # View the system
+        vr = ring.view(samples=SAMPLES)
+        vc = ringc.view(samples=SAMPLES)
+
+        # Assert that the sizes that come out are all (1)
+        self.assertTrue(xr.size() == xc.size() == vr.size() == vc.size() == (1))
