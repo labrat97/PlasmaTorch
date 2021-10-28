@@ -452,8 +452,8 @@ class RingingTest(unittest.TestCase):
     def testSmallSizing(self):
         # Are these next tests useful to output? Not really from what I can see, however
         # they are quite good for stability reasons
-        SAMPLES = 1
-        FORKS = randint(1, 3)
+        SAMPLES:int = 1
+        FORKS:int = randint(1, 3)
 
         # Generate the control tensor to test against
         x = torch.randn((SAMPLES), dtype=DEFAULT_COMPLEX_DTYPE)
@@ -471,4 +471,5 @@ class RingingTest(unittest.TestCase):
         vc = ringc.view(samples=SAMPLES)
 
         # Assert that the sizes that come out are all (1)
-        self.assertTrue(xr.size() == xc.size() == vr.size() == vc.size() == (1))
+        self.assertTrue(xr.size() == xc.size() == vr.size() == vc.size())
+        self.assertTrue(x.size() == xr.size())
