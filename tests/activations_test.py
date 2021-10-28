@@ -393,10 +393,10 @@ class KnotTest(unittest.TestCase):
 class RingingTest(unittest.TestCase):
     def testSizing(self):
         # Generate random sizing
-        SIZELEN = randint(3, 10)
-        FORK_DISP:int = (randint(0, 30) * (SIZELEN - 2) / 30.) + 1
-        FORKS = SIZELEN - FORK_DISP
-        SIZE = torch.Size((torch.randn((SIZELEN), dtype=DEFAULT_DTYPE)).type(dtype=torch.int64).abs() + 1)
+        SIZELEN:int = randint(6, 10)
+        FORK_DISP:int = randint(0, 5)
+        FORKS:int = SIZELEN - FORK_DISP
+        SIZE = torch.Size((torch.randn((SIZELEN), dtype=DEFAULT_DTYPE) * SIZELEN).type(dtype=torch.int64).abs() + 1)
         
         # Generate the control tensors to test against
         x = torch.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
