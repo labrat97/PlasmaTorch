@@ -393,12 +393,34 @@ class KnotTest(unittest.TestCase):
 class RingingTest(unittest.TestCase):
     def testSizing(self):
         # Generate random sizing
-        SIZELEN = randint(1, 5)
+        SIZELEN = randint(3, 10)
+        FORK_DISP:int = (randint(0, 30) * (SIZELEN - 2) / 30.) + 1
+        FORKS = SIZELEN - FORK_DISP
         SIZE = torch.Size((torch.randn((SIZELEN), dtype=DEFAULT_DTYPE)).type(dtype=torch.int64).abs() + 1)
         
         # Generate the control tensors to test against
         x = torch.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
-        y = x.real
-        yc = toComplex(y)
+
+        # Construct the required classes for Ringing
+        ring = Ringing(forks=FORKS, dtype=DEFAULT_DTYPE)
+        ringc = Ringing(forks=FORKS, dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Compute the ringing results
+        xr = ring.forward(x, irfft=False, stopTime=False)
+        xc = ringc.forward(x, irfft=False, stopTime=False)
+        xrr = ring.forward(x, irfft=True, stopTime=False)
+        xcr = ringc.forward(x, irfft=True, stopTime=False)
+        sxr = ring.forward(x, irfft=False, stopTime=True)
+        sxc = ringc.forward(x, irfft=False, stopTime=True)
+        sxrr = ring.forward(x, irfft=True, stopTime=True)
+        sxcr = ringc.forward(x, irfft=True, stopTime=True)
+
+        # Make sure the sizes translated through properly
+        self.assertEqual(x.size(), xr.size())
+        self.assertEqual(x.size(), xc.size())
+        self.assertEqual(x.size(), xrr.size())
+        self.assertEqual(x.size(), xcr.size())
+        self.assertEqual(x.size(), sxr.size())
+        self.assertEqual(x.size(), sxc.size())
+        self.assertEqual(x.size(), sxrr.size())
+        self.assertEqual(x.size(), sxcr.size())
