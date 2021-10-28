@@ -148,8 +148,7 @@ class Ringing(nn.Module):
     time is not really relevant here, this is actually dampening over forward iteration
     unless specified not to.
   """
-  def __init__(self, forks:int=DEFAULT_FFT_SAMPLES, forkHarmonicParameterWaves:int=DEFAULT_KNOT_WAVES, \
-    dtype:torch.dtype=DEFAULT_COMPLEX_DTYPE):
+  def __init__(self, forks:int=DEFAULT_FFT_SAMPLES, dtype:torch.dtype=DEFAULT_COMPLEX_DTYPE):
     super(Ringing, self).__init__()
 
     # The positions and values of the enclosed forks
@@ -167,7 +166,7 @@ class Ringing(nn.Module):
 
     return yfft
 
-  def view(self, samples:int=DEFAULT_FFT_SAMPLES, irfft:bool=True):
+  def view(self, samples:int=DEFAULT_FFT_SAMPLES, irfft:bool=False):
     # Generate metadata needed to create the output signal
     positions = isigmoid(self.forkPos) * (samples - 1)
     posLow = positions.type(torch.int64)
