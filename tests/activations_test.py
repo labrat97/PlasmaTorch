@@ -393,11 +393,12 @@ class KnotTest(unittest.TestCase):
 class RingingTest(unittest.TestCase):
     def testForwardSizing(self):
         # Generate random sizing
-        SIZELEN:int = randint(6, 10)
+        SIZELEN:int = randint(1, 5)
+        SIZESCALAR:int = randint(6, 10)
         FORK_DISP:int = randint(0, 5)
-        FORKS:int = SIZELEN - FORK_DISP
-        SIZE = torch.Size((torch.randn((SIZELEN), dtype=DEFAULT_DTYPE) * SIZELEN).type(dtype=torch.int64).abs() + 1)
-        
+        SIZE = torch.Size(((torch.randn((SIZELEN), dtype=DEFAULT_DTYPE)).type(dtype=torch.int64).abs() + 1) * SIZESCALAR)
+        FORKS:int = SIZE[-1] - FORK_DISP
+
         # Generate the control tensors to test against
         x = torch.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
 
@@ -452,8 +453,8 @@ class RingingTest(unittest.TestCase):
     def testSmallSizing(self):
         # Are these next tests useful to output? Not really from what I can see, however
         # they are quite good for stability reasons
-        SAMPLES = 1
-        FORKS = randint(1, 3)
+        SAMPLES:int = 1
+        FORKS:int = randint(1, 3)
 
         # Generate the control tensor to test against
         x = torch.randn((SAMPLES), dtype=DEFAULT_COMPLEX_DTYPE)
@@ -471,4 +472,48 @@ class RingingTest(unittest.TestCase):
         vc = ringc.view(samples=SAMPLES)
 
         # Assert that the sizes that come out are all (1)
-        self.assertTrue(xr.size() == xc.size() == vr.size() == vc.size() == (1))
+        self.assertTrue(xr.size() == xc.size() == vr.size() == vc.size())
+        self.assertTrue(x.size() == xr.size())
+    
+    def testValues(self):
+        # Generate random sizing
+        SIZELEN:int = randint(1, 5)
+        SIZESCALAR:int = randint(6, 10)
+        FORK_DISP:int = 2
+        SIZE = torch.Size(((torch.randn((SIZELEN), dtype=DEFAULT_DTYPE)).type(dtype=torch.int64).abs() + 1) * SIZESCALAR)
+        FORKS:int = SIZE[-1] - FORK_DISP
+
+        # Generate the control tensors to test against
+        x = isigmoid(torch.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE))
+
+        # Construct the required classes for Ringing
+        ring = Ringing(forks=FORKS, dtype=DEFAULT_DTYPE)
+        ringc = Ringing(forks=FORKS, dtype=DEFAULT_COMPLEX_DTYPE)
+        v0r = ring.view(samples=x.size()[-1])
+        v0c = ringc.view(samples=x.size()[-1])
+
+        # Make sure there is no default ringing in the forks
+        self.assertTrue(torch.all(v0r.abs() < 1e-4), msg='Latent ringing with real initialization.')
+        self.assertTrue(torch.all(v0c.abs() < 1e-4), msg='Latent ringing with complex initalization.')
+
+        # Compute the ringing results
+        xr = ring.forward(x, irfft=False, stopTime=False)
+        xc = ringc.forward(x, irfft=False, stopTime=False)
+        vr = ring.view(samples=x.size()[-1])
+        vc = ringc.view(samples.x.size()[-1])
+        xr2 = ring.forward(x, irfft=False, stopTime=False)
+        xc2 = ringc.forward(x, irfft=False, stopTime=False)
+        vr2 = ring.view(samples=x.size()[-1])
+        vc2 = ringc.view(samples=x.size()[-1])
+        xr3 = ring.forward(torch.zeros_like(x), irfft=False, stopTime=False)
+        xc3 = ringc.forward(torch.zeros_like(x), irfft=False, stopTime=False)
+        vr3 = ring.view(samples=x.size()[-1])
+        vc3 = ringc.view(samples=x.size()[-1])
+
+        # Check for proper signal degredations
+        self.assertTrue(torch.all(((xr / x) - (1 / phi())).abs() < 1e-4), msg=f'xr/x ({(xr/x).abs()}) != 1/phi ({1/phi()})')
+        self.assertTrue(torch.all(((xc / x) - (1 / phi())).abs() < 1e-4), msg=f'xc/x ({(xc/x).abs()}) != 1/phi ({1/phi()})')
+        self.assertTrue(torch.all(((xr2 / xr) - (1 / phi())).abs() < 1e-4), msg=f'xr2/xr ({(xr2/xr).abs()}) != 1/phi ({1/phi()})')
+        self.assertTrue(torch.all(((xc2 / xc) - (1 / phi())).abs() < 1e-4), msg=f'xc2/xc ({(xc2/xc).abs()}) != 1/phi ({1/phi()})')
+        self.assertTrue(torch.all(((xr3 * phi()) - xr2).abs() < 1e-4), msg=f'xr2/xr3 ({(xr2/xr3).abs()}) != phi ({phi()})')
+        self.assertTrue(torch.all(((xc3 * phi()) - xc2).abs() < 1e-4), msg=f'xc2/xc3 ({(xc2/xc3).abs()}) != phi ({phi()}')
