@@ -277,7 +277,8 @@ class PrimishDistTest(unittest.TestCase):
     def testConsistencyGauss(self):
         # Generate random sizing
         SIZELEN = randint(1, 5)
-        SIZE = torch.Size((torch.randn((SIZELEN), dtype=DEFAULT_DTYPE)).type(dtype=torch.int64).abs() + 1)
+        SIZESCALAR = randint(1, 5)
+        SIZE = torch.Size(isigmoid(torch.randn((SIZELEN), dtype=DEFAULT_DTYPE)).type(dtype=torch.int64).abs() + 1) * SIZESCALAR
         
         # Generate the randomized control tensors
         trandr = torch.randn(SIZE, dtype=DEFAULT_DTYPE)
