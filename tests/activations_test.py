@@ -407,24 +407,16 @@ class RingingTest(unittest.TestCase):
         ringc = Ringing(forks=FORKS, dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Compute the ringing results
-        xr = ring.forward(x, irfft=False, stopTime=False)
-        xc = ringc.forward(x, irfft=False, stopTime=False)
-        xrr = ring.forward(x, irfft=True, stopTime=False)
-        xcr = ringc.forward(x, irfft=True, stopTime=False)
-        sxr = ring.forward(x, irfft=False, stopTime=True)
-        sxc = ringc.forward(x, irfft=False, stopTime=True)
-        sxrr = ring.forward(x, irfft=True, stopTime=True)
-        sxcr = ringc.forward(x, irfft=True, stopTime=True)
+        xr = ring.forward(x, stopTime=False)
+        xc = ringc.forward(x, stopTime=False)        
+        sxr = ring.forward(x, stopTime=True)
+        sxc = ringc.forward(x, stopTime=True)
 
         # Make sure the sizes translated through properly
         self.assertEqual(x.size(), xr.size())
         self.assertEqual(x.size(), xc.size())
-        self.assertEqual(x.size(), xrr.size())
-        self.assertEqual(x.size(), xcr.size())
         self.assertEqual(x.size(), sxr.size())
         self.assertEqual(x.size(), sxc.size())
-        self.assertEqual(x.size(), sxrr.size())
-        self.assertEqual(x.size(), sxcr.size())
 
     def testViewSizing(self):
         # Generate random sizing
@@ -441,14 +433,12 @@ class RingingTest(unittest.TestCase):
         _ = ringc.forward(x)
 
         # FFT Sample Generation from the view function should also be consist
-        vrc = ring.view(samples=SAMPLES, irfft=False)
-        vrr = ring.view(samples=SAMPLES, irfft=True)
-        vcc = ringc.view(samples=SAMPLES, irfft=False)
-        vcr = ringc.view(samples=SAMPLES, irfft=True)
+        vr = ring.view(samples=SAMPLES)
+        vc = ringc.view(samples=SAMPLES)
 
         # Make sure that all of the lengths that come out have the appropriate samples and dims
-        self.assertTrue(vrc.size() == vrr.size() == vcc.size() == vcr.size())
-        self.assertEqual(len(vrc.size()), 1)
+        self.assertTrue(vr.size() == vc.size())
+        self.assertEqual(len(vc.size()), 1)
     
     def testSmallSizing(self):
         # Are these next tests useful to output? Not really from what I can see, however
@@ -475,7 +465,7 @@ class RingingTest(unittest.TestCase):
         self.assertTrue(xr.size() == xc.size() == vr.size() == vc.size())
         self.assertTrue(x.size() == xr.size())
     
-    def testValues(self):
+    def testViewValues(self):
         # Generate random sizing
         SIZELEN:int = randint(1, 5)
         SIZESCALAR:int = randint(6, 10)
@@ -497,21 +487,75 @@ class RingingTest(unittest.TestCase):
         self.assertTrue(torch.all(v0c.abs() < 1e-4), msg='Latent ringing with complex initalization.')
 
         # Compute the ringing results
-        xr = ring.forward(x, irfft=False, stopTime=False)
-        xc = ringc.forward(x, irfft=False, stopTime=False)
+        _ = ring.forward(x, stopTime=False)
+        _ = ringc.forward(x, stopTime=False)
         vr = ring.view(samples=x.size()[-1])
         vc = ringc.view(samples=x.size()[-1])
-        xr2 = ring.forward(x, irfft=False, stopTime=False)
-        xc2 = ringc.forward(x, irfft=False, stopTime=False)
+        _ = ring.forward(x, stopTime=False)
+        _ = ringc.forward(x, stopTime=False)
         vr2 = ring.view(samples=x.size()[-1])
         vc2 = ringc.view(samples=x.size()[-1])
-        xr3 = ring.forward(torch.zeros_like(x), irfft=False, stopTime=False)
-        xc3 = ringc.forward(torch.zeros_like(x), irfft=False, stopTime=False)
+        _ = ring.forward(torch.zeros_like(x), stopTime=False)
+        _ = ringc.forward(torch.zeros_like(x), stopTime=False)
         vr3 = ring.view(samples=x.size()[-1])
         vc3 = ringc.view(samples=x.size()[-1])
 
         # Check for proper signal degredations on forks
-        self.assertTrue(torch.all(((vr2 / vr) - (1 / phi())).abs() < 1e-4), msg=f'xr/x ({(vr2/vr).abs()}) != 1/phi ({1/phi()})')
-        self.assertTrue(torch.all(((vc2 / vc) - (1 / phi())).abs() < 1e-4), msg=f'xc/x ({(vc2/vc).abs()}) != 1/phi ({1/phi()})')
-        self.assertTrue(torch.all(((vr3 / vr2) - (1 / phi())).abs() < 1e-4), msg=f'xr2/xr ({(vr3/vr2).abs()}) != 1/phi ({1/phi()})')
-        self.assertTrue(torch.all(((vc3 / vc2) - (1 / phi())).abs() < 1e-4), msg=f'xc2/xc ({(xc2/xc).abs()}) != 1/phi ({1/phi()})')
+        self.assertTrue(torch.all((vr2 - (vr * phi())).abs() < 1e-4), \
+            msg=f'build degredation: vr2/vr ({(vr2/vr).abs()}) != phi ({phi()})')
+        self.assertTrue(torch.all((vc2 - (vc * phi())).abs() < 1e-4), \
+            msg=f'build degredation: vc2/vc ({(vc2/vc).abs()}) != phi ({phi()})')
+        self.assertTrue(torch.all((vr3 - (vr2 * (1/phi()))).abs() < 1e-4), \
+            msg=f'decay degredation: vr3/vr2 ({(vr3/vr2).abs()}) != 1/phi ({1/phi()})')
+        self.assertTrue(torch.all((vc3 - (vc2 * (1/phi()))).abs() < 1e-4), \
+            msg=f'decay degredation: vc3/vc2 ({(vc3/vc2).abs()}) != 1/phi ({1/phi()})')
+
+    def testForwardValues(self):
+        # Generate random sizing
+        SIZELEN:int = randint(1, 5)
+        SIZESCALAR:int = randint(6, 10)
+        FORK_DISP:int = 2
+        SIZE = torch.Size(((torch.randn((SIZELEN), dtype=DEFAULT_DTYPE)).type(dtype=torch.int64).abs() + 1) * SIZESCALAR)
+        FORKS:int = SIZE[-1] - FORK_DISP
+
+        # Generate the control tensors
+        z = torch.zeros((SIZE), dtype=DEFAULT_COMPLEX_DTYPE)
+        o = torch.ones((SIZE), dtype=DEFAULT_COMPLEX_DTYPE)
+        r = torch.randn((SIZE), dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Construct the required classes for Ringing
+        ring = Ringing(forks=FORKS, dtype=DEFAULT_DTYPE)
+        ringc = Ringing(forks=FORKS, dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Do a latent oscillation test
+        z0r = ring.forward(z, stopTime=False)
+        z0c = ringc.forward(z, stopTime=False)
+        v0r = ring.view(samples=SIZE[0])
+        v0c = ringc.view(samples=SIZE[0])
+
+        # Make sure when applying no signal, no signals begin to seep
+        self.assertTrue(torch.all(z0r.abs() < 1e-4))
+        self.assertTrue(torch.all(z0c.abs() < 1e-4))
+        self.assertTrue(torch.all(v0r.abs() < 1e-4))
+        self.assertTrue(torch.all(v0c.abs() < 1e-4))
+
+        # Compute the ringing results
+        controlTensors = [z, o, r]
+        results = torch.zeros((len(controlTensors), 2, SIZE[0]), dtype=DEFAULT_COMPLEX_DTYPE)
+        resultsReg = torch.zeros_like(results)
+        for idx, control in enumerate(controlTensors):
+            results[idx, 0] = ring.forward(control, stopTime=True, regBatchInput=False)
+            results[idx, 1] = ringc.forward(control, stopTime=True, regBatchInput=False)
+            resultsReg[idx, 0] = ring.forward(control, stopTime=True, regBatchInput=True)
+            resultsReg[idx, 1] = ringc.forward(control, stopTime=True, regBatchInput=True)
+        
+        # Assert that the forward signal decay is appropriate (assuming view testing at different
+        #   times is working).
+        # If zeros start putting out any sort of signalling, something is really wrong
+        self.assertTrue(torch.all(results[0, :].abs() < 1e-4), \
+            msg=f'Zeros carrying noise for some reason.')
+        self.assertTrue(torch.all(resultsReg[0, :].abs() < 1e-4), \
+            msg=f'Regularized zeros are carrying noise for some reason.')
+        
+        # 
+        self.assertTrue(torch.all(results[1, 0]))
