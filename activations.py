@@ -171,17 +171,12 @@ class Ringing(nn.Module):
     return yfft
   
   def dampen(self, stop:bool=False):
-    # Don't modify in-place
-    result:torch.Tensor = self.forkVals
-
     # If stopping, fully decaying
     if stop:
       self.forkVals = self.forkVals * 0
     # Regular 1/phi() decay
     else:
       self.forkVals = self.forkVals * isigmoid(self.forkDecay)
-
-    return result
     
 
   def view(self, samples:int=DEFAULT_FFT_SAMPLES, irfft:bool=False) -> torch.Tensor:
@@ -196,9 +191,7 @@ class Ringing(nn.Module):
     # Generate the output signal
     yfft = self.__createOutputSignal(forks=self.forkVals, xfft=xfft, posLow=posLow, posHigh=posHigh, posMix=posMix)
 
-    # Real or complex output
-    if irfft:
-      return torch.fft.irfft(yfft, n=samples, dim=-1)
+    # Generate the output signal in the time domain according to the sample size
     return torch.fft.ifft(yfft, n=samples, dim=-1)
 
   def forward(self, x:torch.Tensor, stopTime:bool=False, regBatchInput:bool=True) -> torch.Tensor:
