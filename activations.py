@@ -201,19 +201,28 @@ class Ringing(nn.Module):
       return torch.fft.irfft(yfft, n=samples, dim=-1)
     return torch.fft.ifft(yfft, n=samples, dim=-1)
 
-  def forward(self, x:torch.Tensor, irfft:bool=False, stopTime:bool=False, regBatchInput:bool=True) -> torch.Tensor:
+  def forward(self, x:torch.Tensor, stopTime:bool=False, regBatchInput:bool=True) -> torch.Tensor:
     # Gather parameters needed to have some light attention to the tunes coming in
     xfft = torch.fft.fft(x, dim=-1)
     xsamples = x.size()[-1]
     positions = isigmoid(self.forkPos) * (xsamples - 1)
 
-    # Extract the target parameters from the signal
+    # Extract the target parameters from the signal. In doing this, signal decay is avoided
+    #   only when applying to the forks. In all other parts of this function (parts not contributing
+    #   to the xvals->forkvals relationship), decay should be applied and represented/stored.
     posLow = positions.type(torch.int64)
     posHigh = (posLow + 1).clamp_max(xsamples - 1)
     posMix = positions - posLow # [1, 0] -> [HIGH, 1-LOW]
     xvals = ((1 - posMix) * xfft[..., posLow]) + (posMix * xfft[..., posHigh])
 
-    # Shift the x values to keep the order of the rows
+    # Shift the last value into the first position in order to preserve the supposed
+    #   sample count during evaluation. Iterate through the available dimensions to
+    #   preserve the order of the samples, but the least significant dimension should
+    #   be the most significant dimension.
+    # To account for the collapse of the potentially massive amount of signals 
+    #   coming in, the paramter regBatchInput (from the definition of the
+    #   method) if True averages out all of the signals per sample. Otherwise, all of the signals
+    #   added to the output with regularization left up to later implementation.
     xvals.transpose_(-1, 0)
     for idx in range(1, len(xvals.size()) - 1):
       xvals.transpose_(-1, idx)
@@ -225,7 +234,8 @@ class Ringing(nn.Module):
       for _ in range(len(xvals.size()) - 1):
         xvals.sum_(dim=1)
 
-    # Add the input signals to the enclosed signals
+    # Add the input signals to the enclosed signals, remember, xvals doesn't decay
+    #   here, the recurrent fork values do.
     forkVals = ((self.forkVals * isigmoid(self.forkDecay)) + xvals)
     if not stopTime:
       self.forkVals = forkVals
@@ -233,7 +243,5 @@ class Ringing(nn.Module):
     # Create the output signal
     yfft = self.__createOutputSignal(forks=forkVals, xfft=xfft, posLow=posLow, posHigh=posHigh, posMix=posMix)
 
-    # Real or complex output
-    if irfft:
-      return torch.fft.irfft(yfft, n=xsamples, dim=-1)
+    # Return constructed signal
     return torch.fft.ifft(yfft, n=xsamples, dim=-1)
