@@ -47,10 +47,10 @@ class ComplexQualiaTest(unittest.TestCase):
         xc = torch.randn(self.SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Calculate results
-        mag = imagnitude(x)
-        magc = imagnitude(xc)
-        pol = ipolarization(x)
-        polc = ipolarization(xc)
+        mag = torch.abs(x)
+        magc = torch.abs(xc)
+        pol = torch.angle(x)
+        polc = torch.angle(xc)
 
         # Test that the values have the same size
         self.assertEqual(x.size(), mag.size(), msg=f'{x.size()} != {mag.size()}')
@@ -68,12 +68,12 @@ class ComplexQualiaTest(unittest.TestCase):
         root2 = torch.view_as_complex(torch.stack((ones, ones), dim=-1))
 
         # Run the calculations
-        zmag = imagnitude(zeros)
-        zmagc = imagnitude(zerosc)
-        omag = imagnitude(ones)
-        omagc = imagnitude(onesc)
-        imagc = imagnitude(imag)
-        rmag = imagnitude(root2)
+        zmag = torch.abs(zeros)
+        zmagc = torch.abs(zerosc)
+        omag = torch.abs(ones)
+        omagc = torch.abs(onesc)
+        imagc = torch.abs(imag)
+        rmag = torch.abs(root2)
 
         # Check the values
         self.assertTrue(torch.all(zmag == 0))
@@ -93,12 +93,12 @@ class ComplexQualiaTest(unittest.TestCase):
         root2 = torch.view_as_complex(torch.stack((ones, ones), dim=-1))
 
         # Run the calculations
-        zpol = ipolarization(zeros)
-        zpolc = ipolarization(zerosc)
-        opol = ipolarization(ones)
-        opolc = ipolarization(onesc)
-        ipol = ipolarization(imag)
-        iroot2 = ipolarization(root2)
+        zpol = torch.angle(zeros)
+        zpolc = torch.angle(zerosc)
+        opol = torch.angle(ones)
+        opolc = torch.angle(onesc)
+        ipol = torch.angle(imag)
+        iroot2 = torch.angle(root2)
 
         # Check the values
         self.assertTrue(torch.all(zpol == zeros))
@@ -144,10 +144,10 @@ class SoftmaxTest(unittest.TestCase):
         self.assertTrue(torch.all(y0 == torch.softmax(x, dim=0)))
 
         # Test to make sure that the magnitudes are softmax'd
-        self.assertTrue(torch.all(ipolarization(xc) - ipolarization(yc) < 0.0001))
-        self.assertTrue(torch.all(ipolarization(xc) - ipolarization(yc0) < 0.0001))
-        self.assertTrue(torch.all(torch.softmax(imagnitude(xc), dim=-1) - imagnitude(yc) < 0.0001))
-        self.assertTrue(torch.all(torch.softmax(imagnitude(xc), dim=0) - imagnitude(yc0) < 0.0001))
+        self.assertTrue(torch.all(torch.angle(xc) - torch.angle(yc) < 0.0001))
+        self.assertTrue(torch.all(torch.angle(xc) - torch.angle(yc0) < 0.0001))
+        self.assertTrue(torch.all(torch.softmax(torch.abs(xc), dim=-1) - torch.abs(yc) < 0.0001))
+        self.assertTrue(torch.all(torch.softmax(torch.abs(xc), dim=0) - torch.abs(yc0) < 0.0001))
 
 class TrigTest(unittest.TestCase):
     SIZE = (11, 23, 1024, 3)
