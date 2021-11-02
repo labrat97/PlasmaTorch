@@ -514,14 +514,14 @@ class RingingTest(unittest.TestCase):
         # Generate random sizing
         SIZELEN:int = randint(1, 5)
         SIZESCALAR:int = randint(6, 10)
-        FORK_DISP:int = 2
+        FORK_DISP:int = 5
         SIZE = torch.Size(((torch.randn((SIZELEN), dtype=DEFAULT_DTYPE)).type(dtype=torch.int64).abs() + 1) * SIZESCALAR)
         FORKS:int = SIZE[-1] - FORK_DISP
 
         # Generate the control tensors
-        z = torch.zeros((SIZE), dtype=DEFAULT_COMPLEX_DTYPE)
-        o = torch.ones((SIZE), dtype=DEFAULT_COMPLEX_DTYPE)
-        r = torch.randn((SIZE), dtype=DEFAULT_COMPLEX_DTYPE)
+        z = torch.zeros(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+        o = torch.ones(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+        r = torch.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Construct the required classes for Ringing
         ring = Ringing(forks=FORKS, dtype=DEFAULT_DTYPE)
@@ -530,8 +530,8 @@ class RingingTest(unittest.TestCase):
         # Do a latent oscillation test
         z0r = ring.forward(z, stopTime=False)
         z0c = ringc.forward(z, stopTime=False)
-        v0r = ring.view(samples=SIZE[0])
-        v0c = ringc.view(samples=SIZE[0])
+        v0r = ring.view(samples=SIZE[-1])
+        v0c = ringc.view(samples=SIZE[-1])
 
         # Make sure when applying no signal, no signals begin to seep
         self.assertTrue(torch.all(z0r.abs() < 1e-4))
@@ -541,7 +541,7 @@ class RingingTest(unittest.TestCase):
 
         # Compute the ringing results
         controlTensors = [z, o, r]
-        results = torch.zeros((len(controlTensors), 2, SIZE[0]), dtype=DEFAULT_COMPLEX_DTYPE)
+        results = torch.zeros((len(controlTensors), 2, *SIZE), dtype=DEFAULT_COMPLEX_DTYPE)
         resultsReg = torch.zeros_like(results)
         for idx, control in enumerate(controlTensors):
             results[idx, 0] = ring.forward(control, stopTime=True, regBatchInput=False)
@@ -557,5 +557,31 @@ class RingingTest(unittest.TestCase):
         self.assertTrue(torch.all(resultsReg[0, :].abs() < 1e-4), \
             msg=f'Regularized zeros are carrying noise for some reason.')
         
-        # 
-        self.assertTrue(torch.all(results[1, 0]))
+        # The output signal of the ringing should look something along the lines of
+        #   the input signal multiplied by some decay between (0., 1.), added to a
+        #   a set of tuning forks linearly positionined and mixed into an appropriately
+        #   sized/sampled output tensor. The lower bound of the multiple from the input
+        #   should be roughly 1/phi, with the top bound being roughly phi (1 + (1/phi)).
+        sumControl = []
+        meanControl = []
+        for idx, control in enumerate(controlTensors):
+            # Create copies for output
+            tempSum = torch.ones_like(control) * control
+            tempMean = torch.ones_like(control) * control
+
+            # Regularize for testing
+            for _ in range(len(tempSum.size()) - 1):
+                tempSum = torch.sum(tempSum, dim=1)
+                tempMean = torch.mean(tempMean, dim=1)
+
+            # Add to test sets
+            sumControl.append(tempSum)
+            meanControl.append(tempMean)
+        # Run tests for prior tensors accordingly
+        for idx in range(1, len(controlTensors)):
+            sControl = sumControl[idx]
+            mControl = meanControl[idx]
+            self.assertTrue(torch.all((results[idx, :] - ((1/phi()) * controlTensors[idx])).abs() - sControl[idx].abs() < 1e-4), \
+                msg=f'A value higher than a non-regularized value added to the forks has appeared.\n{results[idx, :] - ((1/phi()) * controlTensors[idx]) - sControl[idx]}')
+            self.assertTrue(torch.all((resultsReg[idx, :] - ((1/phi()) * controlTensors[idx])).abs() - mControl[idx].abs() < 1e-4), \
+                msg=f'A value higher than a regularized value added to the forks has appeared.\n{resultsReg[idx, :] - ((1/phi()) * controlTensors[idx]) - mControl[idx]}')
