@@ -208,24 +208,21 @@ class Ringing(nn.Module):
     posMix = positions - posLow # [1, 0] -> [HIGH, 1-LOW]
     xvals = ((1 - posMix) * xfft[..., posLow]) + (posMix * xfft[..., posHigh])
 
-    # Shift the last value into the first position in order to preserve the supposed
-    #   sample count during evaluation. Iterate through the available dimensions to
-    #   preserve the order of the samples, but the least significant dimension should
-    #   be the most significant dimension.
     # To account for the collapse of the potentially massive amount of signals 
     #   coming in, the paramter regBatchInput (from the definition of the
     #   method) if True averages out all of the signals per sample. Otherwise, all of the signals
     #   added to the output with regularization left up to later implementation.
-    xvals.transpose_(-1, 0)
-    for idx in range(1, len(xvals.size()) - 1):
-      xvals.transpose_(-1, idx)
-    # Both of the batch handling functions shift left
-    if regBatchInput:
-      for _ in range(len(xvals.size()) - 1):
-        xvals = torch.mean(xvals, dim=1)
-    else:
-      for _ in range(len(xvals.size()) - 1):
-        xvals.sum_(dim=1)
+    if len(xvals.size()) > 1:
+      # Turn the samples to the most significant dimension
+      xvals.transpose_(-1, 0)
+
+      # Both of the batch handling functions shift left
+      if regBatchInput:
+        for _ in range(len(xvals.size()) - 1):
+          xvals = torch.mean(xvals, dim=1)
+      else:
+        for _ in range(len(xvals.size()) - 1):
+          xvals = torch.sum(xvals, dim=1)
 
     # Add the input signals to the enclosed signals, remember, xvals doesn't decay
     #   here, the recurrent fork values do.
