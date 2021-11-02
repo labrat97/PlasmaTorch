@@ -8,6 +8,7 @@ from .math import *
 from typing import List
 
 
+@torch.jit.script
 def lissajous(x:torch.Tensor, freqs:torch.Tensor, phases:torch.Tensor, oneD:bool = True):
   assert freqs.size() == phases.size()
   
