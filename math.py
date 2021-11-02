@@ -15,6 +15,10 @@ def phi() -> torch.Tensor:
     return (one + square) / 2
 
 @torch.jit.script
+def asigphi() -> torch.Tensor:
+    return -torch.log(phi() - 1)
+
+@torch.jit.script
 def xbias(n:int, bias:int=0):
     composer = torch.triu(torch.ones((n, n)), diagonal=1-bias)
     return composer.transpose(-1,-2).sum(dim=-1)

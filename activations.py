@@ -154,7 +154,7 @@ class Ringing(nn.Module):
 
     # The positions and values of the enclosed forks
     forks = int(forks)
-    DECAY_SEED = (-torch.log(phi() - 1)).type(dtype) # After a sigmoid eval this should come to 1/phi()
+    DECAY_SEED = (asigphi()).type(dtype) # After a sigmoid eval this should come to 1/phi()
     self.forkPos = nn.Parameter(toComplex(torch.zeros((forks), dtype=dtype)).real)
     self.forkVals = toComplex(torch.zeros((forks), dtype=dtype, requires_grad=False))
     self.forkDecay = nn.Parameter(torch.ones((forks), dtype=dtype) * DECAY_SEED)
