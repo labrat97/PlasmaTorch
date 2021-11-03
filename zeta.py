@@ -23,12 +23,23 @@ def __hzetaitr(s:t.Tensor, a:t.Tensor, n:Number) -> t.Tensor:
     return t.pow(n + a, -s)
 
 @torch.jit.script
-def hzeta(s:t.Tensor, a:t.Tensor, eps:t.Tensor, samples:int=DEFAULT_FFT_SAMPLES) -> torch.Tensor:
-    # Generate the starting data to give room for the result of the computation
+def hzeta(s:t.Tensor, a:t.Tensor, eps:t.Tensor, blankSamples:int=0, samples:int=DEFAULT_FFT_SAMPLES) -> torch.Tensor:
+    # Parameters for computation
     result:t.Tensor = t.zeros((*s.size(), samples))
-    result[..., 0] = __hzetaitr(s=s, a=a, n=0)
     epsig:t.Tensor = isigmoid(eps)
+    idx:int = 1
 
-    # Calculate each step of the system
-    for idx in range(1, samples):
-        result[..., idx] = __hzetaitr(s=s, a=a, n=idx) + (epsig * result[..., idx-1])
+    # Generate the first value without any summation
+    result[..., 0] = __hzetaitr(s=s, a=a, n=0)
+
+    # Ignore first set of steps in the system
+    for _ in range(blankSamples):
+        result[..., 0] = __hzetaitr(s=s, a=a, n=idx) + (epsig * result[..., 0])
+        idx += 1
+    
+    # Calculate each step of the system and store
+    for jdx in range(1, samples):
+        trueIdx = idx + jdx
+        result[..., jdx] = __hzetaitr(s=s, a=a, n=trueIdx) + (epsig * result[..., trueIdx-1])
+
+    return result
