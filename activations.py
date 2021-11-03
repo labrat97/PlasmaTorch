@@ -180,7 +180,7 @@ class Ringing(nn.Module):
       self.forkVals = self.forkVals * isigmoid(self.forkDecay)
     
 
-  def view(self, samples:int=DEFAULT_FFT_SAMPLES, irfft:bool=False) -> torch.Tensor:
+  def view(self, samples:int=DEFAULT_FFT_SAMPLES) -> torch.Tensor:
     # Generate metadata needed to create the output signal
     assert samples >= 1
     positions = isigmoid(self.forkPos) * (samples - 1)
