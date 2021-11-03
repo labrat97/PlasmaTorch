@@ -23,11 +23,30 @@ def __hzetaitr(s:t.Tensor, a:t.Tensor, n:Number) -> t.Tensor:
     return t.pow(n + a, -s)
 
 @t.jit.script
+def hzeta(s:t.Tensor, a:t.Tensor, res:Number, aeps:Number=1e-4, maxiter:int=1024):
+    # Make the result the size of the input
+    epsig:t.Tensor = isigmoid(t.tensor(res))
+    idx:int = 1
+
+    # Generate the first value
+    delta:t.Tensor = __hzetaitr(s=s, a=a, n=0)
+    result:t.Tensor = t.copy(delta)
+    keepGoing:t.Tensor = (delta.abs() >= aeps).type(torch.int64).nonzero()
+
+    # Progress each value forward to convergence or max iteration
+    while keepGoing.numel > 0 and idx < maxiter:
+        # Find and apply the changes according to the aeps variable
+        delta = __hzetaitr(s=s, a=a, n=idx)
+        result[keepGoing] = delta + (epsig * result[keepGoing])
+
+        # Keep the reduction iteration going
+        keepGoing:t.Tensor = (delta.abs() >= aeps).type(torch.int64).nonzero()
+        idx += 1
+
+    return result
+
+@t.jit.script
 def hzeta(s:t.Tensor, a:t.Tensor, res:Number, blankSamples:int=0, samples:int=DEFAULT_FFT_SAMPLES) -> torch.Tensor:
-    # Assertions before computation
-    ssize = s.size()
-    assert ssize == a.size()
-    
     # Make the result the size of the input with the output sample channels
     result:t.Tensor = t.zeros((*s.size(), samples))
 
@@ -45,23 +64,17 @@ def hzeta(s:t.Tensor, a:t.Tensor, res:Number, blankSamples:int=0, samples:int=DE
     
     # Calculate each step of the system and store
     for jdx in range(1, samples):
-        trueIdx = idx + jdx
-        result[..., jdx] = __hzetaitr(s=s, a=a, n=trueIdx) + (epsig * result[..., jdx-1])
+        result[..., jdx] = __hzetaitr(s=s, a=a, n=idx+jdx) + (epsig * result[..., jdx-1])
 
     return result
 
 @t.jit.script
 def __lerchitr(z:t.Tensor, s:t.Tensor, a:t.Tensor, n:Number) -> t.Tensor:
+    # All that's needed is an extra exponentiated multiple from the hzeta iterator
     return t.pow(z, n) * __hzetaitr(s=s, a=a, n=n)
 
 @t.jit.script
 def lerch(z:t.Tensor, s:t.Tensor, a:t.Tensor, res:Number, aeps:Number=1e-4, maxiter:int=1024) -> t.Tensor:
-    # Assertions before computation
-    zsize = z.size()
-    ssize = s.size()
-    asize = a.size()
-    assert zsize == ssize == asize
-
     # Set up the running parameters
     epsig:t.Tensor = isigmoid(t.tensor(res))
     idx:int = 1
@@ -86,12 +99,6 @@ def lerch(z:t.Tensor, s:t.Tensor, a:t.Tensor, res:Number, aeps:Number=1e-4, maxi
 
 @t.jit.script
 def lerch(z:t.Tensor, s:t.Tensor, a:t.Tensor, res:Number, blankSamples:int=0, samples:int=DEFAULT_FFT_SAMPLES) -> t.Tensor:
-    # Assertions before computation
-    zsize = z.size()
-    ssize = s.size()
-    asize = a.size()
-    assert zsize == ssize == asize
-
     # Make the result the size of the input with the output samples channels
     result:t.Tensor = t.zeros((*s.size(), samples))
 
@@ -99,4 +106,16 @@ def lerch(z:t.Tensor, s:t.Tensor, a:t.Tensor, res:Number, blankSamples:int=0, sa
     epsig:t.Tensor = isigmoid(t.tensor(res))
     idx:int = 1
 
-    # Generate 
+    # Generate the first sample`
+    result[..., 0] = __lerchitr(z=z, s=s, a=a, n=0)
+
+    # Ignore the first blank steps in the system
+    for _ in range(blankSamples):
+        result[..., 0] = __lerchitr(z=z, s=s, a=a, n=idx) + (epsig * result[..., 0])
+        idx += 1
+    
+    # Calculate each step of the system then store
+    for jdx in range(1, samples):
+        result[..., jdx] = __lerchitr(z=z, s=s, a=a, n=idx+jdx) + (epsig * result[..., jdx-1])
+    
+    return result
