@@ -110,8 +110,8 @@ class Entangle(nn.Module):
         subsig = signals[:,jdx]
         subconj:torch.Tensor = torch.conj(subsig)
         correlation:torch.Tensor = torch.mean(
-          torch.fft.irfft(signal * subconj, n=self.samples, dim=SAMPLE_POS),
-        dim=SAMPLE_POS)
+          torch.fft.ifft(signal * subconj, n=self.samples, dim=SAMPLE_POS),
+        dim=SAMPLE_POS).abs()
 
         # Create a superposition through a tensor product
         superposition:torch.Tensor = signal.unsqueeze(-1) @ torch.transpose(subsig.unsqueeze(-1), -2, -1)
@@ -134,12 +134,10 @@ class Entangle(nn.Module):
 
         # Collapse
         collapseSignal:Tuple[torch.Tensor] = (torch.sum(superposition, dim=-2), torch.sum(torch.transpose(superposition, -2, -1), dim=-2))
-        if isComplex:
-          collapseSmear:Tuple[torch.Tensor] = (torch.fft.ifft(collapseSignal[0], n=self.samples, dim=SAMPLE_POS), \
+        collapseSmear:Tuple[torch.Tensor] = (torch.fft.ifft(collapseSignal[0], n=self.samples, dim=SAMPLE_POS), \
             torch.fft.ifft(collapseSignal[1], n=self.samples, dim=SAMPLE_POS))
-        else:
-          collapseSmear:Tuple[torch.Tensor] = (torch.fft.irfft(collapseSignal[0], n=self.samples, dim=SAMPLE_POS), \
-            torch.fft.irfft(collapseSignal[1], n=self.samples, dim=SAMPLE_POS))
+        if not isComplex:
+          collapseSmear:Tuple[torch.Tensor] = (collapseSmear[0].abs(), collapseSmear[1].abs())
         entangledSmear:torch.Tensor = (icos(polarization) * collapseSmear[0]) \
           + (isin(polarization) * collapseSmear[1])
 
