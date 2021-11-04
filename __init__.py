@@ -5,3 +5,4 @@ from .entanglement import *
 from .attention import *
 from .knowledge import *
 from .math import *
+from .losses import *
