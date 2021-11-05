@@ -188,8 +188,8 @@ def icos(x:torch.Tensor) -> torch.Tensor:
         return torch.cos(x)
 
     # Main conversion
-    I = i()
-    return torch.exp(I * x.real) + torch.exp(I * x.imag) - 1
+    I = i().type(dtype=x.dtype)
+    return torch.cos(x.abs()) * torch.exp(I * 2. * x.angle())
 
 @torch.jit.script
 def isin(x:torch.Tensor) -> torch.Tensor:
