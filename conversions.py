@@ -44,6 +44,17 @@ def resampleSmear(x:torch.Tensor, samples:int, dim:int = -1) -> torch.Tensor:
 
   return y
 
+@torch.jit.script
+def resampleContinuous(x:torch.Tensor, dim:int=-1, msi:int=-1) -> torch.Tensor:
+  # Get rid of values that can propagate through horribly (+-inf, nan)
+  xclean:torch.Tensor = x.nan_to_num()
+  samples = x.size()[dim]
+  xfft:torch.Tensor = torch.fft.fft(xclean, n=samples, dim=dim)
+  ixfft:torch.Tensor = torch.fft.ifft(xfft, n=samples, dim=dim)
+
+  # Make sure the most significant index's scale remains consistent
+  resultScalar = xclean[..., msi] / ixfft[..., msi]
+  return resultScalar * ixfft
 
 @torch.jit.script
 def toComplex(x:torch.Tensor) -> torch.Tensor:
