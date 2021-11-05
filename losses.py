@@ -28,7 +28,7 @@ def correlation(x:t.Tensor, y:t.Tensor, dim:int=-1) -> t.Tensor:
     return corr
 
 @ts
-def hypercorrelation(x:t.Tensor, y:t.Tensor, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE, dim:int=-1, fullOutput:bool=False):
+def hypercorrelation(x:t.Tensor, y:t.Tensor, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE, dim:int=-1, fullOutput:bool=False, extraTransform:bool=False):
     # Some size assertions/extractions
     xsize = x.size()
     ysize = y.size()
@@ -37,7 +37,7 @@ def hypercorrelation(x:t.Tensor, y:t.Tensor, cdtype:t.dtype=DEFAULT_COMPLEX_DTYP
     # Because ffts are kinda supposed to reverse themselves, running the signals
     # through two permuatations from both ffts and iffts should give the full spectral
     # evaluation of the input signals
-    FFT_LAYERS:int = 3
+    FFT_LAYERS:int = 2 + int(extraTransform)
     FFT_TAPE_LENGTH:int = (2 * FFT_LAYERS) + 1
     FFT_TAPE_CENTER:int = FFT_TAPE_LENGTH
 
@@ -91,5 +91,29 @@ def hypercorrelation(x:t.Tensor, y:t.Tensor, cdtype:t.dtype=DEFAULT_COMPLEX_DTYP
     return t.stack((corrmean, corrmin, corrmax, corrmedian, corrmode), dim=-1)
 
 @ts
-def skeeter(x:t.Tensor, y:t.Tensor, dim:int=-1):
-    return None
+def skeeter(teacher:t.Tensor, student:t.Tensor, center:t.Tensor, teacherTemp:float=1., studentTemp:float=1., dim:int=-1, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+    # Find the maximum amount of samples on the loss dim
+    tenure:t.Tensor = teacher.detach()
+    tsize = tenure.size()
+    ssize = student.size()
+    if tsize[dim] > ssize[dim]:
+        samples:int = tsize[dim]
+    else:
+        samples:int = ssize[dim]
+    
+    # Get the basis of the incoming signals
+    tenurefft = tfft.fft(tenure, n=samples, dim=dim)
+    studentfft = tfft.fft(student, n=samples, dim=dim)
+    
+    # Soften and sharpen the inputs as somewhat seen in the DINO loss from (what is likely now formerly known as) Facebook AI
+    softtenfft:t.Tensor = isoftmax((tenurefft - center) / teacherTemp, dim=dim)
+    softstufft:t.Tensor = isoftmax(studentfft / studentTemp, dim=dim)
+
+    # Turning the signal from a frequency domain signal back to a time domain
+    # signal can be temporarily ignored as hypercorrelation operates accross all
+    # possible occuring orders of the time-frequency superposition
+    hypercorr:t.Tensor = hypercorrelation(x=softtenfft, y=softstufft, cdtype=cdtype, \
+        dim=dim, fullOutput=False, extraTransform=False)
+    corrmean = hypercorr[...,0]
+    corrmedian = hypercorr[..., 3]
+    corrmode = hypercorr[..., 4]
