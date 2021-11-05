@@ -6,3 +6,4 @@ from .attention import *
 from .knowledge import *
 from .math import *
 from .zeta import *
+from .losses import *

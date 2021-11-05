@@ -7,6 +7,7 @@ from .activations import *
 from .defaults import *
 from .conversions import *
 from .math import *
+from .losses import *
 
 from enum import Flag
 from typing import Tuple
@@ -108,10 +109,7 @@ class Entangle(nn.Module):
       for jdx in range(self.signalCount):
         # See how similar each signal is
         subsig = signals[:,jdx]
-        subconj:torch.Tensor = torch.conj(subsig)
-        correlation:torch.Tensor = torch.mean(
-          torch.fft.ifft(signal * subconj, n=self.samples, dim=SAMPLE_POS),
-        dim=SAMPLE_POS).abs()
+        corr:torch.Tensor = correlation(x=signal, y=subsig, dim=SAMPLE_POS)
 
         # Create a superposition through a tensor product
         superposition:torch.Tensor = signal.unsqueeze(-1) @ torch.transpose(subsig.unsqueeze(-1), -2, -1)
@@ -129,7 +127,7 @@ class Entangle(nn.Module):
           continue
 
         # Act on correlation for collapse
-        entangleMix:torch.Tensor = self.entangleActivation[idx].forward(correlation).unsqueeze(-1)
+        entangleMix:torch.Tensor = self.entangleActivation[idx].forward(corr).unsqueeze(-1)
         classicalMix:torch.Tensor = 1 - entangleMix
 
         # Collapse
