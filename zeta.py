@@ -25,9 +25,9 @@ def __hzetaitr(s:t.Tensor, a:t.Tensor, n:int) -> t.Tensor:
     return t.pow(n + a, -s)
 
 @ts
-def hzeta(s:t.Tensor, a:t.Tensor, res:t.Tensor=t.tensor(1/phi()), aeps:t.Tensor=t.tensor(1e-4), maxiter:int=1024):
+def hzeta(s:t.Tensor, a:t.Tensor, res:t.Tensor=1/phi(), aeps:t.Tensor=t.tensor(1e-4), maxiter:int=1024) -> t.Tensor:
     # Set up the parameters for residual evaluation
-    epsig:t.Tensor = isigmoid(t.tensor([res]))
+    epsig:t.Tensor = isigmoid(res)
     idx:int = 1
 
     # Generate the first value
@@ -48,7 +48,7 @@ def hzeta(s:t.Tensor, a:t.Tensor, res:t.Tensor=t.tensor(1/phi()), aeps:t.Tensor=
     return result
 
 @ts
-def hzeta(s:t.Tensor, a:t.Tensor, res:t.Tensor=t.tensor(1/phi()), blankSamples:int=0, samples:int=DEFAULT_FFT_SAMPLES, fftloss:bool=True) -> torch.Tensor:
+def hzeta(s:t.Tensor, a:t.Tensor, res:t.Tensor=1/phi(), blankSamples:int=0, samples:int=DEFAULT_FFT_SAMPLES, fftformat:bool=True) -> torch.Tensor:
     # Make the result the size of the input with the output sample channels
     result:t.Tensor = toComplex(s.unsqueeze(-1) @ t.zeros((1, samples), dtype=s.dtype))
 
@@ -69,17 +69,8 @@ def hzeta(s:t.Tensor, a:t.Tensor, res:t.Tensor=t.tensor(1/phi()), blankSamples:i
         result[..., jdx] = __hzetaitr(s=s, a=a, n=idx+jdx) + (epsig * result[..., jdx-1])
 
     # If the signal should be continuous, force it.
-    if fftloss:
-        # Make the signal a continuous one by going to the frequency domain and back
-        fftresult:t.Tensor = tfft.fft(result, n=samples, dim=-1)
-        ifftresult:t.Tensor = tfft.ifft(fftresult, n=samples, dim=-1)
-
-        # Find the error for the end value
-        endValScalar = result[...,-1] / ifftresult[...,-1]
-        
-        # Turn the now continuous signal into a somewhat valid result
-        result = endValScalar * ifftresult
-
+    if fftformat:
+        return resampleContinuous(result, dim=-1, msi=-1)
     return result
 
 @ts
@@ -95,7 +86,7 @@ def __lerchitr(lam:t.Tensor, s:t.Tensor, a:t.Tensor, n:int) -> t.Tensor:
     return t.exp(hzetaexp * i()) * __hzetaitr(s=s, a=a, n=n)
 
 @ts
-def lerch(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:Number, aeps:Number=1e-4, maxiter:int=1024) -> t.Tensor:
+def lerch(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=1/phi(), aeps:t.Tensor=t.tensor(1e-4), maxiter:int=1024) -> t.Tensor:
     # Set up the running parameters
     epsig:t.Tensor = isigmoid(t.tensor([res]))
     idx:int = 1
@@ -103,7 +94,7 @@ def lerch(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:Number, aeps:Number=1e-4, ma
     # Generate the first value
     delta:t.Tensor = __lerchitr(lam=lam, s=s, a=a, n=0)
     result:t.Tensor = t.ones_like(delta) * delta
-    keepGoing:t.Tensor = (delta.abs() >= torch.tensor([aeps]).abs()).type(torch.int64).nonzero()
+    keepGoing:t.Tensor = (delta.abs() >= aeps.abs()).type(torch.int64).nonzero()
 
     # Progress each element forward to convergence or max iteration
     while keepGoing.numel() > 0 and idx < maxiter:
@@ -112,13 +103,13 @@ def lerch(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:Number, aeps:Number=1e-4, ma
         result[keepGoing] = delta + (epsig * result[keepGoing])
 
         # Keep the reducing iteration going
-        keepGoing = (delta.abs() >= torch.tensor([aeps]).abs()).type(torch.int64).nonzero()
+        keepGoing = (delta.abs() >= aeps.abs()).type(torch.int64).nonzero()
         idx += 1
     
     return result
 
 @ts
-def lerch(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:Number, blankSamples:int=0, samples:int=DEFAULT_FFT_SAMPLES) -> t.Tensor:
+def lerch(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:Number, blankSamples:int=0, samples:int=DEFAULT_FFT_SAMPLES, fftloss:bool=True) -> t.Tensor:
     # Make the result the size of the input with the output samples channels
     result:t.Tensor = toComplex(s.unsqueeze(-1) @ t.zeros((1, samples), dtype=s.dtype))
 
@@ -137,5 +128,8 @@ def lerch(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:Number, blankSamples:int=0, 
     # Calculate each step of the system then store
     for jdx in range(1, samples):
         result[..., jdx] = __lerchitr(lam=lam, s=s, a=a, n=idx+jdx) + (epsig * result[..., jdx-1])
-    
+
+        # If the signal should be continuous, force it.
+    if fftloss:
+        return resampleContinuous(result, dim=-1, msi=-1)
     return result
