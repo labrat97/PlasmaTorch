@@ -173,7 +173,6 @@ class TrigTest(unittest.TestCase):
         # Seeding tensors
         x = torch.randn(self.SIZE, dtype=DEFAULT_DTYPE)
         xc = torch.randn(self.SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
-        I = i()
 
         # Calculate
         cosx = icos(x)
@@ -185,7 +184,7 @@ class TrigTest(unittest.TestCase):
 
         # Test the values of the exp construction to assert some cos() equivalence
         self.assertTrue(torch.all(
-            cosxc == (torch.exp(i() * xc.real) + torch.exp(i() * xc.imag) - 1)
+            (cosxc.abs() - (icos(xc.abs()) * torch.exp(i() * pi() / 4.)).abs()) < 1e-4
         ))
         self.assertTrue(torch.all(icos(torch.zeros_like(xc)) == torch.ones_like(xc)))
         self.assertTrue(torch.all(toComplex(icos(torch.zeros_like(x))) == icos(torch.zeros_like(xc))))
@@ -194,7 +193,6 @@ class TrigTest(unittest.TestCase):
         # Seeding tensors
         x = torch.randn(self.SIZE, dtype=DEFAULT_DTYPE)
         xc = torch.randn(self.SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
-        I = i()
 
         # Calculate
         sinx = isin(x)
