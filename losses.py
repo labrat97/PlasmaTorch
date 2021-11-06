@@ -23,7 +23,7 @@ def correlation(x:t.Tensor, y:t.Tensor, dim:int=-1) -> t.Tensor:
     yfft:t.Tensor = tfft.fft(y, n=samples)
 
     # Calculate the correlation
-    corr:t.Tensor = tfft.ifft(xfft * yfft.conj()).mean(dim=dim).abs()
+    corr:t.Tensor = tfft.ifft(xfft * yfft.conj())
 
     return corr
 
