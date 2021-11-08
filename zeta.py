@@ -24,37 +24,28 @@ def __hzetaitr(s:t.Tensor, a:t.Tensor, n:int) -> t.Tensor:
     """
     return t.pow(n + a, -s)
 
-#@ts
+@ts
 def hzetae(s:t.Tensor, a:t.Tensor, res:t.Tensor=1/phi(), aeps:t.Tensor=t.tensor(1e-4), maxiter:int=1024) -> t.Tensor:
+    # Size assertions
+    assert s.size() == a.size()
+    
     # Set up the parameters for residual evaluation
     epsig:t.Tensor = isigmoid(res)
     idx:int = 1
-    snumel:int = s.numel()
-    anumel:int = a.numel()
-    if snumel > anumel:
-        if anumel == 1:
-            a = t.ones_like(s) * a
-        else:
-            a = a.reshape_as(s)
-    elif anumel > snumel:
-        if snumel == 1:
-            s = t.ones_like(a) * s
-        else:
-            s = s.reshape_as(a)
 
     # Generate the first value
     delta:t.Tensor = __hzetaitr(s=s, a=a, n=0)
     result:t.Tensor = t.ones_like(delta) * delta
-    keepGoing:t.Tensor = (result.abs() >= aeps.abs()).type(t.int64).nonzero()
+    keepGoing:t.Tensor = (result.abs() >= aeps.abs()).type(t.int32).nonzero()
 
     # Progress each value forward to convergence or max iteration
     while keepGoing.numel() > 0 and idx < maxiter:
         # Find and apply the changes according to the aeps variable
-        delta = __hzetaitr(s=s[keepGoing], a=a[keepGoing], n=idx)
+        delta = __hzetaitr(s=(s[keepGoing]), a=(a[keepGoing]), n=idx)
         result[keepGoing] = delta + (epsig * result[keepGoing])
 
         # Keep the reduction iteration going
-        keepGoing = (result.abs() >= aeps.abs()).type(t.int64).nonzero()
+        keepGoing = (result.abs() >= aeps.abs()).type(t.int32).nonzero()
         idx += 1
 
     return result
@@ -99,6 +90,9 @@ def __lerchitr(lam:t.Tensor, s:t.Tensor, a:t.Tensor, n:int) -> t.Tensor:
 
 @ts
 def lerche(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=1/phi(), aeps:t.Tensor=t.tensor(1e-4), maxiter:int=1024) -> t.Tensor:
+    # Size assertions
+    assert lam.size() == s.size() == a.size()
+    
     # Set up the running parameters
     epsig:t.Tensor = isigmoid(res)
     idx:int = 1
@@ -106,7 +100,7 @@ def lerche(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=1/phi(), aeps:t.Te
     # Generate the first value
     delta:t.Tensor = __lerchitr(lam=lam, s=s, a=a, n=0)
     result:t.Tensor = t.ones_like(delta) * delta
-    keepGoing:t.Tensor = (delta.abs() >= aeps.abs()).type(t.int64).nonzero()
+    keepGoing:t.Tensor = (result.abs() >= aeps.abs()).type(t.int32).nonzero()
 
     # Progress each element forward to convergence or max iteration
     while keepGoing.numel() > 0 and idx < maxiter:
@@ -115,7 +109,7 @@ def lerche(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=1/phi(), aeps:t.Te
         result[keepGoing] = delta + (epsig * result[keepGoing])
 
         # Keep the reducing iteration going
-        keepGoing = (delta.abs() >= aeps.abs()).type(t.int64).nonzero()
+        keepGoing = (result.abs() >= aeps.abs()).type(t.int32).nonzero()
         idx += 1
     
     return result
