@@ -24,36 +24,48 @@ def __hzetaitr(s:t.Tensor, a:t.Tensor, n:int) -> t.Tensor:
     """
     return t.pow(n + a, -s)
 
-@ts
-def hzeta(s:t.Tensor, a:t.Tensor, res:t.Tensor=1/phi(), aeps:t.Tensor=t.tensor(1e-4), maxiter:int=1024) -> t.Tensor:
+#@ts
+def hzetae(s:t.Tensor, a:t.Tensor, res:t.Tensor=1/phi(), aeps:t.Tensor=t.tensor(1e-4), maxiter:int=1024) -> t.Tensor:
     # Set up the parameters for residual evaluation
     epsig:t.Tensor = isigmoid(res)
     idx:int = 1
+    snumel:int = s.numel()
+    anumel:int = a.numel()
+    if snumel > anumel:
+        if anumel == 1:
+            a = t.ones_like(s) * a
+        else:
+            a = a.reshape_as(s)
+    elif anumel > snumel:
+        if snumel == 1:
+            s = t.ones_like(a) * s
+        else:
+            s = s.reshape_as(a)
 
     # Generate the first value
     delta:t.Tensor = __hzetaitr(s=s, a=a, n=0)
     result:t.Tensor = t.ones_like(delta) * delta
-    keepGoing:t.Tensor = (delta.abs() >= aeps.abs()).type(torch.int64).nonzero()
+    keepGoing:t.Tensor = (result.abs() >= aeps.abs()).type(t.int64).nonzero()
 
     # Progress each value forward to convergence or max iteration
     while keepGoing.numel() > 0 and idx < maxiter:
         # Find and apply the changes according to the aeps variable
-        delta = __hzetaitr(s=s, a=a, n=idx)
+        delta = __hzetaitr(s=s[keepGoing], a=a[keepGoing], n=idx)
         result[keepGoing] = delta + (epsig * result[keepGoing])
 
         # Keep the reduction iteration going
-        keepGoing = (delta.abs() >= torch.tensor([aeps]).abs()).type(torch.int64).nonzero()
+        keepGoing = (result.abs() >= aeps.abs()).type(t.int64).nonzero()
         idx += 1
 
     return result
 
 @ts
-def hzeta(s:t.Tensor, a:t.Tensor, res:t.Tensor=1/phi(), blankSamples:int=0, samples:int=DEFAULT_FFT_SAMPLES, fftformat:bool=True) -> torch.Tensor:
+def hzetas(s:t.Tensor, a:t.Tensor, res:t.Tensor=1/phi(), blankSamples:int=0, samples:int=DEFAULT_FFT_SAMPLES, fftformat:bool=True) -> torch.Tensor:
     # Make the result the size of the input with the output sample channels
     result:t.Tensor = toComplex(s.unsqueeze(-1) @ t.zeros((1, samples), dtype=s.dtype))
 
     # Set up running parameters
-    epsig:t.Tensor = isigmoid(torch.tensor([res]))
+    epsig:t.Tensor = isigmoid(res)
     idx:int = 1
 
     # Generate the first value without any summation
@@ -86,15 +98,15 @@ def __lerchitr(lam:t.Tensor, s:t.Tensor, a:t.Tensor, n:int) -> t.Tensor:
     return t.exp(hzetaexp * i()) * __hzetaitr(s=s, a=a, n=n)
 
 @ts
-def lerch(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=1/phi(), aeps:t.Tensor=t.tensor(1e-4), maxiter:int=1024) -> t.Tensor:
+def lerche(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=1/phi(), aeps:t.Tensor=t.tensor(1e-4), maxiter:int=1024) -> t.Tensor:
     # Set up the running parameters
-    epsig:t.Tensor = isigmoid(t.tensor([res]))
+    epsig:t.Tensor = isigmoid(res)
     idx:int = 1
 
     # Generate the first value
     delta:t.Tensor = __lerchitr(lam=lam, s=s, a=a, n=0)
     result:t.Tensor = t.ones_like(delta) * delta
-    keepGoing:t.Tensor = (delta.abs() >= aeps.abs()).type(torch.int64).nonzero()
+    keepGoing:t.Tensor = (delta.abs() >= aeps.abs()).type(t.int64).nonzero()
 
     # Progress each element forward to convergence or max iteration
     while keepGoing.numel() > 0 and idx < maxiter:
@@ -103,18 +115,18 @@ def lerch(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=1/phi(), aeps:t.Ten
         result[keepGoing] = delta + (epsig * result[keepGoing])
 
         # Keep the reducing iteration going
-        keepGoing = (delta.abs() >= aeps.abs()).type(torch.int64).nonzero()
+        keepGoing = (delta.abs() >= aeps.abs()).type(t.int64).nonzero()
         idx += 1
     
     return result
 
 @ts
-def lerch(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:Number, blankSamples:int=0, samples:int=DEFAULT_FFT_SAMPLES, fftloss:bool=True) -> t.Tensor:
+def lerchs(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=1/phi(), blankSamples:int=0, samples:int=DEFAULT_FFT_SAMPLES, fftloss:bool=True) -> t.Tensor:
     # Make the result the size of the input with the output samples channels
     result:t.Tensor = toComplex(s.unsqueeze(-1) @ t.zeros((1, samples), dtype=s.dtype))
 
     # Set up running parameters
-    epsig:t.Tensor = isigmoid(t.tensor([res]))
+    epsig:t.Tensor = isigmoid(res)
     idx:int = 1
 
     # Generate the first sample`
