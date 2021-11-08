@@ -33,8 +33,6 @@ class HurwitzTests(unittest.TestCase):
         hxbsfft = hzeta(s=single, a=x, blankSamples=BLANKS, samples=SAMPLES, fftFormat=True)
         hxbsf = hzeta(s=single, a=x, blankSamples=BLANKS, samples=SAMPLES, fftFormat=False)
 
-        
-
         # Size testing of the non-batch sampled version
         self.assertEqual(x.size(), hxf.size())
         self.assertEqual(x.size(), hxb.size())
