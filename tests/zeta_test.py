@@ -1,14 +1,15 @@
 import unittest
+import test
 import torch
 from plasmatorch import *
 from random import randint
 
-class HurwitzTests(unittest.TestCase):
+class HurwitzZetaTest(unittest.TestCase):
     def testSizing(self):
         # Generate random sizing parameters
         SIZELEN = randint(1, 5)
         SIZESCALAR = randint(5, 10)
-        SIZE = torch.Size((torch.randn((SIZELEN), dtype=torch.int64)+1) * SIZESCALAR)
+        SIZE = torch.Size((torch.randn((SIZELEN)) * SIZESCALAR).type(torch.int64).abs() + 1)
         BLANKS = randint(0, 10)
         SAMPLES = randint(512, 1024)
 
