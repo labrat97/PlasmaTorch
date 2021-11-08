@@ -24,7 +24,7 @@ def __hzetaitr(s:t.Tensor, a:t.Tensor, n:int) -> t.Tensor:
     """
     return t.pow(n + a, -s)
 
-@ts
+#@ts
 def hzetae(s:t.Tensor, a:t.Tensor, res:t.Tensor=1/phi(), aeps:t.Tensor=t.tensor(1e-4), maxiter:int=1024) -> t.Tensor:
     # Size assertions
     assert s.size() == a.size()
@@ -36,16 +36,16 @@ def hzetae(s:t.Tensor, a:t.Tensor, res:t.Tensor=1/phi(), aeps:t.Tensor=t.tensor(
     # Generate the first value
     delta:t.Tensor = __hzetaitr(s=s, a=a, n=0)
     result:t.Tensor = t.ones_like(delta) * delta
-    keepGoing:t.Tensor = (result.abs() >= aeps.abs()).type(t.int32).nonzero()
+    keepGoing = (result.abs() >= aeps.abs()).type(t.int64).nonzero(as_tuple=True)
 
     # Progress each value forward to convergence or max iteration
-    while keepGoing.numel() > 0 and idx < maxiter:
+    while keepGoing[0].numel() > 0 and idx < maxiter:
         # Find and apply the changes according to the aeps variable
         delta = __hzetaitr(s=(s[keepGoing]), a=(a[keepGoing]), n=idx)
         result[keepGoing] = delta + (epsig * result[keepGoing])
 
         # Keep the reduction iteration going
-        keepGoing = (result.abs() >= aeps.abs()).type(t.int32).nonzero()
+        keepGoing = (result.abs() >= aeps.abs()).type(t.int64).nonzero(as_tuple=True)
         idx += 1
 
     return result
@@ -88,7 +88,7 @@ def __lerchitr(lam:t.Tensor, s:t.Tensor, a:t.Tensor, n:int) -> t.Tensor:
     # Multiply the numberator of the hzeta itr to create the final itr result
     return t.exp(hzetaexp * i()) * __hzetaitr(s=s, a=a, n=n)
 
-@ts
+#@ts
 def lerche(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=1/phi(), aeps:t.Tensor=t.tensor(1e-4), maxiter:int=1024) -> t.Tensor:
     # Size assertions
     assert lam.size() == s.size() == a.size()
@@ -100,16 +100,16 @@ def lerche(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=1/phi(), aeps:t.Te
     # Generate the first value
     delta:t.Tensor = __lerchitr(lam=lam, s=s, a=a, n=0)
     result:t.Tensor = t.ones_like(delta) * delta
-    keepGoing:t.Tensor = (result.abs() >= aeps.abs()).type(t.int32).nonzero()
+    keepGoing = (result.abs() >= aeps.abs()).type(t.int64).nonzero(as_tuple=True)
 
     # Progress each element forward to convergence or max iteration
-    while keepGoing.numel() > 0 and idx < maxiter:
+    while keepGoing[0].numel() > 0 and idx < maxiter:
         # Find and apply the changes needed according to the aeps variable
         delta = __lerchitr(lam=lam[keepGoing], s=s[keepGoing], a=a[keepGoing], n=idx)
         result[keepGoing] = delta + (epsig * result[keepGoing])
 
         # Keep the reducing iteration going
-        keepGoing = (result.abs() >= aeps.abs()).type(t.int32).nonzero()
+        keepGoing = (result.abs() >= aeps.abs()).type(t.int64).nonzero(as_tuple=True)
         idx += 1
     
     return result
