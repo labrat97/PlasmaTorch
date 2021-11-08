@@ -19,20 +19,20 @@ class HurwitzZetaTest(unittest.TestCase):
         altx = torch.randn_like(x)
 
         # Test the non-batch sampled version of the function (just a single final element)
-        hxf = hzeta(s=x, a=altx, maxiter=SAMPLES)
-        hxb = hzeta(s=altx, a=x, maxiter=SAMPLES)
-        hxfs = hzeta(s=x, a=single, maxiter=SAMPLES)
-        hxbs = hzeta(s=single, a=x, maxiter=SAMPLES)
+        hxf = hzetae(s=x, a=altx, maxiter=SAMPLES)
+        hxb = hzetae(s=altx, a=x, maxiter=SAMPLES)
+        hxfs = hzetae(s=x, a=single, maxiter=SAMPLES)
+        hxbs = hzetae(s=single, a=x, maxiter=SAMPLES)
         
         # Test the batch sampled version of the function while toggling the FFT transcoding between the results
-        hxffft = hzeta(s=x, a=altx, blankSamples=BLANKS, samples=SAMPLES, fftFormat=True)
-        hxff = hzeta(s=x, a=altx, blankSamples=BLANKS, samples=SAMPLES, fftFormat=False)
-        hxbfft = hzeta(s=altx, a=x, blankSamples=BLANKS, samples=SAMPLES, fftFormat=True)
-        hxbf = hzeta(s=altx, a=x, blankSamples=BLANKS, samples=SAMPLES, fftFormat=False)
-        hxfsfft = hzeta(s=x, a=single, blankSamples=BLANKS, samples=SAMPLES, fftFormat=True)
-        hxfsf = hzeta(s=x, a=single, blankSamples=BLANKS, samples=SAMPLES, fftFormat=False)
-        hxbsfft = hzeta(s=single, a=x, blankSamples=BLANKS, samples=SAMPLES, fftFormat=True)
-        hxbsf = hzeta(s=single, a=x, blankSamples=BLANKS, samples=SAMPLES, fftFormat=False)
+        hxffft = hzetas(s=x, a=altx, blankSamples=BLANKS, samples=SAMPLES, fftFormat=True)
+        hxff = hzetas(s=x, a=altx, blankSamples=BLANKS, samples=SAMPLES, fftFormat=False)
+        hxbfft = hzetas(s=altx, a=x, blankSamples=BLANKS, samples=SAMPLES, fftFormat=True)
+        hxbf = hzetas(s=altx, a=x, blankSamples=BLANKS, samples=SAMPLES, fftFormat=False)
+        hxfsfft = hzetas(s=x, a=single, blankSamples=BLANKS, samples=SAMPLES, fftFormat=True)
+        hxfsf = hzetas(s=x, a=single, blankSamples=BLANKS, samples=SAMPLES, fftFormat=False)
+        hxbsfft = hzetas(s=single, a=x, blankSamples=BLANKS, samples=SAMPLES, fftFormat=True)
+        hxbsf = hzetas(s=single, a=x, blankSamples=BLANKS, samples=SAMPLES, fftFormat=False)
 
         # Size testing of the non-batch sampled version
         self.assertEqual(x.size(), hxf.size())
