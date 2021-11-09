@@ -26,6 +26,26 @@ def __hzetaitr(s:t.Tensor, a:t.Tensor, n:int) -> t.Tensor:
 
 @ts
 def hzetae(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.Tensor=t.tensor((1e-4)), maxiter:int=1024) -> t.Tensor:
+    """Returns the value that the hzeta function converges to after either the max iterations order
+    when the change in the position of the function is unanimously below the arc-epsilon value (aeps).
+
+    Args:
+        s (t.Tensor): The `s` value of the Hurwitz Zeta function.
+        a (t.Tensor): The `a` value of the Hurwitz Zeta function.
+        res (t.Tensor, optional): The amount of residual evaluation used to determine the output value. This
+            value is piped through the isigmoid() fuction. A full activation means
+            a normal evaluation of the zeta function, as where a 0 activation means
+            just the evaluation of the delta value. If this value is too low, every
+            input will converge to 0. Defaults to asigphi().
+        aeps (t.Tensor, optional): The arc-epsilon value. If the delta value is less
+            than this value, the evaluation is considered complete. Defaults to t.tensor((1e-4)).
+        maxiter (int, optional): The maximum amount of evaluation iterations used for the
+            finding the convergent value. Defaults to 1024.
+
+    Returns:
+        t.Tensor: The element-wise convergent values of the input tensors through
+            the Hurwitz Zeta function.
+    """
     # Set up the parameters for residual evaluation
     epsig:t.Tensor = isigmoid(res)
     idx:int = 1
@@ -33,16 +53,18 @@ def hzetae(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.Tensor=t.tenso
     # Generate the first value
     delta:t.Tensor = __hzetaitr(s=s, a=a, n=0)
     result:t.Tensor = t.ones_like(delta) * delta
-    keepGoing:t.Tensor = torch.all(result.abs() >= aeps.abs())
+    keepGoing:t.Tensor = (result.abs() >= aeps.abs()).type(t.int64)
 
     # Progress each value forward to convergence or max iteration
-    while keepGoing and idx < maxiter:
+    while torch.all(keepGoing) and idx < maxiter:
         # Find and apply the changes according to the aeps variable
-        delta = __hzetaitr(s=s, a=a, n=idx)
-        result = delta + (epsig * result)
+        # Multiplying s by keepGoing allows for a quicker exponential eval potentially
+        # on the finished values
+        delta = __hzetaitr(s=(s * keepGoing), a=a, n=idx)
+        result = (keepGoing * (delta + (epsig * result))) + ((1 - keepGoing) * result)
 
-        # Keep the reduction iteration going
-        keepGoing = torch.all(result.abs() >= aeps.abs())
+        # Check to see if the values are still needing iteration
+        keepGoing = (result.abs() >= aeps.abs()).type(t.int64)
         idx += 1
 
     return result
@@ -94,16 +116,18 @@ def lerche(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.
     # Generate the first value
     delta:t.Tensor = __lerchitr(lam=lam, s=s, a=a, n=0)
     result:t.Tensor = t.ones_like(delta) * delta
-    keepGoing:t.Tensor = torch.all(result.abs() >= aeps.abs())
+    keepGoing:t.Tensor = (result.abs() >= aeps.abs()).type(t.int64)
 
     # Progress each element forward to convergence or max iteration
-    while keepGoing[0].numel() > 0 and idx < maxiter:
-        # Find and apply the changes needed according to the aeps variable
-        delta = __lerchitr(lam=lam, s=s, a=a, n=idx)
-        result = delta + (epsig * result)
+    while torch.all(keepGoing) and idx < maxiter:
+        # Find and apply the changes according to the aeps variable
+        # Multiplying lam & s by keepGoing allows for a quicker exponential eval potentially
+        # on the finished values
+        delta = __lerchitr(lam=(lam * keepGoing), s=(s * keepGoing), a=a, n=idx)
+        result = (keepGoing * (delta + (epsig * result))) + ((1 - keepGoing) * result)
 
-        # Keep the reducing iteration going
-        keepGoing = torch.all(result.abs() >= aeps.abs())
+        # Check to see if the values are still needing iteration
+        keepGoing = (result.abs() >= aeps.abs()).type(t.int64)
         idx += 1
     
     return result
