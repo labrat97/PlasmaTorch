@@ -174,16 +174,16 @@ def isigmoid(x:torch.Tensor) -> torch.Tensor:
         return torch.sigmoid(x)
     
     # Imaginary sigmoid
-    angle:torch.Tensor = x.angle()
-    magnitude:torch.Tensor = x.abs()
-    sigmag:torch.Tensor = nnf.sigmoid(magnitude)
-
-    # Convert back to imaginary
-    newReal:torch.Tensor = sigmag * torch.cos(angle)
-    newImag:torch.Tensor = sigmag * torch.sin(angle)
-
-    # Return in proper datatype
-    return torch.view_as_complex(torch.stack((newReal, newImag), dim=-1))
+    rsig = nnf.sigmoid(x.real)
+    isig = torch.exp(-(x.imag * x.imag) / 2)
+    I = i().type(x.dtype)
+    # Note the end bias. This is done to make sure that the output of the
+    # function is always positive. The hue value's representation is also,
+    # for the most part, preserved.
+    baseval = torch.exp(2 * I * x.angle()) + (1 + I)
+    
+    # Calculate and return
+    return rsig * isig * baseval
 
 @torch.jit.script
 def icos(x:torch.Tensor) -> torch.Tensor:
@@ -192,8 +192,7 @@ def icos(x:torch.Tensor) -> torch.Tensor:
         return torch.cos(x)
 
     # Main conversion
-    I = i().type(dtype=x.dtype)
-    return torch.cos(x.abs()) * torch.exp(I * 2. * x.angle())
+    return torch.cos(x.abs()) * torch.exp(i() * 2. * x.angle())
 
 @torch.jit.script
 def isin(x:torch.Tensor) -> torch.Tensor:
