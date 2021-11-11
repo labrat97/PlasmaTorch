@@ -173,17 +173,12 @@ def isigmoid(x:torch.Tensor) -> torch.Tensor:
     if not x.is_complex():
         return torch.sigmoid(x)
     
-    # Imaginary sigmoid
+    # Do a sigmoid on each value element wise because I'm stupid
     rsig = nnf.sigmoid(x.real)
-    isig = torch.exp(-(x.imag * x.imag) / 2)
-    I = i().type(x.dtype)
-    # Note the end bias. This is done to make sure that the output of the
-    # function is always positive. The hue value's representation is also,
-    # for the most part, preserved.
-    baseval = torch.exp(2 * I * x.angle()) + (1 + I)
+    isig = nnf.sigmoid(x.imag)
     
     # Calculate and return
-    return rsig * isig * baseval
+    return torch.view_as_complex(torch.stack((rsig, isig), dim=-1))
 
 @torch.jit.script
 def icos(x:torch.Tensor) -> torch.Tensor:
