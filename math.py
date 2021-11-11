@@ -173,17 +173,12 @@ def isigmoid(x:torch.Tensor) -> torch.Tensor:
     if not x.is_complex():
         return torch.sigmoid(x)
     
-    # Imaginary sigmoid
-    angle:torch.Tensor = x.angle()
-    magnitude:torch.Tensor = x.abs()
-    sigmag:torch.Tensor = nnf.sigmoid(magnitude)
-
-    # Convert back to imaginary
-    newReal:torch.Tensor = sigmag * torch.cos(angle)
-    newImag:torch.Tensor = sigmag * torch.sin(angle)
-
-    # Return in proper datatype
-    return torch.view_as_complex(torch.stack((newReal, newImag), dim=-1))
+    # Do a sigmoid on each value element wise because I'm stupid
+    rsig = nnf.sigmoid(x.real)
+    isig = nnf.sigmoid(x.imag)
+    
+    # Calculate and return
+    return torch.view_as_complex(torch.stack((rsig, isig), dim=-1))
 
 @torch.jit.script
 def icos(x:torch.Tensor) -> torch.Tensor:
@@ -192,8 +187,7 @@ def icos(x:torch.Tensor) -> torch.Tensor:
         return torch.cos(x)
 
     # Main conversion
-    I = i().type(dtype=x.dtype)
-    return torch.cos(x.abs()) * torch.exp(I * 2. * x.angle())
+    return torch.cos(x.abs()) * torch.exp(i() * 2. * x.angle())
 
 @torch.jit.script
 def isin(x:torch.Tensor) -> torch.Tensor:
