@@ -503,18 +503,18 @@ class RingingTest(unittest.TestCase):
         # Check for proper signal degredations on forks
         self.assertTrue(torch.all((vr2 - (vr * phi())).abs() < 1e-4), \
             msg=f'build degredation: vr2/vr ({(vr2/vr).abs()}) != phi ({phi()})')
-        self.assertTrue(torch.all((vc2 - (vc * phi())).abs() < 1e-4), \
+        self.assertTrue(torch.all((vc2 - (vc * (phi()+(0.5*i())))).abs() < 1e-4), \
             msg=f'build degredation: vc2/vc ({(vc2/vc).abs()}) != phi ({phi()})')
         self.assertTrue(torch.all((vr3 - (vr2 * (1/phi()))).abs() < 1e-4), \
             msg=f'decay degredation: vr3/vr2 ({(vr3/vr2).abs()}) != 1/phi ({1/phi()})')
-        self.assertTrue(torch.all((vc3 - (vc2 * (1/phi()))).abs() < 1e-4), \
+        self.assertTrue(torch.all((vc3 - (vc2 * ((1/phi())+(0.5*i())))).abs() < 1e-4), \
             msg=f'decay degredation: vc3/vc2 ({(vc3/vc2).abs()}) != 1/phi ({1/phi()})')
 
     def testForwardValues(self):
         # Generate random sizing
-        SIZELEN:int = randint(1, 5)
-        SIZESCALAR:int = randint(6, 10)
-        FORK_DISP:int = 5
+        SIZELEN:int = randint(1, 3)
+        SIZESCALAR:int = randint(3, 5)
+        FORK_DISP:int = 1
         SIZE = torch.Size(((torch.randn((SIZELEN), dtype=DEFAULT_DTYPE)).type(dtype=torch.int64).abs() + 1) * SIZESCALAR)
         FORKS:int = SIZE[-1] - FORK_DISP
 
@@ -581,7 +581,9 @@ class RingingTest(unittest.TestCase):
         for idx in range(1, len(controlTensors)):
             sControl = sumControl[idx]
             mControl = meanControl[idx]
-            self.assertTrue(torch.all((results[idx, :] - ((1/phi()) * controlTensors[idx])).abs() - sControl[idx].abs() < 1e-4), \
-                msg=f'A value higher than a non-regularized value added to the forks has appeared.\n{results[idx, :] - ((1/phi()) * controlTensors[idx]) - sControl[idx]}')
-            self.assertTrue(torch.all((resultsReg[idx, :] - ((1/phi()) * controlTensors[idx])).abs() - mControl[idx].abs() < 1e-4), \
-                msg=f'A value higher than a regularized value added to the forks has appeared.\n{resultsReg[idx, :] - ((1/phi()) * controlTensors[idx]) - mControl[idx]}')
+            self.assertTrue(torch.all(results[idx, :].abs() - ((1/phi()) * controlTensors[idx]).abs() - sControl[idx].abs() < 1e-4), \
+                msg=f'[idx:{idx}] A value higher than a non-regularized value added to the forks has appeared.\n{results[idx, :].abs() - ((1/phi()) * controlTensors[idx]).abs() - sControl[idx].abs()}')
+            self.assertTrue(torch.all((resultsReg[idx, 0].abs() - ((1/phi()) * controlTensors[idx]).abs() - mControl[idx]).abs() < 1e-4), \
+                msg=f'[idx:{idx}] A value higher than a regularized value added to the forks has appeared.\n{resultsReg[idx, 0].abs() - ((1/phi()) * controlTensors[idx]).abs() - mControl[idx].abs()}')
+            self.assertTrue(torch.all((resultsReg[idx, 1].abs() - (((1/phi())+(0.5*i())) * controlTensors[idx]).abs() - mControl[idx]).abs() < 1e-4), \
+                msg=f'[idx:{idx}] A value higher than a regularized value added to the forks has appeared.\n{resultsReg[idx, 1].abs() - (((1/phi()) + (0.5*i())) * controlTensors[idx]).abs() - mControl[idx].abs()}')
