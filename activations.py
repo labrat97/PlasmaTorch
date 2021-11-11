@@ -8,6 +8,7 @@ from .math import *
 from typing import List
 
 
+@torch.jit.script
 def lissajous(x:torch.Tensor, freqs:torch.Tensor, phases:torch.Tensor, oneD:bool = True):
   assert freqs.size() == phases.size()
   
@@ -153,7 +154,7 @@ class Ringing(nn.Module):
 
     # The positions and values of the enclosed forks
     forks = int(forks)
-    DECAY_SEED = (-torch.log(phi() - 1)).type(dtype) # After a sigmoid eval this should come to 1/phi()
+    DECAY_SEED = (asigphi()).type(dtype) # After a sigmoid eval this should come to 1/phi()
     self.forkPos = nn.Parameter(toComplex(torch.zeros((forks), dtype=dtype)).real)
     self.forkVals = toComplex(torch.zeros((forks), dtype=dtype, requires_grad=False))
     self.forkDecay = nn.Parameter(torch.ones((forks), dtype=dtype) * DECAY_SEED)
@@ -179,7 +180,7 @@ class Ringing(nn.Module):
       self.forkVals = self.forkVals * isigmoid(self.forkDecay)
     
 
-  def view(self, samples:int=DEFAULT_FFT_SAMPLES, irfft:bool=False) -> torch.Tensor:
+  def view(self, samples:int=DEFAULT_FFT_SAMPLES) -> torch.Tensor:
     # Generate metadata needed to create the output signal
     assert samples >= 1
     positions = isigmoid(self.forkPos) * (samples - 1)

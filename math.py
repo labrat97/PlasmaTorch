@@ -15,6 +15,10 @@ def phi() -> torch.Tensor:
     return (one + square) / 2
 
 @torch.jit.script
+def asigphi() -> torch.Tensor:
+    return -torch.log(phi() - 1)
+
+@torch.jit.script
 def xbias(n:int, bias:int=0):
     composer = torch.triu(torch.ones((n, n)), diagonal=1-bias)
     return composer.transpose(-1,-2).sum(dim=-1)
@@ -31,27 +35,14 @@ def i() -> torch.Tensor:
         dim=-1)).detach()
 
 @torch.jit.script
-def imagnitude(x:torch.Tensor) -> torch.Tensor:
-    if not x.is_complex():
-        return x
-
-    # Main conversion
-    return torch.sqrt(x.real.pow(2) + x.imag.pow(2))
-
-@torch.jit.script
-def ipolarization(x:torch.Tensor) -> torch.Tensor:
-    # Main conversion
-    return torch.angle(x)
-
-@torch.jit.script
 def isoftmax(x:torch.Tensor, dim:int) -> torch.Tensor:
     # Normal softmax
     if not x.is_complex(): 
         return torch.softmax(x, dim=dim)
 
     # Imaginary softmax
-    angle:torch.Tensor = ipolarization(x)
-    magnitude:torch.Tensor = imagnitude(x)
+    angle:torch.Tensor = x.angle()
+    magnitude:torch.Tensor = x.abs()
     softMagnitude:torch.Tensor = torch.softmax(magnitude, dim=dim)
     
     # Convert back to imaginary
@@ -182,17 +173,12 @@ def isigmoid(x:torch.Tensor) -> torch.Tensor:
     if not x.is_complex():
         return torch.sigmoid(x)
     
-    # Imaginary sigmoid
-    angle:torch.Tensor = ipolarization(x)
-    magnitude:torch.Tensor = imagnitude(x)
-    sigmag:torch.Tensor = nnf.sigmoid(magnitude)
-
-    # Convert back to imaginary
-    newReal:torch.Tensor = sigmag * torch.cos(angle)
-    newImag:torch.Tensor = sigmag * torch.sin(angle)
-
-    # Return in proper datatype
-    return torch.view_as_complex(torch.stack((newReal, newImag), dim=-1))
+    # Do a sigmoid on each value element wise because I'm stupid
+    rsig = nnf.sigmoid(x.real)
+    isig = nnf.sigmoid(x.imag)
+    
+    # Calculate and return
+    return torch.view_as_complex(torch.stack((rsig, isig), dim=-1))
 
 @torch.jit.script
 def icos(x:torch.Tensor) -> torch.Tensor:
@@ -201,8 +187,7 @@ def icos(x:torch.Tensor) -> torch.Tensor:
         return torch.cos(x)
 
     # Main conversion
-    I = i()
-    return torch.exp(I * x.real) + torch.exp(I * x.imag) - 1
+    return torch.cos(x.abs()) * torch.exp(i() * 2. * x.angle())
 
 @torch.jit.script
 def isin(x:torch.Tensor) -> torch.Tensor:

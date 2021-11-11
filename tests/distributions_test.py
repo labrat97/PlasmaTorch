@@ -133,7 +133,7 @@ class LinearGaussTest(unittest.TestCase):
             testGaussr = irregularGauss(x=xc.real[:,:,idx,:], mean=altMean[idx], lowStd=altLow[idx], highStd=altHigh[idx])
             testGaussi = irregularGauss(x=xc.imag[:,:,idx,:], mean=altMean[idx], lowStd=altLow[idx], highStd=altHigh[idx])
             testGaussc = torch.view_as_complex(torch.stack((testGaussr, testGaussi), dim=-1))
-            self.assertTrue(torch.all(torch.abs(imagnitude(testGaussc - bigGaussc[:,:,idx,:])) < 0.0001))
+            self.assertTrue(torch.all(torch.abs(testGaussc - bigGaussc[:,:,idx,:]) < 0.0001))
 
     def testValuesComplex(self):
         # Seeding tensor
