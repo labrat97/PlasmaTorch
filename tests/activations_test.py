@@ -503,11 +503,11 @@ class RingingTest(unittest.TestCase):
         # Check for proper signal degredations on forks
         self.assertTrue(torch.all((vr2 - (vr * phi())).abs() < 1e-4), \
             msg=f'build degredation: vr2/vr ({(vr2/vr).abs()}) != phi ({phi()})')
-        self.assertTrue(torch.all((vc2 - (vc * (phi()+(0.5*i())))).abs() < 1e-4), \
+        self.assertTrue(torch.all((vc2 - (vc * phi())).abs() < 1e-4), \
             msg=f'build degredation: vc2/vc ({(vc2/vc).abs()}) != phi ({phi()})')
         self.assertTrue(torch.all((vr3 - (vr2 * (1/phi()))).abs() < 1e-4), \
             msg=f'decay degredation: vr3/vr2 ({(vr3/vr2).abs()}) != 1/phi ({1/phi()})')
-        self.assertTrue(torch.all((vc3 - (vc2 * ((1/phi())+(0.5*i())))).abs() < 1e-4), \
+        self.assertTrue(torch.all((vc3 - (vc2 * (1/phi()))).abs() < 1e-4), \
             msg=f'decay degredation: vc3/vc2 ({(vc3/vc2).abs()}) != 1/phi ({1/phi()})')
 
     def testForwardValues(self):
@@ -577,13 +577,19 @@ class RingingTest(unittest.TestCase):
             # Add to test sets
             sumControl.append(tempSum)
             meanControl.append(tempMean)
-        # Run tests for prior tensors accordingly
-        for idx in range(1, len(controlTensors)):
-            sControl = sumControl[idx]
-            mControl = meanControl[idx]
-            self.assertTrue(torch.all(results[idx, :].abs() - ((1/phi()) * controlTensors[idx]).abs() - sControl[idx].abs() < 1e-4), \
-                msg=f'[idx:{idx}] A value higher than a non-regularized value added to the forks has appeared.\n{results[idx, :].abs() - ((1/phi()) * controlTensors[idx]).abs() - sControl[idx].abs()}')
-            self.assertTrue(torch.all((resultsReg[idx, 0].abs() - ((1/phi()) * controlTensors[idx]).abs() - mControl[idx]).abs() < 1e-4), \
-                msg=f'[idx:{idx}] A value higher than a regularized value added to the forks has appeared.\n{resultsReg[idx, 0].abs() - ((1/phi()) * controlTensors[idx]).abs() - mControl[idx].abs()}')
-            self.assertTrue(torch.all((resultsReg[idx, 1].abs() - (((1/phi())+(0.5*i())) * controlTensors[idx]).abs() - mControl[idx]).abs() < 1e-4), \
-                msg=f'[idx:{idx}] A value higher than a regularized value added to the forks has appeared.\n{resultsReg[idx, 1].abs() - (((1/phi()) + (0.5*i())) * controlTensors[idx]).abs() - mControl[idx].abs()}')
+        # Run test for the ones tensor. This tensor is at a DC value, so it should be roughly
+        # the same behavior as the zero tensor.
+        sControl = sumControl[1]
+        mControl = meanControl[1]
+        self.assertTrue(torch.all((results[1, :] - ((1/phi()) * controlTensors[1])).abs() < 1e-4))
+        self.assertTrue(torch.all((resultsReg[1, :] - ((1/phi()) * controlTensors[1])).abs() < 1e-4))
+
+        # Run tests for other prior tensors accordingly
+        for idx in range(2, len(controlTensors)):
+            mControl = meanControl[idx].unsqueeze(0)
+            sControl = sumControl[idx].unsqueeze(0)
+
+            self.assertTrue(torch.all((results[idx, :] - ((1/phi()) * (controlTensors[idx]))).abs() < 1e-4), \
+                msg=f'[idx:{idx}] A value higher than a non-regularized value added to the forks has appeared.\n{results[idx, :] - ((1/phi()) * controlTensors[idx])} != {sControl}')
+            self.assertTrue(torch.all((resultsReg[idx, :] - ((1/phi()) * (controlTensors[idx]))).abs() < 1e-4), \
+                msg=f'[idx:{idx}] A value higher than a regularized value added to the forks has appeared.\n{resultsReg[idx, :] - ((1/phi()) * controlTensors[idx])} != {mControl}')
