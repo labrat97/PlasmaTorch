@@ -191,8 +191,8 @@ def isigmoid(x:torch.Tensor) -> torch.Tensor:
 
     # The positive and negative quadrants are just the magnitude of the absolute value piped into
     # the evaluation of a normal sigmoid, then bound to the appropriate side of the sign
-    posVal:torch.Tensor = posQuad * nnf.sigmoid(posQuad * xabs)
-    negVal:torch.Tensor = negQuad * nnf.sigmoid(negQuad * -xabs)
+    posVal:torch.Tensor = posQuad * torch.sigmoid(posQuad * xabs)
+    negVal:torch.Tensor = negQuad * torch.sigmoid(negQuad * -xabs)
 
     # The "examine" quadrants will use a cosine activation to toggle between the signs compounded in the
     # magnitude evaluation for the sigmoid.
@@ -200,7 +200,7 @@ def isigmoid(x:torch.Tensor) -> torch.Tensor:
         (examineQuadLeft.type(torch.uint8) * (ang - (PI2))*2) \
             + (examineQuadRight.type(torch.uint8) * (ang + (PI2))*2)
     ))
-    examVal:torch.Tensor = examineQuad * nnf.sigmoid(examineQuad * rotScalar * xabs)
+    examVal:torch.Tensor = examineQuad * torch.sigmoid(examineQuad * rotScalar * xabs)
 
     # Add everything together according to the previously applied boolean based scalars
     finalSigmoidMag:torch.Tensor = posVal + negVal + examVal
