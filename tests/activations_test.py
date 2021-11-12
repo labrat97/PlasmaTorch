@@ -577,19 +577,17 @@ class RingingTest(unittest.TestCase):
             # Add to test sets
             sumControl.append(tempSum)
             meanControl.append(tempMean)
-        # Run test for the ones tensor. This tensor is at a DC value, so it should be roughly
-        # the same behavior as the zero tensor.
-        sControl = sumControl[1]
-        mControl = meanControl[1]
-        self.assertTrue(torch.all((results[1, :] - ((1/phi()) * controlTensors[1])).abs() < 1e-4))
-        self.assertTrue(torch.all((resultsReg[1, :] - ((1/phi()) * controlTensors[1])).abs() < 1e-4))
 
         # Run tests for other prior tensors accordingly
-        for idx in range(2, len(controlTensors)):
+        for idx in range(1, len(controlTensors)):
             mControl = meanControl[idx].unsqueeze(0)
             sControl = sumControl[idx].unsqueeze(0)
 
-            self.assertTrue(torch.all((results[idx, :] - ((1/phi()) * (controlTensors[idx]))).abs() < 1e-4), \
-                msg=f'[idx:{idx}] A value higher than a non-regularized value added to the forks has appeared.\n{results[idx, :] - ((1/phi()) * controlTensors[idx])} != {sControl}')
-            self.assertTrue(torch.all((resultsReg[idx, :] - ((1/phi()) * (controlTensors[idx]))).abs() < 1e-4), \
-                msg=f'[idx:{idx}] A value higher than a regularized value added to the forks has appeared.\n{resultsReg[idx, :] - ((1/phi()) * controlTensors[idx])} != {mControl}')
+            normalDiff = results[idx, :].abs() - ((1/phi()) * (controlTensors[idx])).abs()
+            normalResult = torch.all(normalDiff.abs() <= sControl.abs())
+            regularDiff = results[idx, :].abs() - ((1/phi()) * (controlTensors[idx])).abs()
+            regularResult = torch.all(regularDiff.abs() <= mControl.abs())
+            self.assertTrue(normalResult, \
+                msg=f'[idx:{idx}] A value higher than a non-regularized value added to the forks has appeared.\n|{results[idx, :].abs() - ((1/phi()) * controlTensors[idx]).abs()}| <= {sControl.abs() + 1e-4}')
+            self.assertTrue(regularResult, \
+                msg=f'[idx:{idx}] A value higher than a regularized value added to the forks has appeared.\n|{resultsReg[idx, :].abs() - ((1/phi()) * controlTensors[idx]).abs()}| <= {mControl.abs() + 1e-4}')
