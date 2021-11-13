@@ -26,7 +26,7 @@ def __hzetaitr(s:t.Tensor, a:t.Tensor, n:int) -> t.Tensor:
 
 @ts
 def hzetae(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.Tensor=t.tensor((1e-4)), maxiter:int=1024) -> t.Tensor:
-    """Returns the value that the hzeta function converges to after either the max iterations order
+    """Returns the value that the hzeta function converges to after either the max iterations or
     when the change in the position of the function is unanimously below the arc-epsilon value (aeps).
 
     Args:
@@ -35,12 +35,11 @@ def hzetae(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.Tensor=t.tenso
         res (t.Tensor, optional): The amount of residual evaluation used to determine the output value. This
             value is piped through the isigmoid() fuction. A full activation means
             a normal evaluation of the zeta function, as where a 0 activation means
-            just the evaluation of the delta value. If this value is too low, every
-            input will converge to 0. Defaults to asigphi().
+            something closer to just the evaluation of the delta value. Defaults to asigphi().
         aeps (t.Tensor, optional): The arc-epsilon value. If the delta value is less
             than this value, the evaluation is considered complete. Defaults to t.tensor((1e-4)).
         maxiter (int, optional): The maximum amount of evaluation iterations used for the
-            finding the convergent value. Defaults to 1024.
+            finding the convergent values. Defaults to 1024.
 
     Returns:
         t.Tensor: The element-wise convergent values of the input tensors through
@@ -81,8 +80,7 @@ def hzetas(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blankSamples:int=0,
         res (t.Tensor, optional): The amount of residual evaluation used to determine the output value. This
             value is piped through the isigmoid() fuction. A full activation means
             a normal evaluation of the zeta function, as where a 0 activation means
-            just the evaluation of the delta value. If this value is too low, every
-            input will converge to 0. Defaults to asigphi().
+            something closer to just the evaluation of the delta value. Defaults to asigphi().
         blankSamples (int, optional): The amount of samples to ignore at the start. Defaults to 0.
         samples (int, optional): The total amount of samples per element to output. Defaults to DEFAULT_FFT_SAMPLES.
         fftformat (bool, optional): If enabled, runs the output through the resampleContinuous() function, 
@@ -122,6 +120,17 @@ def hzetas(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blankSamples:int=0,
 
 @ts
 def __lerchitr(lam:t.Tensor, s:t.Tensor, a:t.Tensor, n:int) -> t.Tensor:
+    """Returns just the value being infinitely summed in the Lerch Zeta function.
+
+    Args:
+        lam (t.Tensor): The rotation multiple to used to generate the top of the transcedent.
+        s (t.Tensor): The `s` value of the Lerch Zeta function.
+        a (t.Tensor): The `a` value of the Lerch Zeta function.
+        n (int): The current iteration number.
+
+    Returns:
+        t.Tensor: The value to be summed for the provided iteration of the function.
+    """
     # Modify the hzeta itr with the provided exponent
     hzetaexp:t.Tensor = 2 * pi() * n
 
@@ -136,6 +145,26 @@ def __lerchitr(lam:t.Tensor, s:t.Tensor, a:t.Tensor, n:int) -> t.Tensor:
 
 @ts
 def lerche(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, aeps:t.Tensor=t.tensor(1e-4), maxiter:int=1024) -> t.Tensor:
+    """Returns the values that the Lerch Zeta function converges to after either the max iterations or
+    when the change in the position of the function is unanimously below the arc-epsilon value (aeps).
+
+    Args:
+        lam (t.Tensor): The rotation multiple used to generate the top of the transcedent.
+        s (t.Tensor): The `s` value of the Lerch Zeta function.
+        a (t.Tensor): The `a` value of the Lerch Zeta function.
+        res (t.Tensor, optional): The amount of residual evaluation used to determine the output value. This
+            value is piped through the isigmoid() fuction. A full activation means
+            a normal evaluation of the zeta function, as where a 0 activation means
+            something closer to just the evaluation of the delta value. Defaults to asigphi().
+        aeps (t.Tensor, optional): The arc-epsilon value. If the delta value is less than
+            this value, the evaluation is considered complete. Defaults to t.tensor(1e-4).
+        maxiter (int, optional): The maximum amount of evaluation iterations used 
+            for finding the convergent values. Defaults to 1024.
+
+    Returns:
+        t.Tensor: The element-wise convergent values of the input tensors through
+            the Lerch Zeta function.
+    """
     # Set up the running parameters
     epsig:t.Tensor = isigmoid(res)
     idx:int = 1
@@ -163,6 +192,25 @@ def lerche(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, aeps:
 
 @ts
 def lerchs(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), blankSamples:int=0, samples:int=DEFAULT_FFT_SAMPLES, fftformat:bool=True) -> t.Tensor:
+    """Returns a set of samples from the Lerch Zeta function.
+
+    Args:
+        lam (t.Tensor): The rotation multiple used to generate the top of the transcedent.
+        s (t.Tensor): The `s` value of the Lerch Zeta function.
+        a (t.Tensor): The `a` value of the Lerch Zeta function.
+        res (t.Tensor, optional): The amount of residual evaluation used to determine the output value. This
+            value is piped through the isigmoid() fuction. A full activation means
+            a normal evaluation of the zeta function, as where a 0 activation means
+            something closer to just the evaluation of the delta value. Defaults to asigphi().
+        blankSamples (int, optional): The amount of samples to ignore at the start. Defaults to 0.
+        samples (int, optional): The total amount of samples per element to output. Defaults to DEFAULT_FFT_SAMPLES.
+        fftformat (bool, optional): If enabled, runs the output through the resampleContinuous() function, 
+            using the final sampled value as the most significant value. Defaults to True.
+
+    Returns:
+        torch.Tensor: A tensor of the size of the input with the amount of samples collected
+            in a new last dimension through the Lerch Zeta function.
+    """
     # Make the result the size of the input with the output samples channels
     result:t.Tensor = toComplex(s.unsqueeze(-1) @ t.zeros((1, samples), dtype=s.dtype))
 
