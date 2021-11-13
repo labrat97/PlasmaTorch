@@ -37,3 +37,34 @@ class HurwitzZetaTest(unittest.TestCase):
         self.assertEqual(hxffft.size(), hxff.size())
         self.assertEqual(hxff.size(), hxbfft.size())
         self.assertEqual(hxbfft.size(), hxbf.size())
+    
+    def testValues(self):
+        # Generate random sizing parameters
+        SIZELEN = randint(1, 3)
+        SIZESCALAR = 5
+        SIZE = torch.Size((torch.randn((SIZELEN)) * SIZESCALAR).type(torch.int64).abs() + 1)
+        BLANKS = randint(0, 512) + 2048
+        SAMPLES = 10240
+
+        # Generate the control tensors for later testing
+        s = torch.randn(SIZE, dtype=DEFAULT_DTYPE).abs() + 1
+        a = torch.sigmoid(torch.randn_like(s))
+
+        # Calculate the values to put through tests
+        hxe = hzetae(s=s, a=a, maxiter=SAMPLES)
+        hxf = hzetas(s=s, a=a, blankSamples=BLANKS, samples=SAMPLES, fftformat=False)
+        hxfft = hzetas(s=s, a=a, blankSamples=BLANKS, samples=SAMPLES, fftformat=True)
+
+        # Test the final value of each type of hzeta evaluation against the torch.special version
+        zetacontrol = torch.special.zeta(s, a)
+        hxediff = torch.log((hxe - zetacontrol).abs())
+        hxfdiff = torch.log((hxf[..., -1] - zetacontrol).abs())
+
+        while len(hxediff.size()) >= 1:
+            hxediff = hxediff.mode(dim=-1)[0]
+            hxfdiff = hxfdiff.mode(dim=-1)[0]
+        hxediff = torch.exp(hxediff).abs()
+        hxfdiff = torch.exp(hxfdiff).abs()
+
+        self.assertTrue(hxediff < 1e-2, msg=f"hxediff: {hxediff}")
+        self.assertTrue(hxfdiff < 1e-2, msg=f"hxfdiff: {hxfdiff}")
