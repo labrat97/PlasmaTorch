@@ -220,7 +220,7 @@ def lerchs(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), blankSa
     epsigexp:t.Tensor = t.ones_like(epsig)
     totsamples:int = blankSamples + samples
 
-    # Generate the first sample`
+    # Generate the first sample
     result[..., 0] = __lerchitr(lam=lam, s=s, a=a, n=0)
 
     # Ignore the first blank steps in the system
