@@ -9,7 +9,11 @@ from random import randint
 
 class ConstantsTest(unittest.TestCase):
     def testPhi(self):
-        self.assertTrue(torch.all(phi() - 1.61803398875 < 0.0001))
+        self.assertTrue(torch.all((phi() - 1.61803398875).abs() < 1e-4))
+
+    def testAsigphi(self):
+        self.assertTrue(torch.all((isigmoid(asigphi()) - (1/phi())).abs() < 1e-4))
+        self.assertTrue(torch.all((isigmoid(toComplex(asigphi())) - (1/phi())).abs() < 1e-4))
     
     def testLattice(self):
         paramControl = latticeParams(10)

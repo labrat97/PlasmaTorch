@@ -37,3 +37,42 @@ class HurwitzZetaTest(unittest.TestCase):
         self.assertEqual(hxffft.size(), hxff.size())
         self.assertEqual(hxff.size(), hxbfft.size())
         self.assertEqual(hxbfft.size(), hxbf.size())
+    
+    def testValues(self):
+        # Generate random sizing parameters
+        SIZELEN = randint(1, 3)
+        SIZESCALAR = 10
+        SIZE = torch.Size((torch.randn((SIZELEN)) * SIZESCALAR).type(torch.int64).abs() + 1)
+        BLANKS = randint(0, 512) + 10240
+        SAMPLES = 1024
+
+        # Generate the control tensors for later testing
+        s = torch.randn(SIZE, dtype=DEFAULT_DTYPE).abs() + 1
+        a = torch.randn_like(s).abs()
+
+        # Calculate the values to put through tests
+        hxe = hzetae(s=s, a=a, res=torch.ones((1)), maxiter=SAMPLES+BLANKS)
+        hxf = hzetas(s=s, a=a, res=torch.ones((1)), blankSamples=BLANKS, samples=SAMPLES, fftformat=False)
+        hxfft = hzetas(s=s, a=a, res=torch.ones((1)), blankSamples=BLANKS, samples=SAMPLES, fftformat=True)
+
+        # Test the final value of each type of hzeta evaluation against the torch.special version
+        zetacontrol = torch.special.zeta(s, a)
+        hxediff = torch.log((hxe - zetacontrol).abs())
+        hxfdiff = torch.log((hxf[..., -1] - zetacontrol).abs())
+
+        # Find the most commonly occuring error
+        # (sometimes there is a really high absolute error, but that can be expected with something sort of fractalline 
+        # like this)
+        while len(hxediff.size()) >= 1:
+            hxediff = hxediff.mean(dim=-1)
+            hxfdiff = hxfdiff.mean(dim=-1)
+        hxediff = torch.exp(hxediff).abs()
+        hxfdiff = torch.exp(hxfdiff).abs()
+
+        self.assertTrue(hxediff < 1e-2, msg=f"hxediff: {hxediff}")
+        self.assertTrue(hxfdiff < 1e-2, msg=f"hxfdiff: {hxfdiff}")
+
+        # Make sure the fftformat option makes the values come out with the same 
+        fftmirror = torch.fft.ifft(torch.fft.fft(hxfft))
+        fftdiff = hxfft - fftmirror
+        self.assertTrue(torch.all(fftdiff.abs() < 1e-4), msg=f'fftdiff: {fftdiff}')

@@ -22,10 +22,10 @@ def __hzetaitr(s:t.Tensor, a:t.Tensor, n:int) -> t.Tensor:
     Returns:
         torch.Tensor: The result of the internal computation only.
     """
-    return t.pow(n + a, -s)
+    return 1. / t.pow(n + a, s)
 
 @ts
-def hzetae(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.Tensor=t.tensor((1e-4)), maxiter:int=1024) -> t.Tensor:
+def hzetae(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.Tensor=t.tensor((1e-8)), maxiter:int=1024) -> t.Tensor:
     """Returns the value that the hzeta function converges to after either the max iterations or
     when the change in the position of the function is unanimously below the arc-epsilon value (aeps).
 
@@ -37,7 +37,7 @@ def hzetae(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.Tensor=t.tenso
             a normal evaluation of the zeta function, as where a 0 activation means
             something closer to just the evaluation of the delta value. Defaults to asigphi().
         aeps (t.Tensor, optional): The arc-epsilon value. If the delta value is less
-            than this value, the evaluation is considered complete. Defaults to t.tensor((1e-4)).
+            than this value, the evaluation is considered complete. Defaults to t.tensor((1e-8)).
         maxiter (int, optional): The maximum amount of evaluation iterations used for the
             finding the convergent values. Defaults to 1024.
 
@@ -144,7 +144,7 @@ def __lerchitr(lam:t.Tensor, s:t.Tensor, a:t.Tensor, n:int) -> t.Tensor:
     return t.exp(hzetaexp * i()) * __hzetaitr(s=s, a=a, n=n)
 
 @ts
-def lerche(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, aeps:t.Tensor=t.tensor(1e-4), maxiter:int=1024) -> t.Tensor:
+def lerche(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.Tensor=t.tensor(1e-8), maxiter:int=1024) -> t.Tensor:
     """Returns the values that the Lerch Zeta function converges to after either the max iterations or
     when the change in the position of the function is unanimously below the arc-epsilon value (aeps).
 
@@ -157,7 +157,7 @@ def lerche(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, aeps:
             a normal evaluation of the zeta function, as where a 0 activation means
             something closer to just the evaluation of the delta value. Defaults to asigphi().
         aeps (t.Tensor, optional): The arc-epsilon value. If the delta value is less than
-            this value, the evaluation is considered complete. Defaults to t.tensor(1e-4).
+            this value, the evaluation is considered complete. Defaults to t.tensor(1e-8).
         maxiter (int, optional): The maximum amount of evaluation iterations used 
             for finding the convergent values. Defaults to 1024.
 
@@ -191,7 +191,7 @@ def lerche(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, aeps:
     return result
 
 @ts
-def lerchs(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), blankSamples:int=0, samples:int=DEFAULT_FFT_SAMPLES, fftformat:bool=True) -> t.Tensor:
+def lerchs(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blankSamples:int=0, samples:int=DEFAULT_FFT_SAMPLES, fftformat:bool=True) -> t.Tensor:
     """Returns a set of samples from the Lerch Zeta function.
 
     Args:
@@ -201,7 +201,7 @@ def lerchs(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), blankSa
         res (t.Tensor, optional): The amount of residual evaluation used to determine the output value. This
             value is piped through the isigmoid() fuction. A full activation means
             a normal evaluation of the zeta function, as where a 0 activation means
-            something closer to just the evaluation of the delta value. Defaults to asigphi().
+            something closer to just the evaluation of the delta value. Defaults to asigphi()*3.
         blankSamples (int, optional): The amount of samples to ignore at the start. Defaults to 0.
         samples (int, optional): The total amount of samples per element to output. Defaults to DEFAULT_FFT_SAMPLES.
         fftformat (bool, optional): If enabled, runs the output through the resampleContinuous() function, 
@@ -220,7 +220,7 @@ def lerchs(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), blankSa
     epsigexp:t.Tensor = t.ones_like(epsig)
     totsamples:int = blankSamples + samples
 
-    # Generate the first sample`
+    # Generate the first sample
     result[..., 0] = __lerchitr(lam=lam, s=s, a=a, n=0)
 
     # Ignore the first blank steps in the system

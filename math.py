@@ -172,13 +172,47 @@ def isigmoid(x:torch.Tensor) -> torch.Tensor:
     # Normal sigmoid
     if not x.is_complex():
         return torch.sigmoid(x)
+
+    # Extract/calculate required basic parameters
+    I = i().type(x.dtype)
+    PI2 = pi() / 2
+    ang = x.angle()
+    xabs = x.abs()
+    xo = torch.zeros_like(x.real)
     
-    # Do a sigmoid on each value element wise because I'm stupid
-    rsig = nnf.sigmoid(x.real)
-    isig = nnf.sigmoid(x.imag)
+    # Do a sigmoid in the unanimous sign'd quadrants and find the connecting point
+    # between the sigmoids if not in the unanimous quadrants.
+    posQuad:torch.Tensor = torch.logical_and(x.real >= 0, x.imag >= 0).type(torch.uint8)
+    negQuad:torch.Tensor = torch.logical_and(x.real < 0, x.imag < 0).type(torch.uint8)
+    examineQuadRight:torch.Tensor = torch.logical_and(x.real >= 0, x.imag < 0)
+    examineQuadLeft:torch.Tensor = torch.logical_and(x.imag >= 0, x.real < 0)
+    examineQuad:torch.Tensor = torch.logical_and(examineQuadLeft, examineQuadRight).type(torch.uint8)
     
+
+    # The positive and negative quadrants are just the magnitude of the absolute value piped into
+    # the evaluation of a normal sigmoid, then bound to the appropriate side of the sign
+    posVal:torch.Tensor = posQuad * torch.sigmoid(posQuad * xabs)
+    negVal:torch.Tensor = negQuad * torch.sigmoid(negQuad * -xabs)
+
+    # The "examine" quadrants will use a cosine activation to toggle between the signs compounded in the
+    # magnitude evaluation for the sigmoid.
+    rotScalar:torch.Tensor = (torch.cos(
+        (examineQuadLeft.type(torch.uint8) * (ang - (PI2))*2) \
+            + (examineQuadRight.type(torch.uint8) * (ang + (PI2))*2)
+    ))
+    examVal:torch.Tensor = examineQuad * torch.sigmoid(examineQuad * rotScalar * xabs)
+
+    # Add everything together according to the previously applied boolean based scalars
+    finalSigmoidMag:torch.Tensor = posVal + negVal + examVal
+
+    # Create the complex value alignment to finally push the signal through. As a note,
+    # I really don't like the fact that there are hard non-differentiable absolute
+    # values in this evaluation, but I would not like to lose the current sigmoid properties
+    xabs_e = torch.view_as_complex(torch.stack((x.real.abs(), x.imag.abs()), dim=-1))
+    sigmoidComplexVal:torch.Tensor = xabs_e / xabs
+
     # Calculate and return
-    return torch.view_as_complex(torch.stack((rsig, isig), dim=-1))
+    return finalSigmoidMag * sigmoidComplexVal
 
 @torch.jit.script
 def icos(x:torch.Tensor) -> torch.Tensor:
