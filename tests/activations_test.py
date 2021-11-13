@@ -512,9 +512,9 @@ class RingingTest(unittest.TestCase):
 
     def testForwardValues(self):
         # Generate random sizing
-        SIZELEN:int = randint(1, 3)
-        SIZESCALAR:int = randint(3, 5)
-        FORK_DISP:int = 1
+        SIZELEN:int = randint(1, 4)
+        SIZESCALAR:int = randint(3, 8)
+        FORK_DISP:int = 2
         SIZE = torch.Size(((torch.randn((SIZELEN), dtype=DEFAULT_DTYPE)).type(dtype=torch.int64).abs() + 1) * SIZESCALAR)
         FORKS:int = SIZE[-1] - FORK_DISP
 
@@ -565,29 +565,38 @@ class RingingTest(unittest.TestCase):
         sumControl = []
         meanControl = []
         for idx, control in enumerate(controlTensors):
+            if len(control.size()) <= 1:
+                sumControl.append(control)
+                meanControl.append(control)
+                continue
+
             # Create copies for output
-            tempSum = torch.ones_like(control) * control
-            tempMean = torch.ones_like(control) * control
+            # I know the max doesn't necessarily match the normal type of output calculated using mean,
+            # however, creating the output signal this way can garuntee atleast the lack of a total runaway
+            tempSum = (torch.fft.fft(control, dim=-1).transpose(-1, 0)).abs()
+            tempMax = (torch.zeros_like(tempSum) + tempSum).abs()
 
             # Regularize for testing
             for _ in range(len(tempSum.size()) - 1):
                 tempSum = torch.sum(tempSum, dim=1)
-                tempMean = torch.mean(tempMean, dim=1)
+                tempMax = torch.max(tempMax, dim=1)[0]
+            tempMax = torch.max(tempMax, dim=-1)[0] * torch.ones_like(tempMax)
+            tempSum = torch.max(tempSum, dim=-1)[0] * torch.ones_like(tempSum)
 
             # Add to test sets
-            sumControl.append(tempSum)
-            meanControl.append(tempMean)
+            sumControl.append(torch.max(torch.fft.ifft(tempSum, dim=-1).abs(), dim=-1)[0])
+            meanControl.append(torch.max(torch.fft.ifft(tempMax, dim=-1).abs(), dim=-1)[0])
 
         # Run tests for other prior tensors accordingly
         for idx in range(1, len(controlTensors)):
-            mControl = meanControl[idx].unsqueeze(0)
+            mControl = meanControl[idx]
             sControl = sumControl[idx].unsqueeze(0)
 
-            normalDiff = results[idx, :].abs() - ((1/phi()) * (controlTensors[idx])).abs()
-            normalResult = torch.all(normalDiff.abs() <= sControl.abs())
-            regularDiff = results[idx, :].abs() - ((1/phi()) * (controlTensors[idx])).abs()
-            regularResult = torch.all(regularDiff.abs() <= mControl.abs())
+            normalDiff = (results[idx, :] - ((1/phi()) * (controlTensors[idx]))).abs()
+            normalResult = torch.all(normalDiff.abs() <= sControl.abs() + 1e-4)
+            regularDiff = (results[idx, :] - ((1/phi()) * (controlTensors[idx]))).abs()
+            regularResult = torch.all(regularDiff.abs() <= mControl.abs() + 1e-4)
             self.assertTrue(normalResult, \
-                msg=f'[idx:{idx}] A value higher than a non-regularized value added to the forks has appeared.\n|{results[idx, :].abs() - ((1/phi()) * controlTensors[idx]).abs()}| <= {sControl.abs() + 1e-4}')
+                msg=f'[idx:{idx}] A value higher than a non-regularized value added to the forks has appeared.\n|{normalDiff}| <= {sControl.abs() + 1e-4}')
             self.assertTrue(regularResult, \
-                msg=f'[idx:{idx}] A value higher than a regularized value added to the forks has appeared.\n|{resultsReg[idx, :].abs() - ((1/phi()) * controlTensors[idx]).abs()}| <= {mControl.abs() + 1e-4}')
+                msg=f'[idx:{idx}] A value higher than a regularized value added to the forks has appeared.\n|{regularDiff}| <= {mControl.abs() + 1e-4}')
