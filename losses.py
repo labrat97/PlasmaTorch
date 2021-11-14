@@ -27,6 +27,13 @@ def correlation(x:t.Tensor, y:t.Tensor, dim:int=-1) -> t.Tensor:
 
     return corr
 
+
+HYDX_CORRMEAN:int = 0
+HYDX_CORRMIN:int = 1
+HYDX_CORRMAX:int = 2
+HYDX_CORRMEDIAN:int = 3
+HYDX_CORRMODE:int = 4
+HYDX_CORRMSE:int = 5
 @ts
 def hypercorrelation(x:t.Tensor, y:t.Tensor, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE, dim:int=-1, fullOutput:bool=False, extraTransform:bool=False):
     # Some size assertions/extractions
@@ -86,6 +93,7 @@ def hypercorrelation(x:t.Tensor, y:t.Tensor, cdtype:t.dtype=DEFAULT_COMPLEX_DTYP
     corrmax:t.Tensor = unfiltered.max(dim=-1)[0].max(dim=-1)[0]
     corrmedian:t.Tensor = unfiltered.median(dim=-1)[0].median(dim=-1)[0]
     corrmode:t.Tensor = unfiltered.mode(dim=-1)[0].mode(dim=-1)[0]
+    corrmse:t.Tensor = (unfiltered * unfiltered).mean(dim=-1)
 
     # Return as a single tensor in the previously commented/written order
     return t.stack((corrmean, corrmin, corrmax, corrmedian, corrmode), dim=-1)
@@ -114,6 +122,10 @@ def skeeter(teacher:t.Tensor, student:t.Tensor, center:t.Tensor, teacherTemp:flo
     # possible occuring orders of the time-frequency superposition
     hypercorr:t.Tensor = hypercorrelation(x=softtenfft, y=softstufft, cdtype=cdtype, \
         dim=dim, fullOutput=False, extraTransform=False)
-    corrmean = hypercorr[...,0]
-    corrmedian = hypercorr[..., 3]
-    corrmode = hypercorr[..., 4]
+    corrmean = 1. / hypercorr[..., HYDX_CORRMEAN]
+    corrmedian = 1. / hypercorr[..., HYDX_CORRMEDIAN]
+    corrmode = 1. / hypercorr[..., HYDX_CORRMODE]
+    corrmse = 1. / hypercorr[..., HYDX_CORRMSE]
+
+    # Add together the signals in the style of parallel impedance
+    return 1. / (corrmean + corrmedian + corrmode + corrmse)
