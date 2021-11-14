@@ -47,8 +47,8 @@ class HurwitzZetaTest(unittest.TestCase):
         SAMPLES = 1024
 
         # Generate the control tensors for later testing
-        s = torch.randn(SIZE, dtype=DEFAULT_DTYPE).abs() + 1
-        a = torch.randn_like(s).abs()
+        s = torch.randn(SIZE, dtype=DEFAULT_DTYPE).abs() + 2
+        a = torch.randn_like(s).abs() + 1
 
         # Calculate the values to put through tests
         hxe = hzetae(s=s, a=a, res=torch.ones((1)), maxiter=SAMPLES+BLANKS)
@@ -66,8 +66,8 @@ class HurwitzZetaTest(unittest.TestCase):
         flatc = zetacontrol.flatten()
         flate = hxediff.flatten()
         flatf = hxfdiff.flatten()
-        flate = torch.log((flatc - flate).abs()/flatc.abs()).mean(dim=-1)
-        flatf = torch.log((flatc - flatf).abs()/flatc.abs()).mean(dim=-1)
+        flate = torch.log((flate).abs()/flatc.abs()).mean(dim=-1)
+        flatf = torch.log((flatf).abs()/flatc.abs()).mean(dim=-1)
         flate = torch.exp(flate)
         flatf = torch.exp(flatf)
 
