@@ -47,8 +47,8 @@ class HurwitzZetaTest(unittest.TestCase):
         SAMPLES = 1024
 
         # Generate the control tensors for later testing
-        s = torch.randn(SIZE, dtype=DEFAULT_DTYPE).abs() + 1
-        a = torch.randn_like(s).abs()
+        s = torch.randn(SIZE, dtype=DEFAULT_DTYPE).abs() + 2
+        a = torch.randn_like(s).abs() + 1
 
         # Calculate the values to put through tests
         hxe = hzetae(s=s, a=a, res=torch.ones((1)), maxiter=SAMPLES+BLANKS)
@@ -66,8 +66,8 @@ class HurwitzZetaTest(unittest.TestCase):
         flatc = zetacontrol.flatten()
         flate = hxediff.flatten()
         flatf = hxfdiff.flatten()
-        flate = torch.log((flatc - flate).abs()/flatc.abs()).mean(dim=-1)
-        flatf = torch.log((flatc - flatf).abs()/flatc.abs()).mean(dim=-1)
+        flate = torch.log((flate).abs()/flatc.abs()).mean(dim=-1)
+        flatf = torch.log((flatf).abs()/flatc.abs()).mean(dim=-1)
         flate = torch.exp(flate)
         flatf = torch.exp(flatf)
 
@@ -94,14 +94,14 @@ class LerchZetaTest(unittest.TestCase):
         l = torch.randn_like(x)
 
         # Test the non-batch sampled version of the function (just a single final element)
-        lxf = lzetae(lam=l, s=x, a=altx, maxiter=SAMPLES)
-        lxb = lzetae(lam=l, s=altx, a=x, maxiter=SAMPLES)
+        lxf = lerche(lam=l, s=x, a=altx, maxiter=SAMPLES)
+        lxb = lerche(lam=l, s=altx, a=x, maxiter=SAMPLES)
         
         # Test the batch sampled version of the function while toggling the FFT transcoding between the results
-        lxffft = lzetas(lam=l, s=x, a=altx, blankSamples=BLANKS, samples=SAMPLES, fftformat=True)
-        lxff = lzetas(lam=l, s=x, a=altx, blankSamples=BLANKS, samples=SAMPLES, fftformat=False)
-        lxbfft = lzetas(lam=l, s=altx, a=x, blankSamples=BLANKS, samples=SAMPLES, fftformat=True)
-        lxbf = lzetas(lam=l, s=altx, a=x, blankSamples=BLANKS, samples=SAMPLES, fftformat=False)
+        lxffft = lerchs(lam=l, s=x, a=altx, blankSamples=BLANKS, samples=SAMPLES, fftformat=True)
+        lxff = lerchs(lam=l, s=x, a=altx, blankSamples=BLANKS, samples=SAMPLES, fftformat=False)
+        lxbfft = lerchs(lam=l, s=altx, a=x, blankSamples=BLANKS, samples=SAMPLES, fftformat=True)
+        lxbf = lerchs(lam=l, s=altx, a=x, blankSamples=BLANKS, samples=SAMPLES, fftformat=False)
 
         # Size testing of the non-batch sampled version
         self.assertEqual(x.size(), lxf.size())
@@ -113,3 +113,31 @@ class LerchZetaTest(unittest.TestCase):
         self.assertEqual(lxffft.size(), lxff.size())
         self.assertEqual(lxff.size(), lxbfft.size())
         self.assertEqual(lxbfft.size(), lxbf.size())
+
+    def testValues(self):
+        # Generate random sizing parameters
+        SIZELEN = randint(1, 3)
+        SIZESCALAR = 10
+        SIZE = torch.Size((torch.randn((SIZELEN)) * SIZESCALAR).type(torch.int64).abs() + 1)
+        BLANKS = randint(0, 512) + 10240
+        SAMPLES = 1024
+
+        # Generate the control tensors for later testing
+        s = torch.randn(SIZE, dtype=DEFAULT_DTYPE).abs() + 2
+        a = torch.randn_like(s).abs() + 1
+        l = torch.zeros_like(s)
+
+        # Calculate the values to put through tests
+        hxe = hzetae(s=s, a=a, res=torch.ones((1)), maxiter=SAMPLES+BLANKS)
+        hxf = hzetas(s=s, a=a, res=torch.ones((1)), blankSamples=BLANKS, samples=SAMPLES, fftformat=False)
+        hxfft = hzetas(s=s, a=a, res=torch.ones((1)), blankSamples=BLANKS, samples=SAMPLES, fftformat=True)
+        lxe = lerche(lam=l, s=s, a=a, res=torch.ones((1)), maxiter=SAMPLES+BLANKS)
+        lxf = lerchs(lam=l, s=s, a=a, res=torch.ones((1)), blankSamples=BLANKS, samples=SAMPLES, fftformat=False)
+        lxfft = lerchs(lam=l, s=s, a=a, res=torch.ones((1)), blankSamples=BLANKS, samples=SAMPLES, fftformat=True)
+
+        # Make sure that the values that come out are the same as the hzeta function
+        # This happens because the lambda value being set to zero forces the lerch transcedent
+        #   to have the same value as the hzeta iteration function.
+        self.assertTrue(torch.all((lxe - hxe).abs() < 1e-4))
+        self.assertTrue(torch.all((lxf - hxf).abs() < 1e-4))
+        self.assertTrue(torch.all((lxfft - hxfft).abs() < 1e-4))
