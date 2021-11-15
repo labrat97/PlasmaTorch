@@ -117,7 +117,7 @@ def hypercorrelation(x:t.Tensor, y:t.Tensor, cdtype:t.dtype=DEFAULT_COMPLEX_DTYP
     corrmse:t.Tensor = (unfiltered * unfiltered).mean(dim=-1)
 
     # Return as a single tensor in the previously commented/written order
-    return t.stack((corrmean, corrmin, corrmax, corrmedian, corrmode), dim=-1)
+    return t.stack((corrmean, corrmin, corrmax, corrmedian, corrmode, corrmse), dim=-1)
 
 # Some constants for indexing the hypercorrelation function
 HYDX_CORRMEAN:int = 0
@@ -182,6 +182,27 @@ def skeeter(teacher:t.Tensor, student:t.Tensor, center:t.Tensor, teacherTemp:flo
     return -1. / (corrmean + corrmedian + corrmode + corrmse)
 
 @ts
-def bloodmuck(teacher:t.Tensor, student:t.Tensor, center:t.Tensor, teacherTemp:float=1., \
-    studentTemp:float=1., dim:int=-1, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE) -> t.Tensor:
-    return t.zeros((1))
+def bloodmuck(teacher:nn.Module, student:nn.Module, sigma:t.Tensor):
+    """Update the weights of the networks by "mucking up the blood" or doing, essentially,
+    exponential moving average.
+
+    Args:
+        teacher (nn.Module): The teacher module for update.
+        student (nn.Module): The student module used for updating the parameters of the teacher.
+        sigma (t.Tensor): The value of movement towards the student weights.
+    """
+    # Disable gradient calculation as this just forces over the resultant weights
+    #   the student to the teacher.
+    with t.no_grad():
+        # Lock the momentum to be activated inside of a sigmoid like function
+        epsig:t.Tensor = isigmoid(sigma.detach())
+        # No need to always re-calc
+        aepsig:t.Tensor = 1 - epsig
+        
+        # Update each parameter in each module
+        for tparam, sparam in zip(teacher.parameters(), student.parameters()):
+            # Reduce the weights by the momentum in a decaying fashion
+            tparam.mul_(epsig)
+
+            # Add the student weights using the momentum in a compounding fashion
+            tparam.add_(aepsig * sparam.detach())
