@@ -8,6 +8,10 @@ def pi() -> torch.Tensor:
     return (torch.ones((1)) * 3.141592653589793238462643383279502).detach()
 
 @torch.jit.script
+def emconst() -> torch.Tensor:
+    return (torch.ones((1)) * 0.57721566490153286060651209008240243104215933593992).detach()
+
+@torch.jit.script
 def phi() -> torch.Tensor:
     one = torch.ones((1)).detach()
     square = torch.sqrt(one * 5)
@@ -231,3 +235,17 @@ def isin(x:torch.Tensor) -> torch.Tensor:
 
     # Main conversion
     return i() * icos(x)
+
+@torch.jit.script
+def harmonicdist(x:torch.Tensor) -> torch.Tensor:
+    # This function is only doable because of the Euler–Mascheroni constant.
+    # Using this constant allows the harmonic numbers to be approximated continuously,
+    #   the issue comes up when trying to find the distance to this function. To find
+    #   it, the zeros of the total distance function were taken on paper, and the value
+    #   which should evaluate as closest is at x=e^-(a/em()). This value is calculated through
+    #   the function em()ln(x) and the difference from the input to that number is given.
+    em:torch.Tensor = emconst()
+    inverse:torch.Tensor = torch.exp(-x/em)
+    harmonic:torch.Tensor = em * torch.log(inverse)
+
+    return x - harmonic
