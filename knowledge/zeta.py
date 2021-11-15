@@ -1,12 +1,9 @@
 import torch as t
 from torch.jit import script as ts
-import torch.nn as nn
-from torch.types import Number
-import torch.fft as tfft
 
-from .defaults import *
-from .conversions import *
-from .math import *
+from ..defaults import *
+from ..conversions import *
+from ..math import *
 
 
 @ts

@@ -1,9 +1,9 @@
-from .defaults import *
-from .activations import *
-from .entanglement import *
-from .distributions import *
-from .conversions import *
-from .attention import *
+from ..defaults import *
+from ..activations import *
+from ..entanglement import *
+from ..distributions import *
+from ..conversions import *
+from ..attention import *
 
 import torch
 import torch.nn as nn
