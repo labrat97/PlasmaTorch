@@ -173,13 +173,15 @@ def skeeter(teacher:t.Tensor, student:t.Tensor, center:t.Tensor, teacherTemp:flo
     # possible occuring orders of the time-frequency superposition
     hypercorr:t.Tensor = hypercorrelation(x=softtenfft, y=softstufft, cdtype=cdtype, \
         dim=dim, fullOutput=False, extraTransform=False)
-    corrmean = 1. / hypercorr[..., HYDX_CORRMEAN]
-    corrmedian = 1. / hypercorr[..., HYDX_CORRMEDIAN]
-    corrmode = 1. / hypercorr[..., HYDX_CORRMODE]
-    corrmse = 1. / hypercorr[..., HYDX_CORRMSE]
+    corrmean = hypercorr[..., HYDX_CORRMEAN]
+    corrmedian = hypercorr[..., HYDX_CORRMEDIAN]
+    corrmode = hypercorr[..., HYDX_CORRMODE]
+    corrmse = hypercorr[..., HYDX_CORRMSE]
 
-    # Add together the signals in the style of parallel impedance
-    return -1. / (corrmean + corrmedian + corrmode + corrmse)
+    # Get the harmonic mean of the extracted values, and the higher the mean, the lower the loss
+    stackedResult = torch.stack((corrmean, corrmedian, corrmode, corrmse), dim=-1)
+    return -hmean(stackedResult, dim=-1)
+
 
 @ts
 def bloodmuck(teacher:nn.Module, student:nn.Module, sigma:t.Tensor):
