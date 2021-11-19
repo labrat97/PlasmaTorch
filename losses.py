@@ -195,7 +195,6 @@ def skeeter(teacher:t.Tensor, student:t.Tensor, center:t.Tensor, teacherTemp:flo
     return -1 * hmean(stackedResult, dim=-1)
 
 
-@ts
 def bloodmuck(teacher:nn.Module, student:nn.Module, sigma:t.Tensor):
     """Update the weights of the networks by "mucking up the blood" or doing, essentially,
     exponential moving average.
