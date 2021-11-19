@@ -6,7 +6,6 @@ from .conversions import *
 
 import torch as t
 import torch.nn as nn
-import torch.nn.functional as nnf
 from torch.jit import script as ts
 import torch.fft as tfft
 
@@ -109,23 +108,36 @@ def hypercorrelation(x:t.Tensor, y:t.Tensor, cdtype:t.dtype=DEFAULT_COMPLEX_DTYP
         return unfiltered
     
     # Find mean, min, max, median, and mode
-    corrmean:t.Tensor = unfiltered.mean(dim=-1).mean(dim=-1)
-    corrmin:t.Tensor = unfiltered.min(dim=-1)[0].min(dim=-1)[0]
-    corrmax:t.Tensor = unfiltered.max(dim=-1)[0].max(dim=-1)[0]
-    corrmedian:t.Tensor = unfiltered.median(dim=-1)[0].median(dim=-1)[0]
-    corrmode:t.Tensor = unfiltered.mode(dim=-1)[0].mode(dim=-1)[0]
-    corrmse:t.Tensor = (unfiltered * unfiltered).mean(dim=-1)
+    meanbase:t.Tensor = unfiltered.mean(dim=-1)
+    corrmean:t.Tensor = meanbase.mean(dim=-1)
+    corrmin:t.Tensor = meanbase.min(dim=-1)[0]
+    corrmax:t.Tensor = meanbase.max(dim=-1)[0]
+    corrmedian:t.Tensor = meanbase.median(dim=-1)[0]
+    corrmode:t.Tensor = meanbase.mode(dim=-1)[0]
+    corrmse:t.Tensor = (unfiltered * unfiltered).mean(dim=-1).mean(dim=-1)
 
     # Return as a single tensor in the previously commented/written order
     return t.stack((corrmean, corrmin, corrmax, corrmedian, corrmode, corrmse), dim=-1)
 
 # Some constants for indexing the hypercorrelation function
-HYDX_CORRMEAN:int = 0
-HYDX_CORRMIN:int = 1
-HYDX_CORRMAX:int = 2
-HYDX_CORRMEDIAN:int = 3
-HYDX_CORRMODE:int = 4
-HYDX_CORRMSE:int = 5
+@ts
+def HYDX_CORRMEAN() -> int:
+    return 0
+@ts
+def HYDX_CORRMIN() -> int:
+    return 1
+@ts
+def HYDX_CORRMAX() -> int:
+    return 2
+@ts
+def HYDX_CORRMEDIAN() -> int:
+    return 3
+@ts
+def HYDX_CORRMODE() -> int:
+    return 4
+@ts
+def HYDX_CORRMSE() -> int:
+    return 5
 
 
 @ts
@@ -173,14 +185,14 @@ def skeeter(teacher:t.Tensor, student:t.Tensor, center:t.Tensor, teacherTemp:flo
     # possible occuring orders of the time-frequency superposition
     hypercorr:t.Tensor = hypercorrelation(x=softtenfft, y=softstufft, cdtype=cdtype, \
         dim=dim, fullOutput=False, extraTransform=False)
-    corrmean = hypercorr[..., HYDX_CORRMEAN]
-    corrmedian = hypercorr[..., HYDX_CORRMEDIAN]
-    corrmode = hypercorr[..., HYDX_CORRMODE]
-    corrmse = hypercorr[..., HYDX_CORRMSE]
+    corrmean = hypercorr[..., HYDX_CORRMEAN()]
+    corrmedian = hypercorr[..., HYDX_CORRMEDIAN()]
+    corrmode = hypercorr[..., HYDX_CORRMODE()]
+    corrmse = hypercorr[..., HYDX_CORRMSE()]
 
     # Get the harmonic mean of the extracted values, and the higher the mean, the lower the loss
     stackedResult = torch.stack((corrmean, corrmedian, corrmode, corrmse), dim=-1)
-    return -hmean(stackedResult, dim=-1)
+    return -1 * hmean(stackedResult, dim=-1)
 
 
 @ts
