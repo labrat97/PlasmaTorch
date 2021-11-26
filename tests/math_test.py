@@ -206,13 +206,12 @@ class TrigTest(unittest.TestCase):
         self.assertTrue(torch.all(sinx == torch.sin(x)))
         self.assertFalse(torch.all(sinxc == torch.sin(xc)))
 
-        # Should just be a complex phase shift of icos
-        self.assertTrue(torch.all(sinxc == (i() * icos(xc))))
-        self.assertTrue(torch.all(sinxc != icos(xc)), msg='Check i logic.')
+        # Test that the regular sin function is present
+        self.assertTrue(torch.all((sinx - isin(toComplex(x)).real).abs() < 1e-4))
+        self.assertTrue(torch.all(isin(toComplex(x)).imag.abs() < 1e-4))
 
-        # Double check by asserting that the real value of the function is 0 and the imaginary is one
-        sinTester = i() * toComplex(torch.ones(1, dtype=DEFAULT_DTYPE))
-        self.assertTrue(torch.all(isin(torch.zeros_like(xc)) == sinTester))
+        # Double check by asserting that the real value of the function is 0
+        self.assertTrue(torch.all(isin(torch.zeros_like(xc)).abs() < 1e-4))
 
 class PrimishDistTest(unittest.TestCase):
     def testSizing(self):
