@@ -230,4 +230,4 @@ def isin(x:torch.Tensor) -> torch.Tensor:
         return torch.sin(x)
 
     # Main conversion
-    return i() * icos(x)
+    return torch.sin(x.abs()) * torch.exp(i() * x.angle())
