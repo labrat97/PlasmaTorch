@@ -141,6 +141,48 @@ def HYDX_CORRMSE() -> int:
 
 
 @ts
+def entropy(x:t.Tensor, softmax:bool=True, startdim:int=0, countrot:bool=True) -> t.Tensor:
+    """Gets the entropy of a matrix from the startdim on using a variation of Shannon Entropy
+        using natural logs.
+
+    Args:
+        x (t.Tensor): The input matrix to calculate the entropy of.
+        softmax (bool, optional): If enabled, run the magnitude of the function through a softmax before processing. Defaults to True.
+        startdim (int, optional): The dim to start calculating the entropy at. Defaults to 0.
+        countrot (bool, optional): If enabled, count the rotation of the numbers in the complex plane
+            into the entropy. Defaults to True.
+
+    Returns:
+        t.Tensor: The entropy of the matrix at the dim that was started at for calculation.
+    """
+    # Make sure the tensor can be used for standard square entropy
+    xsize = x.size()
+
+    # Flatten the matrix to make it so the data can all be operated on at once.
+    # Doing this is done also to help optimize the idea that every single complex
+    #   number is just a frozen wave function's eigenvalues. So, to calculate this,
+    #   something similar to natural entropy is used.
+    xflat = x.flatten(start_dim=startdim)
+    xabs:t.Tensor = xflat.abs()
+    if countrot:
+        xang:t.Tensor = (xflat.angle() + pi()) / (2. * pi())
+    else:
+        xang:t.Tensor = t.zeros_like(xabs)
+
+    # Turn into density matrices
+    if softmax:
+        density:t.Tensor = xabs.softmax(dim=-1)
+    else:
+        density = xabs
+    if countrot:
+        density = torch.cat((density, xang), dim=-1)
+    
+    # Calculate the entropy
+    nits:t.Tensor = density * t.log(density)
+    return -1. * nits.sum(dim=-1)
+    
+
+@ts
 def skeeter(teacher:t.Tensor, student:t.Tensor, center:t.Tensor, teacherTemp:float=1., \
     studentTemp:float=1., dim:int=-1, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE) -> t.Tensor:
     """A loss used to try to replicate the neat results of the DINO paper's cross-correlation loss.
