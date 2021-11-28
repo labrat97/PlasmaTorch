@@ -15,20 +15,20 @@ def lissajous(x:torch.Tensor, freqs:torch.Tensor, phases:torch.Tensor, oneD:bool
   if oneD:
     # Manipulate dimensions to broadcast in 1D sense
     x = torch.unsqueeze(x, -1)
-    cosPos:torch.Tensor = (x @ freqs) + (torch.ones_like(x) @ phases)
+    sinpos:torch.Tensor = (x @ freqs) + (torch.ones_like(x) @ phases)
   else:
     # Put curves in the right spot
     assert x.size()[-2] == freqs.size()[-1]
     x = x.transpose(-1,-2)
 
     # Maniupulate dimensions to broadcast in per-curve sense
-    cosPos:torch.Tensor = (x * freqs.unsqueeze(0)) + (torch.ones_like(x) * phases.unsqueeze(0))
+    sinpos:torch.Tensor = (x * freqs.unsqueeze(0)) + (torch.ones_like(x) * phases.unsqueeze(0))
 
   # Activate in curve's embedding space depending on the working datatype.
   # This is done due to the non-converging nature of the non-convergence of the
   # cos function during the operation on complex numbers. To solve this, a sin function
   # is called in the imaginary place to emulate the e^ix behavior for sinusoidal signals.
-  return icos(cosPos).transpose(-1, -2)
+  return isin(sinpos).transpose(-1, -2)
 
 class Lissajous(nn.Module):
   """
