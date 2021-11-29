@@ -109,7 +109,7 @@ class Entangle(nn.Module):
       for jdx in range(self.signalCount):
         # See how similar each signal is
         subsig = signals[:,jdx]
-        corr:torch.Tensor = correlation(x=signal, y=subsig, dim=SAMPLE_POS)
+        corr:torch.Tensor = correlation(x=signal, y=subsig, dim=SAMPLE_POS).mean(dim=SAMPLE_POS)
 
         # Create a superposition through a tensor product
         superposition:torch.Tensor = signal.unsqueeze(-1) @ torch.transpose(subsig.unsqueeze(-1), -2, -1)
@@ -140,9 +140,7 @@ class Entangle(nn.Module):
           + (isin(polarization) * collapseSmear[1])
 
         # Put into output for signals
-        y[:,idx].add_(
-          ((entangleMix * entangledSmear) + (classicalMix * x[:,idx]))
-        )
+        y[:,idx] = y[:,idx] + ((entangleMix * entangledSmear) + (classicalMix * x[:,idx]))
     
     # Regularize
     if (int(self.outputMode) & int(EntangleOutputMode.COLLAPSE)) != 0:

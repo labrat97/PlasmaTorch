@@ -158,10 +158,10 @@ class LinearGaussTest(unittest.TestCase):
         zgausscz = torch.view_as_complex(torch.stack((zgauss, zgaussz), dim=-1))
 
         # Test against the zero case
-        self.assertTrue(torch.all(zgaussc == gaussc1.forward(xc)))
-        self.assertTrue(torch.all(zgausscz == gaussc1.forward(xc.real)))
-        self.assertTrue(torch.all(zgaussc == gaussc.forward(xc)))
-        self.assertTrue(torch.all(zgausscz == gaussc.forward(xc.real)))
+        self.assertTrue(torch.all((zgaussc - gaussc1.forward(xc)).abs() < 1e-4))
+        self.assertTrue(torch.all((zgausscz - gaussc1.forward(xc.real)).abs() < 1e-4))
+        self.assertTrue(torch.all((zgaussc - gaussc.forward(xc)).abs() < 1e-4))
+        self.assertTrue(torch.all((zgausscz - gaussc.forward(xc.real)).abs() < 1e-4))
 
         # Move over parameters for next test
         gaussc1.mean = altMeanc1
@@ -175,9 +175,9 @@ class LinearGaussTest(unittest.TestCase):
         realResult1r = irregularGauss(x=xc.real, mean=altMeanc1.real, lowStd=altLowc1.real, highStd=altHighc1.real)
         realResult1i = irregularGauss(x=torch.zeros_like(xc.imag), mean=altMeanc1.imag, lowStd=altLowc1.imag, highStd=altHighc1.imag)
         realResult1c = torch.view_as_complex(torch.stack((realResult1r, realResult1i), dim=-1))
-        self.assertTrue(torch.all(gaussc1.forward(xc.real) == realResult1c))
+        self.assertTrue(torch.all((gaussc1.forward(xc.real) - realResult1c).abs() < 1e-4))
 
         result1r = realResult1r
         result1i = irregularGauss(x=xc.imag, mean=altMeanc1.imag, lowStd=altLowc1.imag, highStd=altHighc1.imag)
         result1c = torch.view_as_complex(torch.stack((result1r, result1i), dim=-1))
-        self.assertTrue(torch.all(gaussc1.forward(xc) == result1c))
+        self.assertTrue(torch.all((gaussc1.forward(xc) - result1c).abs() < 1e-4))

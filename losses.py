@@ -6,12 +6,21 @@ from .conversions import *
 
 import torch as t
 import torch.nn as nn
-import torch.nn.functional as nnf
 from torch.jit import script as ts
 import torch.fft as tfft
 
 @ts
 def correlation(x:t.Tensor, y:t.Tensor, dim:int=-1) -> t.Tensor:
+    """Find the standard cross-correlation between the natural signals provided.
+
+    Args:
+        x (t.Tensor): One set of signals to use for the final computation.
+        y (t.Tensor): Another set of signals to use for the final compuation.
+        dim (int, optional): The dimension to apply the computation to. Defaults to -1.
+
+    Returns:
+        t.Tensor: The cross-correlation of the two input signals.
+    """
     # Some size assertions/extractions
     xsize = x.size()
     ysize = y.size()
@@ -23,12 +32,30 @@ def correlation(x:t.Tensor, y:t.Tensor, dim:int=-1) -> t.Tensor:
     yfft:t.Tensor = tfft.fft(y, n=samples)
 
     # Calculate the correlation
-    corr:t.Tensor = tfft.ifft(xfft * yfft.conj()).mean(dim=dim).abs()
+    corr:t.Tensor = tfft.ifft(xfft * yfft.conj())
 
     return corr
 
+
 @ts
-def hypercorrelation(x:t.Tensor, y:t.Tensor, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE, dim:int=-1, fullOutput:bool=False, extraTransform:bool=False):
+def hypercorrelation(x:t.Tensor, y:t.Tensor, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE, \
+    dim:int=-1, fullOutput:bool=False, extraTransform:bool=False) -> t.Tensor:
+    """Run the cross-correlation function accross every single frequency-space domain
+    superposition that can fall out of the input signals. If specified, perform some
+    analysis on the output of the signal, otherwise, give the full square of the domain
+    superposition back to the user.
+
+    Args:
+        x (t.Tensor): One set of signals to use for the final computation.
+        y (t.Tensor): Another set of signals to use for the final computation.
+        cdtype (t.dtype, optional): The complex datatype to use. Defaults to DEFAULT_COMPLEX_DTYPE.
+        dim (int, optional): The dimension to perform the computation on. Defaults to -1.
+        fullOutput (bool, optional): If true, return the raw output of the hypercorrelation function. Defaults to False.
+        extraTransform (bool, optional): If true, run through one more layer of fourier transforms to verify that the signals aren't super lossy in a continuous sense. Defaults to False.
+
+    Returns:
+        t.Tensor: A set of all of the possible correlation functions attached to the end of the input tensor shape.
+    """
     # Some size assertions/extractions
     xsize = x.size()
     ysize = y.size()
@@ -81,17 +108,102 @@ def hypercorrelation(x:t.Tensor, y:t.Tensor, cdtype:t.dtype=DEFAULT_COMPLEX_DTYP
         return unfiltered
     
     # Find mean, min, max, median, and mode
-    corrmean:t.Tensor = unfiltered.mean(dim=-1).mean(dim=-1)
-    corrmin:t.Tensor = unfiltered.min(dim=-1)[0].min(dim=-1)[0]
-    corrmax:t.Tensor = unfiltered.max(dim=-1)[0].max(dim=-1)[0]
-    corrmedian:t.Tensor = unfiltered.median(dim=-1)[0].median(dim=-1)[0]
-    corrmode:t.Tensor = unfiltered.mode(dim=-1)[0].mode(dim=-1)[0]
+    meanbase:t.Tensor = unfiltered.mean(dim=-1)
+    corrmean:t.Tensor = meanbase.mean(dim=-1)
+    corrmin:t.Tensor = meanbase.min(dim=-1)[0]
+    corrmax:t.Tensor = meanbase.max(dim=-1)[0]
+    corrmedian:t.Tensor = meanbase.median(dim=-1)[0]
+    corrmode:t.Tensor = meanbase.mode(dim=-1)[0]
+    corrmse:t.Tensor = (unfiltered * unfiltered).mean(dim=-1).mean(dim=-1)
 
     # Return as a single tensor in the previously commented/written order
-    return t.stack((corrmean, corrmin, corrmax, corrmedian, corrmode), dim=-1)
+    return t.stack((corrmean, corrmin, corrmax, corrmedian, corrmode, corrmse), dim=-1)
+
+# Some constants for indexing the hypercorrelation function
+@ts
+def HYDX_CORRMEAN() -> int:
+    return 0
+@ts
+def HYDX_CORRMIN() -> int:
+    return 1
+@ts
+def HYDX_CORRMAX() -> int:
+    return 2
+@ts
+def HYDX_CORRMEDIAN() -> int:
+    return 3
+@ts
+def HYDX_CORRMODE() -> int:
+    return 4
+@ts
+def HYDX_CORRMSE() -> int:
+    return 5
+
 
 @ts
-def skeeter(teacher:t.Tensor, student:t.Tensor, center:t.Tensor, teacherTemp:float=1., studentTemp:float=1., dim:int=-1, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+def entropy(x:t.Tensor, softmax:bool=True, startdim:int=0, countrot:bool=True) -> t.Tensor:
+    """Gets the entropy of a matrix from the startdim on using a variation of Shannon Entropy.
+
+    Args:
+        x (t.Tensor): The input matrix to calculate the entropy of.
+        softmax (bool, optional): If enabled, run the magnitude of the function through a softmax before processing. Defaults to True.
+        startdim (int, optional): The dim to start calculating the entropy at. Defaults to 0.
+        countrot (bool, optional): If enabled, count the rotation of the numbers in the complex plane
+            into the entropy. Defaults to True.
+
+    Returns:
+        t.Tensor: The entropy of the matrix at the dim that was started at for calculation.
+    """
+    # Make sure the tensor can be used for standard square entropy
+    xsize = x.size()
+
+    # Flatten the matrix to make it so the data can all be operated on at once.
+    # Doing this is done also to help optimize the idea that every single complex
+    #   number is just a frozen wave function's eigenvalues. So, to calculate this,
+    #   something similar to Shannon Entropy is used.
+    xflat = x.flatten(start_dim=startdim)
+    xabs:t.Tensor = xflat.abs()
+    if countrot:
+        xang:t.Tensor = (xflat.angle() + pi()) / (2. * pi())
+    else:
+        xang:t.Tensor = t.zeros_like(xabs)
+
+    # Turn into density matrices
+    if softmax:
+        density:t.Tensor = xabs.softmax(dim=-1)
+    else:
+        density = xabs
+    if countrot:
+        density = torch.cat((density, xang), dim=-1)
+    
+    # Calculate the entropy
+    nits:t.Tensor = density * t.log2(density)
+    return -1. * nits.sum(dim=-1)
+    
+
+@ts
+def skeeter(teacher:t.Tensor, student:t.Tensor, center:t.Tensor, teacherTemp:float=1., \
+    studentTemp:float=1., dim:int=-1, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE) -> t.Tensor:
+    """A loss used to try to replicate the neat results of the DINO paper's cross-correlation loss.
+    The loss itself is not really mathematically similar at all, however the correlation that gets produced
+    from the function is similar to the correlation that would get produced from the loss function in mention.
+    To do this, the hypercorrelation function is used, then the losses are added together, much the same as parrallel
+    impedance, to produce a final composite loss based around the hypercorrelation mean, square mean, median, and mode.
+
+    Args:
+        teacher (t.Tensor): The teacher, or view dominant tensor output to use for computation. This tensor's
+        gradient is detached immediately.
+        student (t.Tensor): The student, or view dependent tensor output with full gradient attachment.
+        center (t.Tensor): The centering tensor, with gradient attachment, used for modifying the teacher's say
+        on the situation.
+        teacherTemp (float, optional): The temperature of the teacher's evaluation. Defaults to 1.
+        studentTemp (float, optional): The temperature of the student's evaluation. Defaults to 1.
+        dim (int, optional): The dimension to compute the loss only. Defaults to -1.
+        cdtype (t.dtype, optional): The complex datatype to use. Defaults to DEFAULT_COMPLEX_DTYPE.
+
+    Returns:
+        t.Tensor: The parallel impedance style inverse hypercorrelation for each value.
+    """
     # Find the maximum amount of samples on the loss dim
     tenure:t.Tensor = teacher.detach()
     tsize = tenure.size()
@@ -114,6 +226,37 @@ def skeeter(teacher:t.Tensor, student:t.Tensor, center:t.Tensor, teacherTemp:flo
     # possible occuring orders of the time-frequency superposition
     hypercorr:t.Tensor = hypercorrelation(x=softtenfft, y=softstufft, cdtype=cdtype, \
         dim=dim, fullOutput=False, extraTransform=False)
-    corrmean = hypercorr[...,0]
-    corrmedian = hypercorr[..., 3]
-    corrmode = hypercorr[..., 4]
+    corrmean = hypercorr[..., HYDX_CORRMEAN()]
+    corrmedian = hypercorr[..., HYDX_CORRMEDIAN()]
+    corrmode = hypercorr[..., HYDX_CORRMODE()]
+    corrmse = hypercorr[..., HYDX_CORRMSE()]
+
+    # Get the harmonic mean of the extracted values, and the higher the mean, the lower the loss
+    stackedResult = torch.stack((corrmean, corrmedian, corrmode, corrmse), dim=-1)
+    return -1 * hmean(stackedResult, dim=-1)
+
+
+def bloodmuck(teacher:nn.Module, student:nn.Module, sigma:t.Tensor):
+    """Update the weights of the networks by "mucking up the blood" or doing, essentially,
+    exponential moving average.
+
+    Args:
+        teacher (nn.Module): The teacher module for update.
+        student (nn.Module): The student module used for updating the parameters of the teacher.
+        sigma (t.Tensor): The value of movement towards the student weights.
+    """
+    # Disable gradient calculation as this just forces over the resultant weights
+    #   the student to the teacher.
+    with t.no_grad():
+        # Lock the momentum to be activated inside of a sigmoid like function
+        epsig:t.Tensor = isigmoid(sigma.detach())
+        # No need to always re-calc
+        aepsig:t.Tensor = 1 - epsig
+        
+        # Update each parameter in each module
+        for tparam, sparam in zip(teacher.parameters(), student.parameters()):
+            # Reduce the weights by the momentum in a decaying fashion
+            tparam.mul_(epsig)
+
+            # Add the student weights using the momentum in a compounding fashion
+            tparam.add_(aepsig * sparam.detach())

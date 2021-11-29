@@ -8,6 +8,10 @@ def pi() -> torch.Tensor:
     return (torch.ones((1)) * 3.141592653589793238462643383279502).detach()
 
 @torch.jit.script
+def emconst() -> torch.Tensor:
+    return (torch.ones((1)) * 0.57721566490153286060651209008240243104215933593992).detach()
+
+@torch.jit.script
 def phi() -> torch.Tensor:
     one = torch.ones((1)).detach()
     square = torch.sqrt(one * 5)
@@ -231,3 +235,58 @@ def isin(x:torch.Tensor) -> torch.Tensor:
 
     # Main conversion
     return torch.sin(x.abs()) * torch.exp(i() * x.angle())
+
+@torch.jit.script
+def hmean(x:torch.Tensor, dim:int=-1) -> torch.Tensor:
+    """Calculates the harmonic mean according to the given dimension.
+
+    Args:
+        x (torch.Tensor): The tensor value to use as the base of calculation.
+        dim (int, optional): The dimension to perform the calculation on. Defaults to -1.
+
+    Returns:
+        torch.Tensor: The harmonic mean of the input
+    """
+    # Turn all the values to their -1 power
+    invx:torch.Tensor = 1. / x
+    # Find the amount of values for the mean
+    vals = x.size()[dim]
+    
+    # Calculate the harmonic mean
+    return vals / invx.sum(dim=dim)
+
+@torch.jit.script
+def harmonicvals(n:int, nosum:bool=False, addzero:bool=False) -> torch.Tensor:
+    # Quick error checking
+    assert n >= 1
+
+    # Find all of the 1/n values to be summed
+    zeroint = int(addzero)
+    factors:torch.Tensor = (1. / xbias(n=n+zeroint, bias=1-zeroint))
+    if nosum:
+        return factors
+    else:
+        factors.unsqueeze_(0)
+
+    # Turn the values into a big triangle
+    composition:torch.Tensor = torch.triu(torch.ones((n, 1)) @ factors, diagonal=0)
+
+    # Sum the triangle together so that the harmonic values come out
+    return composition.transpose(-1, -2).sum(dim=-1)
+
+@torch.jit.script
+def harmonicdist(x:torch.Tensor) -> torch.Tensor:
+    # Gather constants for evaluation
+    em:torch.Tensor = emconst()
+
+    # Take the inverse harmonic index of the input values and flatten them after for indexing
+    inverse:torch.Tensor = torch.round(torch.exp(x - em)) + torch.exp(-em)
+    finv = inverse.flatten(0, -1)
+
+    # Find the needed harmonics for producing the final value
+    maxn:torch.Tensor = finv.max()[0]
+    harmonics:torch.Tensor = harmonicvals(n=maxn, addzero=True)
+    
+    # Find the closest harmonic value, refold the shape, then calculate the result
+    closest = harmonics[finv].unflatten(0, inverse.size())
+    return x - closest
