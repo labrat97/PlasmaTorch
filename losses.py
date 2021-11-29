@@ -142,8 +142,7 @@ def HYDX_CORRMSE() -> int:
 
 @ts
 def entropy(x:t.Tensor, softmax:bool=True, startdim:int=0, countrot:bool=True) -> t.Tensor:
-    """Gets the entropy of a matrix from the startdim on using a variation of Shannon Entropy
-        using natural logs.
+    """Gets the entropy of a matrix from the startdim on using a variation of Shannon Entropy.
 
     Args:
         x (t.Tensor): The input matrix to calculate the entropy of.
@@ -161,7 +160,7 @@ def entropy(x:t.Tensor, softmax:bool=True, startdim:int=0, countrot:bool=True) -
     # Flatten the matrix to make it so the data can all be operated on at once.
     # Doing this is done also to help optimize the idea that every single complex
     #   number is just a frozen wave function's eigenvalues. So, to calculate this,
-    #   something similar to natural entropy is used.
+    #   something similar to Shannon Entropy is used.
     xflat = x.flatten(start_dim=startdim)
     xabs:t.Tensor = xflat.abs()
     if countrot:
@@ -178,7 +177,7 @@ def entropy(x:t.Tensor, softmax:bool=True, startdim:int=0, countrot:bool=True) -
         density = torch.cat((density, xang), dim=-1)
     
     # Calculate the entropy
-    nits:t.Tensor = density * t.log(density)
+    nits:t.Tensor = density * t.log2(density)
     return -1. * nits.sum(dim=-1)
     
 
