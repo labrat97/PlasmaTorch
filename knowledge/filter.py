@@ -10,6 +10,10 @@ from torch.jit import script as ts
 from abc import ABC, abstractmethod
 
 class KnowledgeFilter(nn.Module, ABC):
+    """
+    An abstract class used for creating encapsulated bits of knowledge to be called by
+    other KnowledgeFilters or structures looking to call knowledge from plasmatorch.
+    """
     @abstractmethod
     def __init__(self, corrCurves:int=DEFAULT_SPACE_PRIME, corrSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
         """The abstract constructor for a knowledge filter.
@@ -20,7 +24,7 @@ class KnowledgeFilter(nn.Module, ABC):
             cdtype (t.dtype, optional): The default datatype for the complex correlation parameter. Defaults to DEFAULT_COMPLEX_DTYPE.
         """
         super(KnowledgeFilter, self).__init__()
-        self.corrToken:nn.Parameter = nn.Parameter(toComplex(t.zeros((2, corrCurves, corrSamples), dtype=cdtype)))
+        self.corrToken:nn.Parameter = nn.Parameter(toComplex(t.zeros((2, corrCurves, corrSamples), dtype=cdtype)), requires_grad=False)
     
     def implicitCorrelation(self, a:t.Tensor, b:t.Tensor, isbasis:bool=False) -> t.Tensor:
         """Calculate the stored correlation of the input signal with the tokenized basis
