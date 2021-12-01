@@ -1,116 +1,59 @@
 from ..defaults import *
 from ..activations import *
-from ..entanglement import *
-from ..distributions import *
 from ..conversions import *
-from ..attention import *
+from ..math import *
+from ..losses import *
 
-import torch
+import torch as t
 import torch.nn as nn
-import torch.nn.functional as nnf
-
-from enum import Enum
+from torch.jit import script as ts
 from abc import ABC, abstractmethod
 
-class KnowledgeOutputMode(int, Enum):
-    """
-    The output mode of the KnowledgeFilter class.
-    """
-    # NONE type and LOGIT type are equivalent because by default torch uses logits
-    NONE = 0
-    LOGITS = NONE
-
-    # Already time(ish) domain data
-    SMEAR = 1 << 0
-
-class KnowledgeFilterProto(nn.Module, ABC):
-    """
-    A simple abstract class that defines a standard forward call that isn't normally guaranteed.
-    """
+class KnowledgeFilter(nn.Module, ABC):
     @abstractmethod
-    def forward(self, x:torch.Tensor) -> torch.Tensor:
-        """Runs a tensor through the contained knowledge graph.
+    def __init__(self, corrCurves:int=DEFAULT_SPACE_PRIME, corrSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+        """The abstract constructor for a knowledge filter.
 
         Args:
-            x (torch.Tensor): The tensor to run through the knowledge graph.
-
-        Returns:
-            torch.Tensor: The knowledge graph output.
-        """
-        pass
-
-class KnowledgeFilter(nn.Module):
-    """
-    Contains all of the addressing(ish) data needed to locate and infer through the 
-    internal knowledge graph.
-    """
-    def __init__(self, child:KnowledgeFilterProto, childInputSize:torch.Size, childOutMode:KnowledgeOutputMode=KnowledgeOutputMode.LOGITS, \
-        attemptReshape:bool=True, alignCorners:bool=True, outSmearSamples:int=DEFAULT_FFT_SAMPLES, \
-        outputKnotCurves:int=None, dtype:torch.dtype=DEFAULT_DTYPE):
-        """Builds a knowledge filter with the specified parameters.
-
-        Args:
-            child (KnowledgeFilterProto): The internal knowledge filter to be used.
-            childInputSize (torch.Size): The input size of the contained knowledge graph.
-            childOutMode (KnowledgeOutputMode, optional): The mode of output used by the contained knowledge graph. Defaults to KnowledgeOutputMode.LOGITS.
-            attemptReshape (bool, optional): Attempt to reshape the output of the knowledge graph to fit the following functions better. Defaults to True.
-            alignCorners (bool, optional): If using the full output, align the corners of the signal during remapping to attempt to force more continuous subsignals. Defaults to True.
-            outSmearSamples (int, optional): The amount of samples to be smeared out of the output logits if in logit mode. Defaults to DEFAULT_FFT_SAMPLES.
-            outputKnotCurves (int, optional): The amount of curves to use in the output knot. Defaults to None (meaning no output knot).
-            dtype (torch.dtype, optional): The datatype for the internal datastructures and operations. Defaults to DEFAULT_DTYPE.
+            corrCurves (int, optional): The amount of curves used to describe the signal. Defaults to DEFAULT_SPACE_PRIME.
+            corrSamples (int, optional): The amount of samples to describe each curve. Defaults to DEFAULT_FFT_SAMPLES.
+            cdtype (t.dtype, optional): The default datatype for the complex correlation parameter. Defaults to DEFAULT_COMPLEX_DTYPE.
         """
         super(KnowledgeFilter, self).__init__()
-        
-        # Copy child interfacing parameters
-        self.inputReshape:bool = attemptReshape
-        self.alignCorners:bool = alignCorners
-        self.childInputSize:torch.Size = childInputSize
-        self.childOutMode:KnowledgeOutputMode = childOutMode
-        self.child:KnowledgeFilterProto = child
+        self.corrToken:nn.Parameter = nn.Parameter(toComplex(t.zeros((2, corrCurves, corrSamples), dtype=cdtype)))
+    
+    def implicitCorrelation(self, a:t.Tensor, b:t.Tensor, isbasis:bool=False) -> t.Tensor:
+        """Calculate the stored correlation of the input signal with the tokenized basis
+        basis vectors. This is used to predict what could be inside of the function before
+        evaluating said function.
 
-        # Convert the childInputSize variable to the flattened sense of itself
-        self.flatChild:int = 1
-        for n in self.childInputSize:
-            self.flatChild = self.flatChild * n
-        
-        # Add a knot activation to the last layer of the module
-        if outputKnotCurves is None:
-            self.outKnot:Knot = None
-        else:
-            complexType:torch.dtype = toComplex(torch.ones((1), dtype=dtype, requires_grad=False)).dtype
-            self.outKnot:Knot = Knot(knotSize=outputKnotCurves, knotDepth=int(outSmearSamples/outputKnotCurves), dtype=complexType)
+        Args:
+            a (t.Tensor): A basis vector (optionally a signal) used for calculation.
+            b (t.Tensor): Another basis vector (optionally a signal) used for calculation.
+            isbasis (bool, optional): If False, the vectors coming in are preFFT'd. Defaults to False.
 
-    def forward(self, x:torch.Tensor, oneD:bool=False, batchDims:int=1) -> torch.Tensor:
-        # Attempt a reshaping of the input signal
-        if self.inputReshape:
-            x = x.unsqueeze(-2)
-            knowledgeSize = x.size()[:-2]
-            for n in self.childInputSize:
-                knowledgeSize.append(n)
-            
-            knowledgeInputs:torch.Tensor = nnf.interpolate(x, size=self.flatChild, \
-                mode='linear', align_corners=self.alignCorners)
-            knowledgeInputs = torch.reshape(knowledgeInputs, shape=knowledgeSize)
-        else:
-            knowledgeInputs:torch.Tensor = x
+        Returns:
+            t.Tensor: The average correlation accross the samples, curves, and vectors.
+        """
+        # Put the self correlation into an easy to process bounds
+        selfcorr = isigmoid(self.corrToken)
 
-        # Run knowledge through the child
-        logits:torch.Tensor = self.child.forward(knowledgeInputs)
+        # Find the respective correlation from the token with the input signals
+        acorr:t.Tensor = correlation(x=a, y=selfcorr[0], dim=-1, isbasis=isbasis).mean(dim=-1).mean(dim=-1)
+        bcorr:t.Tensor = correlation(x=b, y=selfcorr[1], dim=-1, isbasis=isbasis).mean(dim=-1).mean(dim=-1)
 
-        # Convert knowledge to a smear if needed
-        if self.childOutMode == KnowledgeOutputMode.LOGITS:
-            # Reshape the logits to be smear like
-            flatLogits:torch.Tensor = torch.flatten(logits, start_dim=batchDims)
+        # Find the mean of the mean correlations
+        return (acorr + bcorr) / 2.
 
-            # Pad the last dimension with 0s
-            flatLogitsPadded:torch.Tensor = nnf.pad(flatLogits, pad=(0, self.outSmearSamples-flatLogits.size()), mode='constant', value=0.)
-            
-            # Interprit each activation as a 
-            smear:torch.Tensor = torch.fft.ifft(flatLogitsPadded, dim=-1)
-        else:
-            smear:torch.Tensor = logits
+    @abstractmethod
+    def forward(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
+        """Runs two tensors through comparative knowledge.
 
-        # Add a final activation if provided
-        if self.outKnot is not None:
-            return self.outKnot.forward(smear, oneD=True)
-        return smear
+        Args:
+            a (t.Tensor): The first set of basis vectors defining an interacting signal.
+            b (t.Tensor): The second set of basis vectors defining another interacting signal.
+
+        Returns:
+            t.Tensor: The comparative knowledge graph output signal.
+        """
+        pass
