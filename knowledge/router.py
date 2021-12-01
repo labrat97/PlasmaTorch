@@ -31,8 +31,9 @@ class KnowledgeRouter(KnowledgeFilter):
         bfftflat = t.flatten(bfft, start_dim=0, end_dim=-2)
         
         # Create the storage for the correlations
-        dummy:t.Tensor = (afftflat.detach() * bfftflat.detach().conj())
+        dummy:t.Tensor = (afft.detach() * bfft.detach().conj())
         assert len(dummy.size()) >= 2
+        dflat:t.Tensor = dummy.flatten(start_dim=0, end_dim=-2)
         icorrs:t.Tensor = t.zeros((len(self.subfilters), dummy[...,0,0].numel()), dtype=dummy.dtype)
 
         # Evaluate the correlation for all contained knowledge filters
@@ -44,7 +45,7 @@ class KnowledgeRouter(KnowledgeFilter):
         topcorrs.transpose_(0, 1)
 
         # Run each signal through each set of knowledge filters and geometric mean together
-        result:t.Tensor = t.zeros_like(dummy)
+        result:t.Tensor = t.zeros_like(dflat)
         for sdx in range(topcorrs.size(0)):
             for kdx in topcorrs[sdx]:
                 kfilter = self.subfilters[kdx]
@@ -52,4 +53,4 @@ class KnowledgeRouter(KnowledgeFilter):
             result[sdx].div_(len(topcorrs[sdx]))
 
         # Unflatten the resultant signals back to the relevant size
-        # TODO: nn.Unflatten bullshit
+        return nn.Unflatten(0, dummy.size()[:-2])
