@@ -3,20 +3,23 @@ from .activations import *
 from .distributions import *
 from .defaults import *
 from .conversions import *
+from .sizing import *
 
 import torch as t
 import torch.nn as nn
 from torch.jit import script as ts
 import torch.fft as tfft
 
+
 @ts
-def correlation(x:t.Tensor, y:t.Tensor, dim:int=-1) -> t.Tensor:
+def correlation(x:t.Tensor, y:t.Tensor, dim:int=-1, isbasis:bool=False) -> t.Tensor:
     """Find the standard cross-correlation between the natural signals provided.
 
     Args:
         x (t.Tensor): One set of signals to use for the final computation.
         y (t.Tensor): Another set of signals to use for the final compuation.
         dim (int, optional): The dimension to apply the computation to. Defaults to -1.
+        isbasis (bool, optional): If False, the vectors coming in are preFFT'd. Defaults to False.
 
     Returns:
         t.Tensor: The cross-correlation of the two input signals.
@@ -27,14 +30,20 @@ def correlation(x:t.Tensor, y:t.Tensor, dim:int=-1) -> t.Tensor:
     assert len(x.size()) == len(y.size())
     samples:int = max(xsize[dim], ysize[dim])
 
-    # Find basis of the signals
-    xfft:t.Tensor = tfft.fft(x, n=samples)
-    yfft:t.Tensor = tfft.fft(y, n=samples)
+    if not isbasis:
+        # Find basis of the signals
+        xfft:t.Tensor = tfft.fft(x, n=samples, dim=dim)
+        yfft:t.Tensor = tfft.fft(y, n=samples, dim=dim)
+    elif xsize[dim] != ysize[dim]:
+        # Transfer over the signals to just be computed onto
+        xfft:t.Tensor = toComplex(paddim(x, lowpad=0, highpad=samples-xsize[dim], dim=dim))
+        yfft:t.Tensor = toComplex(paddim(y, lowpad=0, highpad=samples-ysize[dim], dim=dim))
+    else:
+        xfft:t.Tensor = toComplex(x)
+        yfft:t.Tensor = toComplex(y)
 
     # Calculate the correlation
-    corr:t.Tensor = tfft.ifft(xfft * yfft.conj())
-
-    return corr
+    return tfft.ifft(xfft * yfft.conj(), n=samples, dim=dim)
 
 
 @ts
