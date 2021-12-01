@@ -11,14 +11,34 @@ import torch.nn as nn
 from torch.jit import script as ts
 
 class KnowledgeRouter(KnowledgeFilter):
+    """
+    A KnowledgeFilter type class that is used to call other knowledge filter type classes.
+    Due to the way that the signal traversal works, this should be a borderline completely unified
+    tree traversal method due to the continuous nature. Every single layer of traversal is evaluated
+    in parallel, and ever computation is chronologically independent. Every depth will also do a layered
+    set of amplitudes from the previous signal, making the potential for things like the harmonic series
+    just fall out.
+    """
     def __init__(self, maxk:int=3, corrSize:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+        """The constructor for a KnowledgeRouter, defining performance parameters 
+
+        Args:
+            maxk (int, optional): The starting amount of maximum signals to evaluate. Defaults to 3.
+            corrSize (int, optional): [description]. Defaults to DEFAULT_FFT_SAMPLES.
+            cdtype (t.dtype, optional): [description]. Defaults to DEFAULT_COMPLEX_DTYPE.
+        """
         super(KnowledgeRouter, self).__init__(corrSize=corrSize, cdtype=cdtype)
 
         # Store all of the filters that the router can call to
         self.subfilters:nn.ModuleList = nn.ModuleList()
-        self.maxk:int = 3
+        self.maxk:int = maxk
 
     def addFilter(self, x:KnowledgeFilter):
+        """Adds a knowledge filter to the router.
+
+        Args:
+            x (KnowledgeFilter): The filter to add to the router.
+        """
         assert x is KnowledgeFilter
         self.subfilters.append(x)
 
@@ -38,19 +58,23 @@ class KnowledgeRouter(KnowledgeFilter):
 
         # Evaluate the correlation for all contained knowledge filters
         for idx, kfilter in enumerate(self.subfilters):
-            icorrs[idx] = kfilter.forward(a=afftflat, b=bfftflat)
+            icorrs[idx] = kfilter.implicitCorrelation(a=afftflat, b=bfftflat, isbasis=True)
 
-        # Grab the top correlation indices
-        _, topcorrs = t.topk(icorrs.abs(), k=self.maxk, dim=0)
+        # Grab the top correlation indices, choosing the modules to be evaluated
+        _, topcorrs = t.topk(icorrs.abs(), k=self.maxk, dim=0, largest=True)
         topcorrs.transpose_(0, 1)
 
         # Run each signal through each set of knowledge filters and geometric mean together
         result:t.Tensor = t.zeros_like(dflat)
         for sdx in range(topcorrs.size(0)):
             for kdx in topcorrs[sdx]:
+                # Pull the filter
                 kfilter = self.subfilters[kdx]
+
+                # Add the resultant signal to the current filter (router) result signal
                 result[sdx].add_(kfilter.forward(a=afftflat[sdx], b=bfftflat[sdx]))
-            result[sdx].div_(len(topcorrs[sdx]))
+            # Divide by the number of indices used to collect all of the signals
+            result[sdx].div_(topcorrs[sdx].numel())
 
         # Unflatten the resultant signals back to the relevant size
-        return nn.Unflatten(0, dummy.size()[:-2])
+        return nn.Unflatten(0, dummy.size()[:-2])(result)
