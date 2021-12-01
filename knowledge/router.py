@@ -5,10 +5,12 @@ from ..distributions import *
 from ..defaults import *
 from ..conversions import *
 from ..activations import *
+from ..entanglement import *
 
 import torch as t
+import torch.fft as tfft
 import torch.nn as nn
-from torch.jit import script as ts
+
 
 class KnowledgeRouter(KnowledgeFilter):
     """
@@ -19,17 +21,19 @@ class KnowledgeRouter(KnowledgeFilter):
     set of amplitudes from the previous signal, making the potential for things like the harmonic series
     just fall out.
     """
-    def __init__(self, maxk:int=3, corrSize:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+    def __init__(self, maxk:int=3, corrCurves:int=DEFAULT_SPACE_PRIME, corrSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
         """The constructor for a KnowledgeRouter, defining performance parameters 
 
         Args:
             maxk (int, optional): The starting amount of maximum signals to evaluate. Defaults to 3.
-            corrSize (int, optional): [description]. Defaults to DEFAULT_FFT_SAMPLES.
-            cdtype (t.dtype, optional): [description]. Defaults to DEFAULT_COMPLEX_DTYPE.
+            corrCurves (int, optional): The amount of curves used to describe the signal. Defaults to DEFAULT_SPACE_PRIME.
+            corrSamples (int, optional): The amount of samples to describe each curve. Defaults to DEFAULT_FFT_SAMPLES.
+            cdtype (t.dtype, optional): The default datatype for the complex correlation parameter. Defaults to DEFAULT_COMPLEX_DTYPE.
         """
-        super(KnowledgeRouter, self).__init__(corrSize=corrSize, cdtype=cdtype)
+        super(KnowledgeRouter, self).__init__(corrCurves=corrCurves, corrSamples=corrSamples, cdtype=cdtype)
 
         # Store all of the filters that the router can call to
+        self.entangleMask:nn.Parameter = nn.Parameter(toComplex(torch.zeros((corrCurves, corrSamples, corrSamples), dtype=cdtype)))
         self.subfilters:nn.ModuleList = nn.ModuleList()
         self.maxk:int = maxk
 
@@ -45,16 +49,23 @@ class KnowledgeRouter(KnowledgeFilter):
     def forward(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
         # Find the basis vectors of the input signals
         samples:int = max(a.size(-1), b.size(-1))
-        afft = t.fft.fft(a, n=samples, dim=-1)
-        bfft = t.fft.fft(b, n=samples, dim=-1)
-        afftflat = t.flatten(afft, start_dim=0, end_dim=-2)
-        bfftflat = t.flatten(bfft, start_dim=0, end_dim=-2)
+        afft:t.Tensor = tfft.fft(a, n=samples, dim=-1)
+        bfft:t.Tensor = tfft.fft(b, n=samples, dim=-1)
+
+        # Entangle the signals with the `isoftmax` function and a matmul, then sum out orthogonally
+        superposition:t.Tensor = (afft.unsqueeze(-1) @ bfft.unsqueeze(-1).transpose(-1,-2)) * isoftmax(self.entangleMask, dim=-2)
+        afft = superposition.sum(dim=-1)
+        bfft = superposition.sum(dim=-2)
+
+        # Flatten the batches to be able to easily index the contained filters
+        # Need to flatten at -3 due to inclusive `end_dim` argument
+        afftflat = t.flatten(afft, start_dim=0, end_dim=-3)
+        aflat = t.flatten(a, start_dim=0, end_dim=-3)
+        bfftflat = t.flatten(bfft, start_dim=0, end_dim=-3)
+        bflat = t.flatten(b, start_dim=0, end_dim=-3)
         
         # Create the storage for the correlations
-        dummy:t.Tensor = (afft.detach() * bfft.detach().conj())
-        assert len(dummy.size()) >= 2
-        dflat:t.Tensor = dummy.flatten(start_dim=0, end_dim=-2)
-        icorrs:t.Tensor = t.zeros((len(self.subfilters), dummy[...,0,0].numel()), dtype=dummy.dtype)
+        icorrs:t.Tensor = t.zeros((len(self.subfilters), aflat[...,0,0].numel()), dtype=aflat.dtype)
 
         # Evaluate the correlation for all contained knowledge filters
         for idx, kfilter in enumerate(self.subfilters):
@@ -65,16 +76,16 @@ class KnowledgeRouter(KnowledgeFilter):
         topcorrs.transpose_(0, 1)
 
         # Run each signal through each set of knowledge filters and geometric mean together
-        result:t.Tensor = t.zeros_like(dflat)
+        result:t.Tensor = t.zeros_like(aflat)
         for sdx in range(topcorrs.size(0)):
             for kdx in topcorrs[sdx]:
                 # Pull the filter
                 kfilter = self.subfilters[kdx]
 
                 # Add the resultant signal to the current filter (router) result signal
-                result[sdx].add_(kfilter.forward(a=afftflat[sdx], b=bfftflat[sdx]))
+                result[sdx].add_(kfilter.forward(a=aflat[sdx], b=bflat[sdx]))
             # Divide by the number of indices used to collect all of the signals
             result[sdx].div_(topcorrs[sdx].numel())
 
         # Unflatten the resultant signals back to the relevant size
-        return nn.Unflatten(0, dummy.size()[:-2])(result)
+        return nn.Unflatten(0, aflat.size()[:-2])(result)
