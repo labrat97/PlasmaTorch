@@ -64,7 +64,7 @@ class KnowledgeRouter(KnowledgeFilter):
         bflat = t.flatten(b, start_dim=0, end_dim=-3)
         
         # Create the storage for the correlations
-        icorrs:t.Tensor = t.zeros((len(self.subfilters), aflat[...,0,0].numel()), dtype=aflat.dtype)
+        icorrs:t.Tensor = t.zeros((len(self.subfilters), aflat[...,0].numel()), dtype=aflat.dtype)
 
         # Evaluate the correlation for all contained knowledge filters
         for idx, kfilter in enumerate(self.subfilters):
