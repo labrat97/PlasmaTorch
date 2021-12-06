@@ -15,16 +15,15 @@ class KnowledgeFilter(nn.Module, ABC):
     other KnowledgeFilters or structures looking to call knowledge from plasmatorch.
     """
     @abstractmethod
-    def __init__(self, corrCurves:int=DEFAULT_SPACE_PRIME, corrSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+    def __init__(self, corrSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
         """The abstract constructor for a knowledge filter.
 
         Args:
-            corrCurves (int, optional): The amount of curves used to describe the signal. Defaults to DEFAULT_SPACE_PRIME.
             corrSamples (int, optional): The amount of samples to describe each curve. Defaults to DEFAULT_FFT_SAMPLES.
             cdtype (t.dtype, optional): The default datatype for the complex correlation parameter. Defaults to DEFAULT_COMPLEX_DTYPE.
         """
         super(KnowledgeFilter, self).__init__()
-        self.corrToken:nn.Parameter = nn.Parameter(toComplex(t.zeros((2, corrCurves, corrSamples), dtype=cdtype)), requires_grad=False)
+        self.corrToken:nn.Parameter = nn.Parameter(toComplex(t.zeros((2, corrSamples), dtype=cdtype)), requires_grad=True)
     
     def implicitCorrelation(self, a:t.Tensor, b:t.Tensor, isbasis:bool=False) -> t.Tensor:
         """Calculate the stored correlation of the input signal with the tokenized basis

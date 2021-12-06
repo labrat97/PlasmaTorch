@@ -21,19 +21,18 @@ class KnowledgeRouter(KnowledgeFilter):
     set of amplitudes from the previous signal, making the potential for things like the harmonic series
     just fall out.
     """
-    def __init__(self, maxk:int=3, corrCurves:int=DEFAULT_SPACE_PRIME, corrSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+    def __init__(self, maxk:int=3, corrSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
         """The constructor for a KnowledgeRouter, defining performance parameters 
 
         Args:
             maxk (int, optional): The starting amount of maximum signals to evaluate. Defaults to 3.
-            corrCurves (int, optional): The amount of curves used to describe the signal. Defaults to DEFAULT_SPACE_PRIME.
             corrSamples (int, optional): The amount of samples to describe each curve. Defaults to DEFAULT_FFT_SAMPLES.
             cdtype (t.dtype, optional): The default datatype for the complex correlation parameter. Defaults to DEFAULT_COMPLEX_DTYPE.
         """
-        super(KnowledgeRouter, self).__init__(corrCurves=corrCurves, corrSamples=corrSamples, cdtype=cdtype)
+        super(KnowledgeRouter, self).__init__(corrSamples=corrSamples, cdtype=cdtype)
 
         # Store all of the filters that the router can call to
-        self.entangleMask:nn.Parameter = nn.Parameter(toComplex(torch.zeros((corrCurves, corrSamples, corrSamples), dtype=cdtype)))
+        self.entangleMask:nn.Parameter = nn.Parameter(toComplex(torch.zeros((corrSamples, corrSamples), dtype=cdtype)))
         self.subfilters:nn.ModuleList = nn.ModuleList()
         self.maxk:int = maxk
 
