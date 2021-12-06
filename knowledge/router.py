@@ -43,7 +43,7 @@ class KnowledgeRouter(KnowledgeFilter):
         Args:
             x (KnowledgeFilter): The filter to add to the router.
         """
-        assert x is KnowledgeFilter
+        assert isinstance(x, KnowledgeFilter)
         self.subfilters.append(x)
 
     def forward(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
