@@ -6,8 +6,8 @@ from ..losses import *
 
 import torch as t
 import torch.nn as nn
-from torch.jit import script as ts
 from abc import ABC, abstractmethod
+
 
 class KnowledgeFilter(nn.Module, ABC):
     """
