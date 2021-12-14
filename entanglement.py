@@ -116,7 +116,7 @@ class Entangle(nn.Module):
 
         # Apply knowledge to the superposition of the subsignals if requested
         if self.knowledgeMask is not None:
-          superposition = superposition * isoftmax(self.knowledgeMask[jdx], dim=-2)
+          superposition = superposition * nsoftmax(self.knowledgeMask[jdx], dims=[-1,-2])
 
         # Save superposition for output if needed
         if (int(self.outputMode) & int(EntangleOutputMode.SUPERPOSITION)) != 0:

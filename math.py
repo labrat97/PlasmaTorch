@@ -1,3 +1,4 @@
+from torch.types import List
 from .defaults import *
 from .conversions import *
 
@@ -55,6 +56,21 @@ def isoftmax(x:torch.Tensor, dim:int) -> torch.Tensor:
     
     # Return in proper datatype
     return torch.view_as_complex(torch.stack((newReal, newImag), dim=-1))
+
+@torch.jit.script
+def nsoftmax(x:torch.Tensor, dims:List[int]) -> torch.Tensor:
+    # Because n^0 == 1, this should be an appropriate initializer
+    result = torch.ones_like(x)
+
+    # Creates an n root
+    exponent:float = 1. / len(dims)
+
+    # Multiplies each value in the result by the n-root of each isoftmax
+    for dim in dims:
+        nroot = torch.pow(isoftmax(x, dim=dim), exponent)
+        result.mul_(nroot)
+
+    return result
 
 @torch.jit.script
 def primishvals(n:int, base:torch.Tensor=torch.zeros(0, dtype=torch.int64), gaussApprox:bool=False) -> torch.Tensor:

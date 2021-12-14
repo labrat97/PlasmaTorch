@@ -47,12 +47,12 @@ class KnowledgeRouter(KnowledgeFilter):
 
     def forward(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
         # Find the basis vectors of the input signals
-        samples:int = max(a.size(-1), b.size(-1))
+        samples:int = self.entangleMask.size(-1)
         afft:t.Tensor = tfft.fft(a, n=samples, dim=-1)
         bfft:t.Tensor = tfft.fft(b, n=samples, dim=-1)
 
-        # Entangle the signals with the `isoftmax` function and a matmul, then sum out orthogonally
-        superposition:t.Tensor = (afft.unsqueeze(-1) @ bfft.unsqueeze(-1).transpose(-1,-2)) * isoftmax(self.entangleMask, dim=-2)
+        # Entangle the signals with the `nsoftmax` function and a matmul, then sum out orthogonally
+        superposition:t.Tensor = (afft.unsqueeze(-1) @ bfft.unsqueeze(-1).transpose(-1,-2)) * nsoftmax(self.entangleMask, dims=[-1,-2])
         afft = superposition.sum(dim=-1)
         bfft = superposition.sum(dim=-2)
 

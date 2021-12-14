@@ -108,9 +108,9 @@ class Turbulence(nn.Module):
 
         
         # Pay attention using spatial warping and basis vector compression
-        warpKnot:torch.Tensor = isoftmax(self.warpKnot.forward(superSum), dim=-2)
-        compressorKnot:torch.Tensor = isoftmax(self.compressorKnot.forward(superSum), dim=-2) * self.compressorGain
-        compressorKnot.squeeze_(dim=1)
+        warpKnot:torch.Tensor = nsoftmax(self.warpKnot.forward(superSum), dim=[-1,-2])
+        compressorKnot:torch.Tensor = nsoftmax(self.compressorKnot.forward(superSum), dim=[-1,-2])
+        compressorKnot.mul_(self.compressorGain)
 
         # Warping as if the state vector is 4D image data as seen here:
         # https://pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html#torch.nn.functional.grid_sample
