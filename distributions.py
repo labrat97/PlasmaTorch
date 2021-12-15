@@ -1,11 +1,13 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as nnf
 
 from .defaults import *
 from .conversions import *
+from .math import *
 
 @torch.jit.script
-def irregularGauss(x: torch.Tensor, mean: torch.Tensor, lowStd: torch.Tensor, highStd: torch.Tensor) -> torch.Tensor:
+def irregularGauss(x:torch.Tensor, mean:torch.Tensor, lowStd:torch.Tensor, highStd:torch.Tensor, reg:bool=False) -> torch.Tensor:
   """Generates an piecewise Gaussian curve according to the provided parameters.
 
   Args:
@@ -16,6 +18,7 @@ def irregularGauss(x: torch.Tensor, mean: torch.Tensor, lowStd: torch.Tensor, hi
         the defined mean. The size must be broadcastable upon x.
       highStd (torch.Tensor): The standard deviation to use when the function is
         above the defined mean. The size must be broadcastable upon x.
+      reg (bool): Apply the regularization needed for the cdf to approach 1. Defaults to False.
 
   Returns:
       torch.Tensor: A sampled set of values with the same size as the input.
@@ -27,12 +30,18 @@ def irregularGauss(x: torch.Tensor, mean: torch.Tensor, lowStd: torch.Tensor, hi
   # Calculate the gaussian curve
   top = x - mean
 
-  # Never hits 0 or inf., easy to take derivative, easy squaring
-  bottom = torch.exp(std)
+  # Never hits 0 or inf
+  bottom = nnf.softplus(std, beta=phi()[0])
   
   # Calculate the normal distribution
-  factor = top * bottom.reciprocal()
-  return 0.5 * (1 + torch.erf(factor / torch.sqrt(torch.zeros((1), dtype=x.dtype) + 2)))
+  factor = top / bottom
+  result = torch.exp(-0.5 * torch.pow(factor, 2))
+  if not reg:
+    return result
+  
+  # Regulate the output so that the cdf approaches 0 at inf
+  regulator = (bottom * torch.sqrt(2. * pi()))
+  return result / regulator
 
 class LinearGauss(nn.Module):
   """

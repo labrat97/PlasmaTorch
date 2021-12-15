@@ -30,27 +30,35 @@ class IrregularGaussTest(unittest.TestCase):
         x = torch.randn(self.SIZE, dtype=DEFAULT_DTYPE)
         xmean = torch.randn_like(x)
         xlow = torch.randn_like(x)
-        xhigh = torch.randn_like(x) + xlow
+        xhigh = torch.randn_like(x).abs() + xlow
 
         # Calculate
-        gauss = irregularGauss(x=x, mean=xmean, lowStd=xlow, highStd=xhigh)
+        gauss = irregularGauss(x=x, mean=xmean, lowStd=xlow, highStd=xhigh, reg=False)
+        gaussreg = irregularGauss(x=x, mean=xmean, lowStd=xlow, highStd=xhigh, reg=True)
 
         # Calculate control values
-        normallow = torch.distributions.normal.Normal(xmean, torch.exp(xlow))
-        normalhigh = torch.distributions.normal.Normal(xmean, torch.exp(xhigh))
-        reflow = normallow.cdf(x)
-        refhigh = normalhigh.cdf(x)
+        softp = torch.nn.Softplus(beta=1.618033988749895, threshold=100)
+        reglow = 1. / (softp(xlow) * torch.sqrt(torch.ones_like(xlow) * 2 * 3.14159265358979))
+        reflow = torch.exp(-0.5 * torch.pow((x - xmean) / softp(xlow), 2.))
+        reghigh = 1. / (softp(xhigh) * torch.sqrt(torch.ones_like(xhigh) * 2 * 3.14159265358979))
+        refhigh = torch.exp(-0.5 * torch.pow((x - xmean) / softp(xhigh), 2.))
 
         # Test the values to make sure a normal guassian is happening on
         # either side of the mean
         xbottom = (x <= xmean)
         xtop = (x >= xmean)
         self.assertTrue(torch.all(
-            torch.logical_or(torch.logical_not(xbottom), (gauss - reflow < 0.0001))
+            torch.logical_or(torch.logical_not(xbottom), (gauss - reflow < 1e-4))
         ), msg=f'Lower curve off by approx: {torch.mean(gauss-reflow)}')
         self.assertTrue(torch.all(
-            torch.logical_or(torch.logical_not(xtop), (gauss - refhigh < 0.0001))
+            torch.logical_or(torch.logical_not(xtop), (gauss - refhigh < 1e-4))
         ), msg=f'Upper curve off by approx: {torch.mean(gauss-refhigh)}')
+        self.assertTrue(torch.all(
+            torch.logical_or(torch.logical_not(xbottom), (gaussreg - (reglow * reflow) < 1e-4))
+        ), msg=f'Lower curve off by approx: {torch.mean(gaussreg-(reglow*reflow))}')
+        self.assertTrue(torch.all(
+            torch.logical_or(torch.logical_not(xtop), (gaussreg - (reghigh * refhigh) < 1e-4))
+        ), msg=f'Upper curve off by approx: {torch.mean(gaussreg-(reghigh*refhigh))}')
 
 class LinearGaussTest(unittest.TestCase):
     SIZE = (128, 11, 13, 97)
@@ -102,10 +110,10 @@ class LinearGaussTest(unittest.TestCase):
         zgaussc = torch.view_as_complex(torch.stack((zgaussr, zgaussi), dim=-1))
 
         # Test against zero case
-        self.assertTrue(torch.all(gauss1.forward(x) == zgauss))
-        self.assertTrue(torch.all(gauss.forward(x) == zgauss))
-        self.assertTrue(torch.all(gauss1.forward(xc) == zgaussc))
-        self.assertTrue(torch.all(gauss.forward(xc) == zgaussc))
+        self.assertTrue(torch.all(gauss1.forward(x) - zgauss < 1e-4))
+        self.assertTrue(torch.all(gauss.forward(x) - zgauss < 1e-4))
+        self.assertTrue(torch.all(gauss1.forward(xc).abs() - zgaussc.abs() < 1e-4))
+        self.assertTrue(torch.all(gauss.forward(xc).abs() - zgaussc.abs() < 1e-4))
 
         # Move over parameters for next test
         gauss1.mean = altMean1
@@ -116,24 +124,24 @@ class LinearGaussTest(unittest.TestCase):
         gauss.highStd = altHigh
 
         # Test to make sure the values are distributing properly
-        self.assertTrue(torch.all(gauss1.forward(x) == irregularGauss(x=x, \
-            mean=altMean1, lowStd=altLow1, highStd=altHigh1)))
+        self.assertTrue(torch.all(gauss1.forward(x) - irregularGauss(x=x, \
+            mean=altMean1, lowStd=altLow1, highStd=altHigh1) < 1e-4))
         rgaussr = irregularGauss(x=xc.real, mean=altMean1, lowStd=altLow1, highStd=altHigh1)
         rgaussi = irregularGauss(x=xc.imag, mean=altMean1, lowStd=altLow1, highStd=altHigh1)
         rgaussc = torch.view_as_complex(torch.stack((rgaussr, rgaussi), dim=-1))
-        self.assertTrue(torch.all(gauss1.forward(xc) == rgaussc))
+        self.assertTrue(torch.all(gauss1.forward(xc).abs() - rgaussc.abs() < 1e-4))
 
         bigGauss = gauss.forward(x)
         bigGaussc = gauss.forward(xc)
         self.assertEqual(bigGauss.size(), bigGaussc.size())
         for idx in range(self.SIZE[-2]):
             testGauss = irregularGauss(x=x[:,:,idx,:], mean=altMean[idx], lowStd=altLow[idx], highStd=altHigh[idx])
-            self.assertTrue(torch.all(torch.abs(testGauss - bigGauss[:,:,idx,:]) < 0.0001), msg=f'Values not properly distributing to channels in position -2.')
+            self.assertTrue(torch.all(torch.abs(testGauss - bigGauss[:,:,idx,:]) < 1e-4), msg=f'Values not properly distributing to channels in position -2.')
 
             testGaussr = irregularGauss(x=xc.real[:,:,idx,:], mean=altMean[idx], lowStd=altLow[idx], highStd=altHigh[idx])
             testGaussi = irregularGauss(x=xc.imag[:,:,idx,:], mean=altMean[idx], lowStd=altLow[idx], highStd=altHigh[idx])
             testGaussc = torch.view_as_complex(torch.stack((testGaussr, testGaussi), dim=-1))
-            self.assertTrue(torch.all(torch.abs(testGaussc - bigGaussc[:,:,idx,:]) < 0.0001))
+            self.assertTrue(torch.all(torch.abs(testGaussc - bigGaussc[:,:,idx,:]) < 1e-4))
 
     def testValuesComplex(self):
         # Seeding tensor
