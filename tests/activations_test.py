@@ -88,15 +88,15 @@ class LissajousTest(unittest.TestCase):
         ll10 = lisa.forward(torch.zeros_like(x), oneD=False)
         ll11 = lisa.forward(x, oneD=False)
         self.assertFalse(torch.all(ll10 == ll11), msg="Frequency delta not working (!oneD, real).")
-        self.assertTrue(torch.all(ll11 == torch.cos(x)), msg="Cos values don't check out for real values.")
+        self.assertTrue(torch.all(ll11 == torch.sin(x)), msg="Sin values don't check out for real values.")
         lc10 = lisac.forward(torch.zeros_like(xc), oneD=True)
         lc11 = lisac.forward(xc, oneD=True)
         self.assertFalse(torch.all(lc10 == lc11), msg="Frequency delta not working (oneD, complex).")
         lcl10 = lisac.forward(torch.zeros_like(xc), oneD=False)
         lcl11 = lisac.forward(xc, oneD=False)
         self.assertFalse(torch.all(lcl10 == lcl11), msg="Frequency delta not working (!oneD, complex).")
-        self.assertTrue(torch.all(lcl11 == icos(xc)), \
-            msg="Cos values don't check out for complex values.")
+        self.assertTrue(torch.all(lcl11 == isin(xc)), \
+            msg="Sin values don't check out for complex values.")
 
         # Phase testing
         lisa.frequency = nn.Parameter(lisa.frequency * 0)
@@ -109,12 +109,12 @@ class LissajousTest(unittest.TestCase):
         self.assertTrue(torch.all(phi0[:,:,:,:-1] == phi0[:,:,:,1:]), msg='Phi not consistent (oneD, real).')
         phil0 = lisa.forward(torch.zeros_like(x), oneD=False)
         self.assertTrue(torch.all(phil0[:,:,:-1] == phil0[:,:,1:]), msg='Phi not consistent (!oneD, real).')
-        self.assertTrue(torch.all(phil0 == torch.cos(torch.ones_like(phil0))), msg="Phi values don't check out for real values.")
+        self.assertTrue(torch.all(phil0 == torch.sin(torch.ones_like(phil0))), msg="Phi values don't check out for real values.")
         phic0 = lisac.forward(torch.zeros_like(xc), oneD=True)
         self.assertTrue(torch.all(phic0[:,:,:,:-1] == phic0[:,:,:,1:]), msg='Phi not consistent (oneD, complex).')
         phicl0 = lisac.forward(torch.zeros_like(xc), oneD=False)
         self.assertTrue(torch.all(phicl0[:,:,:-1] == phicl0[:,:,1:]), msg='Phi not consistent (!oneD, complex).')
-        self.assertTrue(torch.all(phicl0 == icos(torch.ones_like(xc))), msg="Phi values don't check out for complex values.")
+        self.assertTrue(torch.all(phicl0 == isin(torch.ones_like(xc))), msg="Phi values don't check out for complex values.")
 
         # Final value testing, both phase and frequency
         lisa.frequency = nn.Parameter(lisa.frequency + 1)
@@ -122,8 +122,8 @@ class LissajousTest(unittest.TestCase):
 
         final0 = lisa.forward(x, oneD=False)
         finalc0 = lisac.forward(xc, oneD=False)
-        self.assertTrue(torch.all(final0 == torch.cos(x+1)), msg="Composite values don't check out for real values.")
-        self.assertTrue(torch.all(finalc0 == icos(xc+1)), \
+        self.assertTrue(torch.all(final0 == torch.sin(x+1)), msg="Composite values don't check out for real values.")
+        self.assertTrue(torch.all(finalc0 == isin(xc+1)), \
             msg="Composite values don't check out for complex values.")
 
 
@@ -295,9 +295,9 @@ class KnotTest(unittest.TestCase):
             self.assertTrue(torch.all(cout[idx] == rout[idx]))
 
             if torch.is_complex(cout[idx]):
-                self.assertTrue(torch.all(cout[idx].real - icos(torch.ones((1)) * -2) < 0.0001))
+                self.assertTrue(torch.all(cout[idx].real - isin(torch.ones((1)) * -2) < 0.0001))
             else:
-                self.assertTrue(torch.all(cout[idx] - icos(torch.ones((1)) * -2) < 0.0001))
+                self.assertTrue(torch.all(cout[idx] - isin(torch.ones((1)) * -2) < 0.0001))
 
         # Make sure that the phasing of the signal is stacking at a rate of phi
         phaseProto = torch.zeros_like(knot.phases)
@@ -315,7 +315,7 @@ class KnotTest(unittest.TestCase):
         # Test phase with three phases seeded according to phi
         cout = [knotc.forward(c) if torch.is_complex(c) else knot.forward(c) for c in CONSTANTS]
         rout = [knotc.forward(c) if torch.is_complex(c) else knot.forward(c) for c in RANDOMS]
-        stackedVal = (icos(torch.ones((1))) + icos(torch.ones((1)) * 2) + ((test.KLYBATCH - 2) * icos(torch.ones((1)) * 3))) / test.KLYBATCH
+        stackedVal = (isin(torch.ones((1))) + isin(torch.ones((1)) * 2) + ((test.KLYBATCH - 2) * isin(torch.ones((1)) * 3))) / test.KLYBATCH
 
         # Because of frequency zeroing, all values should be equal
         for idx in range(len(cout)):
@@ -358,10 +358,10 @@ class KnotTest(unittest.TestCase):
             self.assertFalse(torch.all(cout[idx] == rout[idx]))
 
             if torch.is_complex(cout[idx]):
-                self.assertTrue(torch.all(cout[idx].real - icos(toComplex(torch.ones((1)))).real < 0.0001))
-                self.assertTrue(torch.all(cout[idx].imag - icos(toComplex(torch.ones((1)))).imag < 0.0001))
+                self.assertTrue(torch.all(cout[idx].real - isin(toComplex(torch.ones((1)))).real < 0.0001))
+                self.assertTrue(torch.all(cout[idx].imag - isin(toComplex(torch.ones((1)))).imag < 0.0001))
             else:
-                self.assertTrue(torch.all(cout[idx] - icos(torch.ones((1))) < 0.0001))
+                self.assertTrue(torch.all(cout[idx] - isin(torch.ones((1))) < 0.0001))
         
         # Add stacked frequency definition
         freqProto = torch.zeros_like(knot.frequencies)
@@ -379,7 +379,7 @@ class KnotTest(unittest.TestCase):
         # Verify frequency stacking property
         cout = [knotc.forward(c) if torch.is_complex(c) else knot.forward(c) for c in CONSTANTS]
         rout = [knotc.forward(c) if torch.is_complex(c) else knot.forward(c) for c in RANDOMS]
-        stackedVal = (icos(torch.ones((1))) + icos(torch.ones((1)) * 2) + ((test.KLYBATCH - 2) * icos(torch.ones((1)) * 3))) / test.KLYBATCH
+        stackedVal = (isin(torch.ones((1))) + isin(torch.ones((1)) * 2) + ((test.KLYBATCH - 2) * isin(torch.ones((1)) * 3))) / test.KLYBATCH
         
         for idx in range(len(cout)):
             self.assertFalse(torch.all(cout[idx] == rout[idx]))
@@ -593,9 +593,9 @@ class RingingTest(unittest.TestCase):
             sControl = sumControl[idx].unsqueeze(0)
 
             normalDiff = (results[idx, :] - ((1/phi()) * (controlTensors[idx]))).abs()
-            normalResult = torch.all(normalDiff.abs() <= sControl.abs() + 1e-4)
+            normalResult = torch.all(normalDiff.abs() <= torch.max(sControl.abs()) + 1e-4)
             regularDiff = (results[idx, :] - ((1/phi()) * (controlTensors[idx]))).abs()
-            regularResult = torch.all(regularDiff.abs() <= mControl.abs() + 1e-4)
+            regularResult = torch.all(regularDiff.abs() <= torch.max(mControl.abs()) + 1e-4)
             self.assertTrue(normalResult, \
                 msg=f'[idx:{idx}] A value higher than a non-regularized value added to the forks has appeared.\n|{normalDiff}| <= {sControl.abs() + 1e-4}')
             self.assertTrue(regularResult, \
