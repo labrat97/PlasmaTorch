@@ -1,15 +1,68 @@
-from .filter import *
+from ..defaults import *
+from ..activations import *
+from ..conversions import *
 from ..math import *
 from ..losses import *
 from ..distributions import *
-from ..defaults import *
-from ..conversions import *
-from ..activations import *
-from ..entanglement import *
 
 import torch as t
-import torch.fft as tfft
 import torch.nn as nn
+import torch.fft as tfft
+from abc import ABC, abstractmethod
+
+
+class KnowledgeFilter(nn.Module, ABC):
+    """
+    An abstract class used for creating encapsulated bits of knowledge to be called by
+    other KnowledgeFilters or structures looking to call knowledge from plasmatorch.
+    """
+    @abstractmethod
+    def __init__(self, corrSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+        """The abstract constructor for a knowledge filter.
+
+        Args:
+            corrSamples (int, optional): The amount of samples to describe each curve. Defaults to DEFAULT_FFT_SAMPLES.
+            cdtype (t.dtype, optional): The default datatype for the complex correlation parameter. Defaults to DEFAULT_COMPLEX_DTYPE.
+        """
+        super(KnowledgeFilter, self).__init__()
+        self.corrToken:nn.Parameter = nn.Parameter(toComplex(t.zeros((2, corrSamples), dtype=cdtype)), requires_grad=True)
+        self.routers:nn.ModuleList = nn.ModuleList()
+
+    def implicitCorrelation(self, a:t.Tensor, b:t.Tensor, isbasis:bool=False) -> t.Tensor:
+        """Calculate the stored correlation of the input signal with the tokenized basis
+        basis vectors. This is used to predict what could be inside of the function before
+        evaluating said function.
+
+        Args:
+            a (t.Tensor): A basis vector (optionally a signal) used for calculation.
+            b (t.Tensor): Another basis vector (optionally a signal) used for calculation.
+            isbasis (bool, optional): If False, the vectors coming in are preFFT'd. Defaults to False.
+
+        Returns:
+            t.Tensor: The average correlation accross the samples, curves, and vectors.
+        """
+        # Put the self correlation into an easy to process bounds
+        selfcorr = isigmoid(self.corrToken)
+
+        # Find the respective correlation from the token with the input signals
+        acorr:t.Tensor = correlation(x=a, y=selfcorr[0], dim=-1, isbasis=isbasis).mean(dim=-1).mean(dim=-1)
+        bcorr:t.Tensor = correlation(x=b, y=selfcorr[1], dim=-1, isbasis=isbasis).mean(dim=-1).mean(dim=-1)
+
+        # Find the mean of the mean correlations
+        return (acorr + bcorr) / 2.
+
+    @abstractmethod
+    def forward(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
+        """Runs two tensors through comparative knowledge.
+
+        Args:
+            a (t.Tensor): The first set of basis vectors defining an interacting signal.
+            b (t.Tensor): The second set of basis vectors defining another interacting signal.
+
+        Returns:
+            t.Tensor: The comparative knowledge graph output signal.
+        """
+        pass
 
 
 class KnowledgeRouter(KnowledgeFilter):
@@ -37,13 +90,14 @@ class KnowledgeRouter(KnowledgeFilter):
         self.maxk:int = maxk
 
     def addFilter(self, x:KnowledgeFilter):
-        """Adds a knowledge filter to the router.
+        """Adds a knowledge filter to the router, circularly linking the router in the filter.
 
         Args:
             x (KnowledgeFilter): The filter to add to the router.
         """
         assert isinstance(x, KnowledgeFilter)
         self.subfilters.append(x)
+        x.routers.append(self)
 
     def forward(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
         # Find the basis vectors of the input signals
