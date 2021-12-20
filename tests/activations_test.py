@@ -592,11 +592,11 @@ class RingingTest(unittest.TestCase):
             mControl = meanControl[idx]
             sControl = sumControl[idx].unsqueeze(0)
 
-            normalDiff = (results[idx, :] - ((1/phi()) * (controlTensors[idx]))).abs()
-            normalResult = torch.all(normalDiff.abs() <= torch.max(sControl.abs()) + 1e-4)
-            regularDiff = (results[idx, :] - ((1/phi()) * (controlTensors[idx]))).abs()
-            regularResult = torch.all(regularDiff.abs() <= torch.max(mControl.abs()) + 1e-4)
+            normalDiff = (results[idx, :] - (phi() * (controlTensors[idx]))).abs()
+            normalResult = torch.all(normalDiff.abs() <= torch.max(phi() * sControl.abs()) + 1e-4)
+            regularDiff = (results[idx, :] - (phi() * (controlTensors[idx]))).abs()
+            regularResult = torch.all(regularDiff.abs() <= torch.max(phi() * mControl.abs()) + 1e-4)
             self.assertTrue(normalResult, \
-                msg=f'[idx:{idx}] A value higher than a non-regularized value added to the forks has appeared.\n|{normalDiff}| <= {sControl.abs() + 1e-4}')
+                msg=f'[idx:{idx}] A value higher than a non-regularized value added to the forks has appeared.\n|{normalDiff}| <= {phi() * sControl.abs() + 1e-4}')
             self.assertTrue(regularResult, \
-                msg=f'[idx:{idx}] A value higher than a regularized value added to the forks has appeared.\n|{regularDiff}| <= {mControl.abs() + 1e-4}')
+                msg=f'[idx:{idx}] A value higher than a regularized value added to the forks has appeared.\n|{regularDiff}| <= {phi() * mControl.abs() + 1e-4}')
