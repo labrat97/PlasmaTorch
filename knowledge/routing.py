@@ -29,7 +29,7 @@ class KnowledgeFilter(nn.Module, ABC):
         self.routers:nn.ModuleList = nn.ModuleList()
 
     def implicitCorrelation(self, a:t.Tensor, b:t.Tensor, isbasis:bool=False) -> t.Tensor:
-        """Calculate the stored correlation of the input signal with the tokenized basis
+        """Calculate the stored correlation of the input signal with the tokenized
         basis vectors. This is used to predict what could be inside of the function before
         evaluating said function.
 
