@@ -14,10 +14,10 @@ def emconst() -> torch.Tensor:
 
 @torch.jit.script
 def phi() -> torch.Tensor:
-    one = torch.ones((1)).detach()
+    one = torch.ones((1), requires_grad=False)
     square = torch.sqrt(one * 5)
 
-    return (one + square) / 2
+    return ((one + square) / 2).detach()
 
 @torch.jit.script
 def asigphi() -> torch.Tensor:
@@ -29,9 +29,9 @@ def xbias(n:int, bias:int=0):
     return composer.transpose(-1,-2).sum(dim=-1)
 
 @torch.jit.script
-def latticeParams(dims:int) -> torch.Tensor:
+def latticeParams(dims:int, basisParam:torch.Tensor=phi()) -> torch.Tensor:
     powers = xbias(n=dims, bias=0)
-    return phi() ** (-powers)
+    return basisParam ** (-powers)
 
 @torch.jit.script
 def i() -> torch.Tensor:
