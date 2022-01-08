@@ -1,20 +1,102 @@
+from .scaffold import ScaffoldFilter
 from .routing import *
 from ..defaults import *
 from ..activations import *
 from ..conversions import *
 from ..math import *
 from ..losses import *
+from ..entanglement import *
 
 import torch as t
 import torch.nn as nn
+import torch.nn.functional as nnf
 
 
 class PipelineFilter(KnowledgeFilter):
-    def __init__(self, corrSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
-        super (KnowledgeFilter, self).__init__(corrSamples=corrSamples, cdtype=cdtype)
+    def __init__(self, pipes:nn.ModuleList, scaleCoeff:t.Tensor=phi(), corrSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+        super(KnowledgeFilter, self).__init__(corrSamples=corrSamples, cdtype=cdtype)
 
         # To handle importing sets of Scaffold Filters, a scalar divisor of Phi is recommended
         # for each layer of filter. The idea behind this is the preservation of presented data.
         # If the prior layer's basis frequencies are regressed as not being resonant with later
         # filter frequencies, all of the data should come out and be recoverable by the main agent.
+        self.pipeModules:nn.ModuleList = nn.ModuleList(pipes)
+        for module in self.pipeModules:
+            assert isinstance(module, KnowledgeFilter)
         
+        # Each filter must also collapse its superpositional output due to the standard
+        # for KnowledgeFilters. To accomplish this, a list of parameters is needed
+        # for each pipeModule defining the collapse polarization.
+        self.pipePols:nn.ParameterList = nn.ParameterList()
+        for module in self.pipeModules:
+            pipeParam = nn.Parameter(toComplex(t.zeros((2), dtype=cdtype)).real)
+            pipeParam[1].add_(pi())
+            self.pipePols.append(pipeParam)
+        
+        # The parameter to use for the power series dividing the lattice
+        self.scaleCoeff:nn.Parameter = nn.Parameter(toComplex(scaleCoeff))
+
+        # Run the input and output signals through this mask in order to figure
+        # out where to exit early.
+        self.corrmask:nn.Parameter = nn.Parameter(t.ones((2, corrSamples, corrSamples), 
+            dtype=self.scaleCoeff.dtype) * t.eye(corrSamples))
+        self.corrpol:nn.Parameter = nn.Parameter(t.zeros((1), dtype=self.corrmask.real.dtype))
+        
+    def forward(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
+        # Check to make sure the input signals are of appropriate size
+        assert a.size(-1) == b.size(-1)
+        flata = a.flatten(start_dim=0, end_dim=-2)
+        flatb = b.flatten(start_dim=0, end_dim=-2)
+        assert flata.size(0) == flatb.size(0)
+        
+        # End early from the pipeline if empty, providing a raw superposition
+        if len(self.pipeModules) == 0:
+            return superposition(a, b)
+        
+        # Find the correlation of signal a onto b and turn it into a diagonal
+        corr:t.Tensor = correlation(flata, flatb, dim=-1).unsqueeze(-1) @ t.eye(flata.size(-1))
+        
+        # Take the correlation diagonal previously calculated and matmul it with the
+        # stored knowledge mask.
+        target:t.Tensor = (corr @ nsoftmax(self.corrmask[1], dims=[-1, -2])).conj()
+
+        # Store the output of the modules
+        result:t.Tensor = toComplex(t.zeros((flata.size(0), flata.size(-1), flatb.size(-1)), dtype=self.cdtype))
+        
+        # Compute all of the steps in the pipeline per flattened batch
+        # Route each batch optimally through the pipeline
+        for batch in range(flata.size(0)):
+            # Grab the relevant next tensor by batch
+            nexta:t.Tensor = flata[batch]
+            nextb:t.Tensor = flatb[batch]
+            accum:List[t.Tensor] = []
+            lattice:List[t.Tensor] = []
+            
+            # Pipe each batch individually through the pipeline
+            for pidx in range(len(self.pipeModules)):
+                for filter in lattice:
+                    filter.div_(nnf.softplus(self.scaleCoeff))
+                # Push the stepped data into the selected filter
+                accum.append(self.pipeModules[pidx].forward(a=nexta, b=nextb))
+                lattice.append(t.ones((1), dtype=self.scaleCoeff.dtype))
+                
+                # Check to see if this is the implicit signal that is being looked for
+                exitsuper:t.Tensor = nsoftmax(accum[-1], [-1, -2]) * nsoftmax(target, [-1, -2])
+                if not t.all((t.flatten(exitsuper).sum(-1)) < 0.5):
+                    break
+                
+                # Calculate the nexta and nextb values through collapse(). Using
+                # the parameters stored in self.pipePols, a trainable, autograddable
+                # function should emerge.
+                polarization = self.pipePols[pidx]
+                nexta = collapse(accum[-1], polarization=polarization[0])
+                nextb = collapse(accum[-1], polarization=polarization[1])
+
+            # Accumulate the batch accum (multiplied by the calculated lattice parameters)
+            # into the result tensor for the function.
+            for idx in range(len(accum)):
+                result[batch].add(accum[idx] * lattice[idx])
+        
+        # Unflatten and return the accumulated result
+        return nn.Unflatten(dim=0, unflattened_size=a.size()[:-1])(result)    
+            
