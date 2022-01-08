@@ -27,6 +27,8 @@ class KnowledgeFilter(nn.Module, ABC):
         super(KnowledgeFilter, self).__init__()
         self.corrToken:nn.Parameter = nn.Parameter(toComplex(t.zeros((2, corrSamples), dtype=cdtype)), requires_grad=True)
         self.routers:nn.ModuleList = nn.ModuleList()
+        self.corrSamples:int = corrSamples
+        self.cdtype:t.dtype = cdtype
 
     def implicitCorrelation(self, a:t.Tensor, b:t.Tensor, isbasis:bool=False) -> t.Tensor:
         """Calculate the stored correlation of the input signal with the tokenized
@@ -85,7 +87,8 @@ class KnowledgeRouter(KnowledgeFilter):
         super(KnowledgeRouter, self).__init__(corrSamples=corrSamples, cdtype=cdtype)
 
         # Store all of the filters that the router can call to
-        self.entangleMask:nn.Parameter = nn.Parameter(toComplex(torch.zeros((corrSamples, corrSamples), dtype=cdtype)))
+        self.correlationMask:nn.Parameter = nn.Parameter(toComplex(torch.zeros((corrSamples, corrSamples), dtype=cdtype)))
+        self.correlationPolarization:nn.Parameter = nn.Parameter(t.zeros((1), dtype=self.correlationMask.real.dtype))
         self.subfilters:nn.ModuleList = nn.ModuleList()
         self.maxk:int = maxk
 
@@ -101,12 +104,12 @@ class KnowledgeRouter(KnowledgeFilter):
 
     def forward(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
         # Find the basis vectors of the input signals
-        samples:int = self.entangleMask.size(-1)
+        samples:int = self.correlationMask.size(-1)
         afft:t.Tensor = tfft.fft(a, n=samples, dim=-1)
         bfft:t.Tensor = tfft.fft(b, n=samples, dim=-1)
 
         # Entangle the signals with the `nsoftmax` function and a matmul, then sum out orthogonally
-        superposition:t.Tensor = (afft.unsqueeze(-1) @ bfft.unsqueeze(-1).transpose(-1,-2)) * nsoftmax(self.entangleMask, dims=[-1,-2])
+        superposition:t.Tensor = (afft.unsqueeze(-1) @ bfft.unsqueeze(-1).transpose(-1,-2)) * nsoftmax(self.correlationMask, dims=[-1,-2])
         afft = superposition.sum(dim=-1)
         bfft = superposition.sum(dim=-2)
 
