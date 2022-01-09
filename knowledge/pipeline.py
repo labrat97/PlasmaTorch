@@ -41,7 +41,7 @@ class PipelineFilter(KnowledgeFilter):
         self.corrmask:nn.Parameter = nn.Parameter(t.ones((2, corrSamples, corrSamples), 
             dtype=self.scaleCoeff.dtype) * t.eye(corrSamples))
         self.corrpol:nn.Parameter = nn.Parameter(t.zeros((1), dtype=self.corrmask.real.dtype))
-        
+     
     def forward(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
         # Check to make sure the input signals are of appropriate size
         assert a.size(-1) == b.size(-1)
@@ -99,4 +99,20 @@ class PipelineFilter(KnowledgeFilter):
         
         # Unflatten and return the accumulated result
         return nn.Unflatten(dim=0, unflattened_size=a.size()[:-1])(result)    
-            
+
+    def addPipe(self, pipe:KnowledgeFilter):
+        # Add the pipe, simple enough. Do a little error checking while you're at it
+        assert isinstance(pipe, KnowledgeFilter)
+        self.pipeModules.append(pipe)
+
+        # Create a new respective polarization parameter
+        newPol:t.Tensor = t.zeros((2), dtype=self.cdtype)
+        self.pipePols.append(nn.Parameter(newPol))
+
+    def delPipe(self, idx:int=-1) -> Tuple[KnowledgeFilter, t.Tensor]:
+        filter:KnowledgeFilter = self.pipeModules[idx]
+        self.pipeModules[:idx].extend(self.pipeModules[idx+1:])
+        polarization:t.Tensor = self.pipePols[idx].data
+        self.pipePols[:idx].extend(self.pipePols[idx+1:])
+
+        return (filter, polarization)
