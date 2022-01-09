@@ -111,8 +111,8 @@ class PipelineFilter(KnowledgeFilter):
 
     def delPipe(self, idx:int=-1) -> Tuple[KnowledgeFilter, t.Tensor]:
         filter:KnowledgeFilter = self.pipeModules[idx]
-        self.pipeModules[:idx].extend(self.pipeModules[idx+1:])
+        self.pipeModules = self.pipeModules[:idx].extend(self.pipeModules[idx+1:])
         polarization:t.Tensor = self.pipePols[idx].data
-        self.pipePols[:idx].extend(self.pipePols[idx+1:])
+        self.pipePols = self.pipePols[:idx].extend(self.pipePols[idx+1:])
 
         return (filter, polarization)

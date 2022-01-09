@@ -90,6 +90,7 @@ class KnowledgeRouter(KnowledgeFilter):
         self.correlationMask:nn.Parameter = nn.Parameter(toComplex(torch.zeros((corrSamples, corrSamples), dtype=cdtype)))
         self.correlationPolarization:nn.Parameter = nn.Parameter(t.zeros((1), dtype=self.correlationMask.real.dtype))
         self.subfilters:nn.ModuleList = nn.ModuleList()
+        self.callCounts:nn.ParameterList = nn.ParameterList()
         self.maxk:int = maxk
 
     def addFilter(self, x:KnowledgeFilter):
@@ -98,9 +99,25 @@ class KnowledgeRouter(KnowledgeFilter):
         Args:
             x (KnowledgeFilter): The filter to add to the router.
         """
+        # Add a KnowledgeFilter that can be routed through later
         assert isinstance(x, KnowledgeFilter)
         self.subfilters.append(x)
         x.routers.append(self)
+        
+        # Add a count for the system to evaluate later logrithmically
+        self.callCounts.append(nn.Parameter(t.ones((1), dtype=t.float64), requires_grad=False))
+
+    def delFilter(self, idx:int) -> Tuple[KnowledgeFilter, t.Tensor]:
+        # Remove the knowledge filter and save for later
+        filter:KnowledgeFilter = self.subfilters[idx]
+        self.subfilters = self.subfilters[:idx].extend(self.subfilters[idx+1:])
+        filter.routers = filter.routers[:idx].extend(filter.routers[idx+1:])
+
+        # Also grab the call counts because those need to go
+        count:t.Tensor = self.callCounts[idx]
+        self.callCounts = self.callCounts[:idx].extend(self.callCounts[idx+1:])
+
+        return (filter, count)
 
     def forward(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
         # Find the basis vectors of the input signals
