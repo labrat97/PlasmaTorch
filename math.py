@@ -14,7 +14,7 @@ def emconst() -> torch.Tensor:
 
 @torch.jit.script
 def phi() -> torch.Tensor:
-    one = torch.ones((1), requires_grad=False)
+    one = torch.ones((1)).detach()
     square = torch.sqrt(one * 5)
 
     return ((one + square) / 2).detach()

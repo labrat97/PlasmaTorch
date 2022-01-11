@@ -25,6 +25,7 @@ class KnowledgeFilter(nn.Module, ABC):
             cdtype (t.dtype, optional): The default datatype for the complex correlation parameter. Defaults to DEFAULT_COMPLEX_DTYPE.
         """
         super(KnowledgeFilter, self).__init__()
+        
         self.corrToken:nn.Parameter = nn.Parameter(toComplex(t.zeros((2, corrSamples), dtype=cdtype)), requires_grad=True)
         self.routers:nn.ModuleList = nn.ModuleList()
         self.corrSamples:int = corrSamples

@@ -31,20 +31,6 @@ class Smear(nn.Module):
     return (xRange * self.__iter) + xLow
 
 @torch.jit.script
-def resampleSmear(x:torch.Tensor, samples:int, dim:int = -1) -> torch.Tensor:
-  # Sample the constructing frequencies and phases, zero padding
-  xfft:torch.Tensor = torch.fft.fft(x, dim=dim, n=samples)
-  
-  # Put the samples back to smearwise where no zero padding exists
-  # This can be done because this is a natural signal
-  # No data is lost or obscured in theory during upsampling, downsampling loses higher frequencies
-  y:torch.Tensor = torch.fft.ifft(xfft, dim=dim, n=samples)
-  if not torch.is_complex(x):
-    y = y.abs()
-
-  return y
-
-@torch.jit.script
 def nantonum(x:torch.Tensor) -> torch.Tensor:
   # Already implemented
   if not x.is_complex(): return torch.nan_to_num(x)
@@ -57,18 +43,6 @@ def nantonum(x:torch.Tensor) -> torch.Tensor:
   return torch.view_as_complex(torch.stack((real, imag), dim=-1))
 
 @torch.jit.script
-def resampleContinuous(x:torch.Tensor, dim:int=-1, msi:int=-1) -> torch.Tensor:
-  # Get rid of values that can propagate through horribly (+-inf, nan)
-  xclean:torch.Tensor = nantonum(x)
-  samples = x.size()[dim]
-  xfft:torch.Tensor = torch.fft.fft(xclean, n=samples, dim=dim)
-  ixfft:torch.Tensor = torch.fft.ifft(xfft, n=samples, dim=dim)
-
-  # Make sure the most significant index's scale remains consistent
-  resultScalar = xclean[..., msi] / ixfft[..., msi]
-  return resultScalar.unsqueeze(-1) * ixfft
-
-@torch.jit.script
 def toComplex(x:torch.Tensor) -> torch.Tensor:
   # Already done
   if x.is_complex(): return x
@@ -76,6 +50,21 @@ def toComplex(x:torch.Tensor) -> torch.Tensor:
   # Turn into a complex number
   complexProto = torch.stack((x, torch.zeros_like(x)), dim=-1)
   return torch.view_as_complex(complexProto)
+
+@torch.jit.script
+def resampleSmear(x:torch.Tensor, samples:int, dim:int = -1) -> torch.Tensor:
+  # Sample the constructing frequencies and phases, zero padding. Get rid of
+  # inifinite values while evaluating.
+  xfft:torch.Tensor = torch.fft.fft(nantonum(x), dim=dim, n=samples)
+  
+  # Put the samples back to smearwise where no zero padding exists
+  # This can be done because this is a natural signal
+  # No data is lost or obscured in theory during upsampling, downsampling loses higher frequencies
+  y:torch.Tensor = torch.fft.ifft(xfft, dim=dim, n=samples)
+  if not torch.is_complex(x):
+    y = y.abs()
+
+  return y
 
 
 class RealObserver(nn.Module):
