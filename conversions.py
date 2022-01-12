@@ -52,10 +52,10 @@ def toComplex(x:torch.Tensor) -> torch.Tensor:
   return torch.view_as_complex(complexProto)
 
 @torch.jit.script
-def resampleSmear(x:torch.Tensor, samples:int, dim:int = -1) -> torch.Tensor:
+def resampleSmear(x:torch.Tensor, samples:int, dim:int=-1) -> torch.Tensor:
   # Sample the constructing frequencies and phases, zero padding. Get rid of
   # inifinite values while evaluating.
-  xfft:torch.Tensor = torch.fft.fft(nantonum(x), dim=dim, n=samples)
+  xfft:torch.Tensor = torch.fft.fft(nantonum(x), dim=dim, n=x.size(dim))
   
   # Put the samples back to smearwise where no zero padding exists
   # This can be done because this is a natural signal
