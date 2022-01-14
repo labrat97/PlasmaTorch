@@ -8,7 +8,9 @@ from ..distributions import *
 import torch as t
 import torch.nn as nn
 import torch.fft as tfft
+
 from abc import ABC, abstractmethod
+import time
 
 
 class KnowledgeFilter(nn.Module, ABC):
@@ -17,7 +19,7 @@ class KnowledgeFilter(nn.Module, ABC):
     other KnowledgeFilters or structures looking to call knowledge from plasmatorch.
     """
     @abstractmethod
-    def __init__(self, corrSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+    def __init__(self, corrSamples:int=DEFAULT_FFT_SAMPLES, inputSamples:int=DEFAULT_FFT_SAMPLES, outputSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
         """The abstract constructor for a knowledge filter.
 
         Args:
@@ -26,10 +28,22 @@ class KnowledgeFilter(nn.Module, ABC):
         """
         super(KnowledgeFilter, self).__init__()
         
+        # Store parameters to be modified and stored
         self.corrToken:nn.Parameter = nn.Parameter(toComplex(t.zeros((2, corrSamples), dtype=cdtype)), requires_grad=True)
         self.routers:nn.ModuleList = nn.ModuleList()
-        self.corrSamples:int = corrSamples
-        self.cdtype:t.dtype = cdtype
+        self.callCount:nn.Parameter = nn.Parameter(t.zeros((1), dtype=t.int64), requires_grad=False)
+
+        # Some runtime data to make the filter optimize the signals coming in
+        self.corrSamples:int = self.corrToken.size(-1)
+        self.cdtype:t.dtype = self.corrToken.dtype
+        self.inputSamples:int = inputSamples
+        if inputSamples == 0:
+            self.inputSamples = self.corrSamples
+        self.outputSamples:int = outputSamples
+        if outputSamples == 0:
+            self.outputSamples = self.inputSamples
+        self.lastForward:float = -1.
+        self.lastExec:float = -1.
 
     def implicitCorrelation(self, a:t.Tensor, b:t.Tensor, isbasis:bool=False) -> t.Tensor:
         """Calculate the stored correlation of the input signal with the tokenized
@@ -47,6 +61,12 @@ class KnowledgeFilter(nn.Module, ABC):
         # Put the self correlation into an easy to process bounds
         selfcorr = isigmoid(self.corrToken)
 
+        # Resample the input vectors if needed
+        if a.size(-1) != self.corrSamples:
+            a = resampleSmear(x=a, samples=self.corrSamples, dim=-1)
+        if b.size(-1) != self.corrSamples:
+            b = resampleSmear(x=b, samples=self.corrSamples, dim=-1)
+
         # Find the respective correlation from the token with the input signals
         acorr:t.Tensor = correlation(x=a, y=selfcorr[0], dim=-1, isbasis=isbasis).mean(dim=-1).mean(dim=-1)
         bcorr:t.Tensor = correlation(x=b, y=selfcorr[1], dim=-1, isbasis=isbasis).mean(dim=-1).mean(dim=-1)
@@ -55,17 +75,50 @@ class KnowledgeFilter(nn.Module, ABC):
         return (acorr + bcorr) / 2.
 
     @abstractmethod
-    def forward(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
-        """Runs two tensors through comparative knowledge.
+    def __forward__(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
+        """Runs two tensors through comparative knowledge after being preformatted.
 
         Args:
-            a (t.Tensor): The first set of basis vectors defining an interacting signal.
-            b (t.Tensor): The second set of basis vectors defining another interacting signal.
+            a (t.Tensor): The first set of vectors defining an interacting signal.
+            b (t.Tensor): The second set of vectors defining another interacting signal.
 
         Returns:
             t.Tensor: The comparative knowledge graph output signal.
         """
         pass
+
+    def forward(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
+        # Time the execution of this function and store later
+        beginExec:float = time.time()
+
+        # Resample the input vectors to match the internal expected sample count
+        if self.inputSamples > 0 and a.size(-1) != self.inputSamples:
+            wa:t.Tensor = resampleSmear(a, samples=self.inputSamples, dim=-1)
+        else:
+            wa:t.Tensor = toComplex(a)
+        if self.inputSamples > 0 and b.size(-1) != self.inputSamples:
+            wb:t.Tensor = resampleSmear(b, samples=self.inputSamples, dim=-1)
+        else:
+            wb:t.Tensor = toComplex(b)
+        
+        # Call the internal __forward__() method so that this method may wrap safely.
+        # Timing the execution time is critical here as the total sample count is likely
+        #   to reach 196883 elements which can occupy over 4GB of system memory during evaluation.
+        #   It also takes a significantly longer amount of time to evaluate that big of a computation.
+        beginForward:float = time.time()
+        result:t.Tensor = self.__forward__(a=wa, b=wb)
+        self.lastForward = time.time() - beginForward
+
+        # Resample the output matrices to match the internal expected sample count
+        if self.outputSamples > 0 and result.size(-1) != self.outputSamples:
+            result = resampleSmear(result, samples=self.outputSamples, dim=-1)
+        if self.outputSamples > 0 and result.size(-2) != self.outputSamples:
+            result = resampleSmear(result, samples=self.outputSamples, dim=-2)
+
+        # Log the execution time of this function for later evaluation.
+        self.lastExec = time.time() - beginExec
+
+        return result
 
 
 class KnowledgeRouter(KnowledgeFilter):
@@ -77,7 +130,7 @@ class KnowledgeRouter(KnowledgeFilter):
     set of amplitudes from the previous signal, making the potential for things like the harmonic series
     just fall out.
     """
-    def __init__(self, maxk:int=3, corrSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+    def __init__(self, maxk:int=3, corrSamples:int=DEFAULT_FFT_SAMPLES, outputSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
         """The constructor for a KnowledgeRouter, defining performance parameters 
 
         Args:
@@ -85,10 +138,10 @@ class KnowledgeRouter(KnowledgeFilter):
             corrSamples (int, optional): The amount of samples to describe each curve. Defaults to DEFAULT_FFT_SAMPLES.
             cdtype (t.dtype, optional): The default datatype for the complex correlation parameter. Defaults to DEFAULT_COMPLEX_DTYPE.
         """
-        super(KnowledgeRouter, self).__init__(corrSamples=corrSamples, cdtype=cdtype)
+        super(KnowledgeRouter, self).__init__(corrSamples=corrSamples, inputSamples=-1, outputSamples=outputSamples, cdtype=cdtype)
 
         # Store all of the filters that the router can call to
-        self.correlationMask:nn.Parameter = nn.Parameter(toComplex(torch.zeros((corrSamples, corrSamples), dtype=cdtype)))
+        self.correlationMask:nn.Parameter = nn.Parameter(toComplex(torch.zeros((self.corrSamples, self.corrSamples), dtype=self.cdtype)))
         self.correlationPolarization:nn.Parameter = nn.Parameter(t.zeros((1), dtype=self.correlationMask.real.dtype))
         self.subfilters:nn.ModuleList = nn.ModuleList()
         self.callCounts:nn.ParameterList = nn.ParameterList()
@@ -120,7 +173,7 @@ class KnowledgeRouter(KnowledgeFilter):
 
         return (filter, count)
 
-    def forward(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
+    def __forward__(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
         # Find the basis vectors of the input signals
         afft:t.Tensor = tfft.fft(a, n=self.corrSamples, dim=-1)
         bfft:t.Tensor = tfft.fft(b, n=self.corrSamples, dim=-1)

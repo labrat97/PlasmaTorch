@@ -10,8 +10,12 @@ import torch.nn as nn
 
 
 class ScaffoldFilter(KnowledgeFilter):
-    def __init__(self, parentModules:nn.ModuleList, corrSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
-        super(KnowledgeFilter, self).__init__(corrSamples=corrSamples, cdtype=cdtype)
+    def __init__(self, parentModules:nn.ModuleList, corrSamples:int=DEFAULT_FFT_SAMPLES, 
+        inputSamples:int=DEFAULT_FFT_SAMPLES, outputSamples:int=DEFAULT_FFT_SAMPLES, 
+        cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+
+        super(KnowledgeFilter, self).__init__(corrSamples=corrSamples, 
+            inputSamples=inputSamples, outputSamples=outputSamples, cdtype=cdtype)
         
         # The current plan for this filter is to freeze all of the weights coming in,
         # then feed the `a` and `b` vectors in the forward function to the QKV tensors

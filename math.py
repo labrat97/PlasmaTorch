@@ -194,11 +194,9 @@ def isigmoid(x:torch.Tensor) -> torch.Tensor:
         return torch.sigmoid(x)
 
     # Extract/calculate required basic parameters
-    I = i().type(x.dtype)
     PI2 = pi() / 2
     ang = x.angle()
     xabs = x.abs()
-    xo = torch.zeros_like(x.real)
     
     # Do a sigmoid in the unanimous sign'd quadrants and find the connecting point
     # between the sigmoids if not in the unanimous quadrants.

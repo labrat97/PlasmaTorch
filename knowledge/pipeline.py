@@ -13,8 +13,8 @@ import torch.nn.functional as nnf
 
 
 class PipelineFilter(KnowledgeFilter):
-    def __init__(self, pipes:nn.ModuleList, scaleCoeff:t.Tensor=phi(), corrSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
-        super(KnowledgeFilter, self).__init__(corrSamples=corrSamples, cdtype=cdtype)
+    def __init__(self, pipes:nn.ModuleList, scaleCoeff:t.Tensor=phi(), corrSamples:int=DEFAULT_FFT_SAMPLES, ioSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+        super(KnowledgeFilter, self).__init__(corrSamples=corrSamples, inputSamples=ioSamples, outputSamples=ioSamples, cdtype=cdtype)
 
         # To handle importing sets of Scaffold Filters, a scalar divisor of Phi is recommended
         # for each layer of filter. The idea behind this is the preservation of presented data.
@@ -29,7 +29,7 @@ class PipelineFilter(KnowledgeFilter):
         # for each pipeModule defining the collapse polarization.
         self.pipePols:nn.ParameterList = nn.ParameterList()
         for module in self.pipeModules:
-            pipeParam = nn.Parameter(toComplex(t.zeros((2), dtype=cdtype)).real)
+            pipeParam = nn.Parameter(toComplex(t.zeros((2), dtype=self.cdtype)).real)
             pipeParam[1].add_(pi())
             self.pipePols.append(pipeParam)
         
@@ -38,11 +38,11 @@ class PipelineFilter(KnowledgeFilter):
 
         # Run the input and output signals through this mask in order to figure
         # out where to exit early.
-        self.corrmask:nn.Parameter = nn.Parameter(t.ones((2, corrSamples, corrSamples), 
-            dtype=self.scaleCoeff.dtype) * t.eye(corrSamples))
-        self.corrpol:nn.Parameter = nn.Parameter(t.zeros((1), dtype=self.corrmask.real.dtype))
+        self.pipeMask:nn.Parameter = nn.Parameter(t.ones((2, ioSamples, ioSamples), 
+            dtype=self.scaleCoeff.dtype) * t.eye(ioSamples))
+        self.pipePol:nn.Parameter = nn.Parameter(t.zeros((1), dtype=self.pipeMask.real.dtype))
      
-    def forward(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
+    def __forward__(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
         # Check to make sure the input signals are of appropriate size
         assert a.size(-1) == b.size(-1)
         flata = a.flatten(start_dim=0, end_dim=-2)
@@ -58,7 +58,7 @@ class PipelineFilter(KnowledgeFilter):
         
         # Take the correlation diagonal previously calculated and matmul it with the
         # stored knowledge mask.
-        target:t.Tensor = (corr @ nsoftmax(self.corrmask[1], dims=[-1, -2])).conj()
+        target:t.Tensor = (corr @ nsoftmax(self.pipeMask[1], dims=[-1, -2])).conj()
 
         # Store the output of the modules
         result:t.Tensor = toComplex(t.zeros((flata.size(0), flata.size(-1), flatb.size(-1)), dtype=self.cdtype))

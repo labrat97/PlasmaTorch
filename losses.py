@@ -163,10 +163,8 @@ def entropy(x:t.Tensor, softmax:bool=True, startdim:int=0, countrot:bool=True) -
     Returns:
         t.Tensor: The entropy of the matrix at the dim that was started at for calculation.
     """
-    # Make sure the tensor can be used for standard square entropy
-    xsize = x.size()
-
-    # Flatten the matrix to make it so the data can all be operated on at once.
+    # Flatten the matrix to make it so the data can all be operated on at once by the
+    #   softmax() function.
     # Doing this is done also to help optimize the idea that every single complex
     #   number is just a frozen wave function's eigenvalues. So, to calculate this,
     #   something similar to Shannon Entropy is used.
