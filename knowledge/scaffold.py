@@ -10,14 +10,22 @@ import torch.nn as nn
 
 
 class ScaffoldFilter(KnowledgeFilter):
-    def __init__(self, parentModules:nn.ModuleList, corrSamples:int=DEFAULT_FFT_SAMPLES, 
+    def __init__(self, cid:str, ipns:bool, corrSamples:int=DEFAULT_FFT_SAMPLES, 
         inputSamples:int=DEFAULT_FFT_SAMPLES, outputSamples:int=DEFAULT_FFT_SAMPLES, 
         cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
 
+        # Build the superclass
         super(KnowledgeFilter, self).__init__(corrSamples=corrSamples, 
             inputSamples=inputSamples, outputSamples=outputSamples, cdtype=cdtype)
         
-        # The current plan for this filter is to freeze all of the weights coming in,
-        # then feed the `a` and `b` vectors in the forward function to the QKV tensors
-        # on the layers of attention being imported.
-
+        # Iterate through the CID from IPNS in IPFS, turning it into a byte array
+        #   then a nn.Parameter for the module (so that it may be serialized).
+        preparam = bytearray.fromhex(cid)
+        assert len(preparam) == int(32)
+        self.cid:nn.Parameter = nn.Parameter(t.zeros((32), dtype=t.uint8, device='cpu'), requires_grad=False)
+        for idx in range(32):
+            self.cid[idx].add_(preparam[idx])
+    
+    def __hashStr(self):
+        bytelist = self.cid.tolist()
+        return bytearray(bytelist).hex()
