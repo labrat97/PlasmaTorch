@@ -13,7 +13,7 @@ class HurwitzFilter(KnowledgeFilter):
         # hurwitz zeta function.
         self.remap:nn.Parameter = nn.Parameter(toComplex(t.eye(ioSamples, dtype=self.cdtype)))
 
-    def forward(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
+    def __forward__(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
         # Find the basis vectors of the signal
         afft = tfft.fft(a, n=self.inputSamples, dim=-1)
         bfft = tfft.fft(b, n=self.inputSamples, dim=-1)
