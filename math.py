@@ -6,7 +6,7 @@ import torch
 
 @torch.jit.script
 def pi() -> torch.Tensor:
-    return (torch.ones((1)) * 3.141592653589793238462643383279502).detach()
+    return (torch.ones((1)) * 3.14159265358979323846264338327950288419716939937510).detach()
 
 @torch.jit.script
 def emconst() -> torch.Tensor:
@@ -25,8 +25,8 @@ def asigphi() -> torch.Tensor:
 
 @torch.jit.script
 def xbias(n:int, bias:int=0):
-    composer = torch.triu(torch.ones((n, n)), diagonal=1-bias)
-    return composer.transpose(-1,-2).sum(dim=-1)
+    composer = range(bias, n + bias)
+    return torch.Tensor(composer)
 
 @torch.jit.script
 def latticeParams(dims:int, basisParam:torch.Tensor=phi()) -> torch.Tensor:
