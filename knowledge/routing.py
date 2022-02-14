@@ -19,7 +19,7 @@ class KnowledgeFilter(nn.Module, ABC):
     other KnowledgeFilters or structures looking to call knowledge from plasmatorch.
     """
     @abstractmethod
-    def __init__(self, corrSamples:int=DEFAULT_FFT_SAMPLES, inputSamples:int=DEFAULT_FFT_SAMPLES, outputSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+    def __init__(self, corrSamples:int=DEFAULT_FFT_SAMPLES, inputSamples:int=DEFAULT_FFT_SAMPLES, outputSamples:int=DEFAULT_FFT_SAMPLES, attentiveResample:bool=True, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
         """The abstract constructor for a knowledge filter.
 
         Args:
@@ -44,6 +44,12 @@ class KnowledgeFilter(nn.Module, ABC):
             self.outputSamples = self.inputSamples
         self.lastForward:float = -1.
         self.lastExec:float = -1.
+
+        # Resample the input with some grid resampled attention if requested
+        # This is a linear parameter set which is nice
+        self.resampleWeight:nn.Parameter = None
+        if attentiveResample:
+            self.resampleWeight = nn.Parameter(t.zeros((2, inputSamples)))
 
     def implicitCorrelation(self, a:t.Tensor, b:t.Tensor, isbasis:bool=False) -> t.Tensor:
         """Calculate the stored correlation of the input signal with the tokenized
@@ -92,14 +98,31 @@ class KnowledgeFilter(nn.Module, ABC):
         beginExec:float = time.time()
 
         # Resample the input vectors to match the internal expected sample count
-        if self.inputSamples > 0 and a.size(-1) != self.inputSamples:
-            wa:t.Tensor = resampleSmear(a, samples=self.inputSamples, dim=-1)
+        if self.resampleWeight is None:
+            # Use a basic Fourier Transform method to uniformly preserve the input signal
+            if self.inputSamples > 0 and a.size(-1) != self.inputSamples:
+                if self.resampleWeight is None:
+                    wa:t.Tensor = resampleSmear(a, samples=self.inputSamples, dim=-1)
+            else:
+                wa:t.Tensor = toComplex(a)
+            if self.inputSamples > 0 and b.size(-1) != self.inputSamples:
+                if self.resampleWeight is None:
+                    wb:t.Tensor = resampleSmear(b, samples=self.inputSamples, dim=-1)
+            else:
+                wb:t.Tensor = toComplex(b)
         else:
-            wa:t.Tensor = toComplex(a)
-        if self.inputSamples > 0 and b.size(-1) != self.inputSamples:
-            wb:t.Tensor = resampleSmear(b, samples=self.inputSamples, dim=-1)
-        else:
-            wb:t.Tensor = toComplex(b)
+            # Use a grid resample with bilinear filtering and centered, UV coords
+            # Make input values bounded appropriately
+            actWeightA:t.Tensor = isoftmax(self.resampleWeight[0], dim=-1)
+            actWeightB:t.Tensor = isoftmax(self.resampleWeight[1], dim=-1)
+
+            # Turn the signal into a continuous signal (essentially a fully differentiable lens)
+            sampleWeightA:t.Tensor = tfft.irfft(actWeightA, n=actWeightA.size(-1), dim=-1, norm='forward')
+            sampleWeightB:t.Tensor = tfft.irfft(actWeightB, n=actWeightB.size(-1), dim=-1, norm='forward')
+
+            # Apply lens to the input values
+            wa:t.Tensor = weightedResample(a, lens=sampleWeightA, dim=-1)
+            wb:t.Tensor = weightedResample(b, lens=sampleWeightB, dim=-1)
         
         # Call the internal __forward__() method so that this method may wrap safely.
         # Timing the execution time is critical here as the total sample count is likely
