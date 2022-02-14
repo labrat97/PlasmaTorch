@@ -46,7 +46,7 @@ def resampleSmear(x:t.Tensor, samples:int, dim:int=-1) -> t.Tensor:
   return y
 
 @ts 
-def resample1D(x:t.Tensor, lens:t.Tensor, dim:int=-1) -> t.Tensor:
+def weightedResample(x:t.Tensor, lens:t.Tensor, dim:int=-1) -> t.Tensor:
     # Make sure there isn't an imaginary lens vector
     assert not t.is_complex(lens)
     # Make sure the dim can be referenced
