@@ -78,8 +78,8 @@ def weightedResample(x:t.Tensor, lens:t.Tensor, dim:int=-1) -> t.Tensor:
     wx.unsqueeze_(-2) # [..., b, c, x] -> [..., b, c, 1, x]
     wxsize = wx.size()
     wl = slens.unsqueeze(-2).unsqueeze(-2).unsqueeze(-1) # [..., y] -> [..., 1, 1, y, 1]
-    wl = t.cat([wl] * wx.size(-4), dim=-4) # [..., 1, 1, y, 1] -> [..., b, 1, y, 1]
-    wl = t.cat((wl, t.zeros_like(wl)), dim=-1) # [..., b, 1, y, 1] -> [..., b, 1, y, [x_iter, 0]]
+    wl = t.stack([wl] * wx.size(-4), dim=-4) # [..., 1, 1, y, 1] -> [..., b, 1, y, 1]
+    wl = t.stack((wl, t.zeros_like(wl)), dim=-1) # [..., b, 1, y, 1] -> [..., b, 1, y, [x_iter, 0]]
 
     # Get ready for resampling
     result:t.Tensor = t.zeros(wxsize[:-1] + [lensSize[-1]], 
@@ -94,7 +94,7 @@ def weightedResample(x:t.Tensor, lens:t.Tensor, dim:int=-1) -> t.Tensor:
     for idx in range(wx.size(0)):
         wwx = wx[idx] # [b, c, 1, x]
         wwl = wl[idx] + poslut # [b, 1, x, [x_iter, 0]] centered at 0
-        result[idx] = nnf.grid_sample(wwx, wwl, mode='bilinear', padding_mode='border', align_corners=True)
+        result[idx] = nnf.grid_sample(wwx, wwl, mode='bilinear', padding_mode='reflect', align_corners=True)
 
     # Format the result
     if batchOffset == 0:
