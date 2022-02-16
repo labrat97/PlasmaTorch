@@ -4,7 +4,7 @@ import torch.nn.functional as nnf
 
 from typing import Tuple, List, Dict
 
-DEFAULT_FFT_SAMPLES:int = 256
+DEFAULT_FFT_SAMPLES:int = 196884
 KNOTS_WITHOUT_LOSS:int = 8
 # a peak and a trough are needed at minimum for a legible signal
 DEFAULT_KNOT_WAVES:int = int(DEFAULT_FFT_SAMPLES / (KNOTS_WITHOUT_LOSS * 2))
