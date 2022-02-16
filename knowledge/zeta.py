@@ -4,6 +4,7 @@ from torch.jit import script as ts
 from ..defaults import *
 from ..conversions import *
 from ..math import *
+from ..sizing import *
 
 
 @ts

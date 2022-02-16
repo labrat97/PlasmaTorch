@@ -37,12 +37,12 @@ class ScaffoldFilter(KnowledgeFilter):
         
         # Read the requested file from the ipfs file system
         if ipns:
-            mount:str = path.join(ipnsMount, multihash)
+            self.mount:nn.Parameter = nn.Parameter(t.Tensor(path.join(ipnsMount, multihash).encode()).type(t.uint8))
         else:
-            mount:str = path.join(ipfsMount, multihash)
+            self.mount:nn.Parameter = nn.Parameter(t.Tensor(path.join(ipfsMount, multihash).encode()).type(t.uint8))
 
         # Open the file into the CPU so that it may be potentially swapped
-        with open(mount, 'br') as heartfile:
+        with open(bytes(self.mount).decode(), 'br') as heartfile:
             self.heart:nn.Module = t.jit.load(heartfile, map_location='cpu')
         
         # Set the device to be used later for fast computation
@@ -51,7 +51,7 @@ class ScaffoldFilter(KnowledgeFilter):
                 fastdev = 'cuda'
             else:
                 fastdev = 'cpu'
-        self.fastdev:str = fastdev
+        self.fastdev:nn.Parameter = nn.Parameter(t.Tensor(fastdev.encode()).type(t.uint8))
 
         # Set up the configuration flags for the model inference
         self.freezeHeart:bool = not ipns

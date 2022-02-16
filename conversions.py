@@ -1,5 +1,4 @@
 from .defaults import *
-from .sizing import *
 
 import torch
 import torch.nn as nn
@@ -51,6 +50,11 @@ def toComplex(x:torch.Tensor) -> torch.Tensor:
   # Turn into a complex number
   complexProto = torch.stack((x, torch.zeros_like(x)), dim=-1)
   return torch.view_as_complex(complexProto)
+
+@torch.jit.script
+def strToTensor(x:str) -> nn.Parameter:
+  rawstr:List[int] = [ord(c) for c in x]
+  return torch.tensor(rawstr, dtype=torch.uint8, requires_grad=False)
 
 
 class RealObserver(nn.Module):

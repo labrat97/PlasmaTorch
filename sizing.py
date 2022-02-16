@@ -1,8 +1,9 @@
+from .defaults import *
+
 import torch as t
 import torch.nn as nn
 import torch.nn.functional as nnf
 from torch.jit import script as ts
-from typing import Tuple, List
 
 from .math import nantonum, xbias
 
@@ -29,6 +30,25 @@ def dimmatch(a:t.Tensor, b:t.Tensor, dim:int, mode:str='constant', value:float=0
     elif bsize < asize:
         return a, paddim(b, 0, asize-bsize, dim=dim, mode=mode, value=value)
     return a, b
+
+@ts
+def unflatten(x:t.Tensor, dim:int, size:List[int]):
+    # Assert that the tensor unflattens to the appropriate size at the provided dim
+    numel:int = 1
+    for n in size:
+        numel = numel * n
+    assert numel == x.size(dim)
+
+    # Accumulate the result
+    y:t.Tensor = x
+
+    # Unfold the specified dimension for each descriptive dimension of size
+    for idx, n in enumerate(list(size)):
+        target:int = dim + idx
+        y = y.unfold(target, n, n).movedim(-1, target)
+
+    # Return fully unflattened tensor
+    return y
 
 @ts
 def resampleSmear(x:t.Tensor, samples:int, dim:int=-1) -> t.Tensor:
@@ -78,12 +98,12 @@ def weightedResample(x:t.Tensor, lens:t.Tensor, dim:int=-1) -> t.Tensor:
     wx.unsqueeze_(-2) # [..., b, c, x] -> [..., b, c, 1, x]
     wxsize = wx.size()
     wl = slens.unsqueeze(-2).unsqueeze(-2).unsqueeze(-1) # [..., y] -> [..., 1, 1, y, 1]
-    wl = t.stack([wl] * wx.size(-4), dim=-4) # [..., 1, 1, y, 1] -> [..., b, 1, y, 1]
-    wl = t.stack((wl, t.zeros_like(wl)), dim=-1) # [..., b, 1, y, 1] -> [..., b, 1, y, [x_iter, 0]]
+    wl = t.cat([wl] * wx.size(-4), dim=-4) # [..., 1, 1, y, 1] -> [..., b, 1, y, 1]
+    wl = t.cat((wl, t.zeros_like(wl)), dim=-1) # [..., b, 1, y, 1] -> [..., b, 1, y, [x_iter, 0]]
 
     # Get ready for resampling
     result:t.Tensor = t.zeros(wxsize[:-1] + [lensSize[-1]], 
-        dtype=x.dtype, requires_grad=True, device=x.device) # [..., b, c, 1, x]
+        dtype=x.dtype, device=x.device) # [..., b, c, 1, x]
     poslut:t.Tensor = ((2. * xbias(wxsize[-1])) / wxsize[-1]) - 1.
 
     # Resample each batch
@@ -105,6 +125,6 @@ def weightedResample(x:t.Tensor, lens:t.Tensor, dim:int=-1) -> t.Tensor:
     else:
         result.squeeze_(-1)
     result.squeeze_(-2) # [..., b, 1, y] -> [..., b, y]
-    result = nn.Unflatten(batchOffset, dimout.size()[:-1])(result) # [..., b, y] -> [..., y]
+    result = unflatten(result, batchOffset, dimout.size()[:-1]) # [..., b, y] -> [..., y]
 
     return result.transpose(-1, dim)

@@ -49,7 +49,12 @@ class KnowledgeFilter(nn.Module, ABC):
         # This is a linear parameter set which is nice
         self.resampleWeight:nn.Parameter = None
         if attentiveResample:
-            self.resampleWeight = nn.Parameter(t.zeros((2, inputSamples)))
+            self.resampleWeight = nn.Parameter(toComplex(t.zeros((2, inputSamples), dtype=cdtype)))
+        
+        # The output of a knowledge filter will always be aggregatable as the weight's
+        #   memory requirement linear scaled with the input samples.
+        self.aggregateLenses:nn.ParameterDict = nn.ParameterDict()
+
 
     def implicitCorrelation(self, a:t.Tensor, b:t.Tensor, isbasis:bool=False) -> t.Tensor:
         """Calculate the stored correlation of the input signal with the tokenized

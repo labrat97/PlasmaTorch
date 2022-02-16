@@ -1,9 +1,8 @@
+from .defaults import *
 from .math import *
 from .activations import *
-from .distributions import *
-from .defaults import *
-from .conversions import *
-from .sizing import *
+from .conversions import toComplex
+from .sizing import paddim
 
 import torch as t
 import torch.nn as nn

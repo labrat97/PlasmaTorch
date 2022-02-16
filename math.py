@@ -1,6 +1,6 @@
 from torch.types import List
 from .defaults import *
-from .conversions import *
+from .conversions import toComplex, nantonum
 
 import torch
 
@@ -25,8 +25,8 @@ def asigphi() -> torch.Tensor:
 
 @torch.jit.script
 def xbias(n:int, bias:int=0):
-    composer = range(bias, n + bias)
-    return torch.Tensor(composer)
+    composer = [x for x in range(bias, n + bias)]
+    return torch.tensor(composer)
 
 @torch.jit.script
 def latticeParams(dims:int, basisParam:torch.Tensor=phi()) -> torch.Tensor:

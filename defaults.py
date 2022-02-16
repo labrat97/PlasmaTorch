@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as nnf
 
-from typing import Tuple
+from typing import Tuple, List, Dict
 
 DEFAULT_FFT_SAMPLES:int = 256
 KNOTS_WITHOUT_LOSS:int = 8
