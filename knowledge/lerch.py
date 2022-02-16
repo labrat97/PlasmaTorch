@@ -1,6 +1,6 @@
 from .zeta import *
-from .routing import *
-from ..conversions import *
+from .routing import KnowledgeFilter
+from ..conversions import nantonum, toComplex
 
 import torch as t
 import torch.nn as nn

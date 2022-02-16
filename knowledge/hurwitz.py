@@ -1,5 +1,5 @@
 from .zeta import *
-from .routing import *
+from .routing import KnowledgeFilter
 
 import torch as t
 import torch.nn as nn
