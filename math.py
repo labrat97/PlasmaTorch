@@ -25,8 +25,10 @@ def asigphi() -> torch.Tensor:
 
 @torch.jit.script
 def xbias(n:int, bias:int=0):
-    composer = [x for x in range(bias, n + bias)]
-    return torch.tensor(composer)
+    composer = torch.zeros((n)).add(bias)
+    for i in range(n):
+        composer[i].add_(i)
+    return composer
 
 @torch.jit.script
 def latticeParams(dims:int, basisParam:torch.Tensor=phi()) -> torch.Tensor:
