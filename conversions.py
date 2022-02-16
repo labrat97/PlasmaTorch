@@ -52,9 +52,43 @@ def toComplex(x:torch.Tensor) -> torch.Tensor:
   return torch.view_as_complex(complexProto)
 
 @torch.jit.script
-def strToTensor(x:str) -> nn.Parameter:
-  rawstr:List[int] = [ord(c) for c in x]
-  return torch.tensor(rawstr, dtype=torch.uint8, requires_grad=False)
+def strToTensor(x:str) -> torch.Tensor:
+  # Prepare memory for construction
+  rawstr = torch.zeros((len(x)), dtype=torch.int32, requires_grad=False)
+
+  # Copy string
+  for idx, char in enumerate(rawstr):
+    rawstr[idx] = ord(char)
+  
+  return rawstr
+
+@torch.jit.script
+def tensorToStr(x:torch.Tensor) -> List[str]:
+  # Make sure it can be represented in python natively
+  xsizelen = len(x.size())
+  if xsizelen == 1:
+    wx = x.unsqueeze(0)
+  else:
+    wx = x.flatten(end_dim=-2)
+
+  # Prepare python traced output
+  pystr:str = []
+
+  # Copy the string out of the tensor into Python's format
+  for idx in range(wx.size(0)):
+    # Isolate
+    target:torch.Tensor = wx[idx]
+    build:str = ''
+
+    # Copy element by element
+    for jdx in range(target.size(0)):
+      build += target[jdx]
+    
+    # Add the string to the output list
+    pystr.append(build)
+  
+  # Return all embedded strings in a list
+  return pystr
 
 
 class RealObserver(nn.Module):
