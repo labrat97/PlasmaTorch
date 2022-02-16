@@ -1,9 +1,8 @@
 from ..defaults import *
-from ..activations import *
 from ..conversions import *
-from ..math import *
-from ..losses import *
-from ..distributions import *
+from ..sizing import *
+from ..activations import *
+from ..losses import correlation
 
 import torch as t
 import torch.nn as nn
@@ -111,8 +110,7 @@ class KnowledgeFilter(nn.Module, ABC):
             else:
                 wa:t.Tensor = toComplex(a)
             if self.inputSamples > 0 and b.size(-1) != self.inputSamples:
-                if self.resampleWeight is None:
-                    wb:t.Tensor = resampleSmear(b, samples=self.inputSamples, dim=-1)
+                wb:t.Tensor = resampleSmear(b, samples=self.inputSamples, dim=-1)
             else:
                 wb:t.Tensor = toComplex(b)
         else:
