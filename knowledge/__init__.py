@@ -6,3 +6,4 @@ from .aggregator import *
 from . import zeta
 from . import hurwitz
 from . import lerch
+from . import ipfs
