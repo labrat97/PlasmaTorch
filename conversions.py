@@ -54,7 +54,7 @@ def toComplex(x:torch.Tensor) -> torch.Tensor:
 @torch.jit.script
 def strToTensor(x:str) -> torch.Tensor:
   # Prepare memory for construction
-  rawstr = torch.zeros((len(x)), dtype=torch.int32, requires_grad=False)
+  rawstr = torch.zeros((len(x)), dtype=torch.int32, requires_grad=False, device='cpu')
 
   # Copy string
   for idx, char in enumerate(rawstr):
@@ -65,8 +65,7 @@ def strToTensor(x:str) -> torch.Tensor:
 @torch.jit.script
 def tensorToStr(x:torch.Tensor) -> List[str]:
   # Make sure it can be represented in python natively
-  xsizelen = len(x.size())
-  if xsizelen == 1:
+  if len(x.size()) == 1:
     wx = x.unsqueeze(0)
   else:
     wx = x.flatten(end_dim=-2)
