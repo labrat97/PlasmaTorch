@@ -1,11 +1,6 @@
 from .defaults import *
-
-import torch as t
-import torch.nn as nn
-import torch.nn.functional as nnf
-from torch.jit import script as ts
-
 from .math import nantonum, xbias
+
 
 @ts
 def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str='constant', value:float=0.0):

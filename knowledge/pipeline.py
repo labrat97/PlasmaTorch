@@ -1,15 +1,7 @@
+from ..defaults import *
 from .scaffold import ScaffoldFilter
 from .routing import *
-from ..defaults import *
-from ..activations import *
-from ..conversions import *
-from ..math import *
-from ..losses import *
 from ..entanglement import *
-
-import torch as t
-import torch.nn as nn
-import torch.nn.functional as nnf
 
 
 class PipelineFilter(KnowledgeFilter):

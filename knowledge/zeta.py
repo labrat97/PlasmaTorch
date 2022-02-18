@@ -1,8 +1,4 @@
 from ..defaults import *
-
-import torch as t
-from torch.jit import script as ts
-
 from ..math import asigphi, i, pi, isigmoid
 from ..conversions import toComplex
 from ..sizing import resampleSmear

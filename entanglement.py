@@ -1,17 +1,11 @@
-from typing import Tuple
-import torch as t
-from torch.jit import script as ts
-import torch.nn as nn
-
+from .defaults import *
 from .distributions import *
 from .activations import *
-from .defaults import *
 from .conversions import *
 from .math import *
 from .losses import *
 
 from enum import Flag
-from typing import Tuple
 
 
 class EntangleOutputMode(int, Flag):

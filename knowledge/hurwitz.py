@@ -1,9 +1,9 @@
+from ..defaults import *
 from .zeta import *
 from .routing import KnowledgeFilter
+from ..math import nsoftmax
+from ..conversions import nantonum
 
-import torch as t
-import torch.nn as nn
-import torch.fft as tfft
 
 class HurwitzFilter(KnowledgeFilter):
     def __init__(self, corrSamples:int=DEFAULT_FFT_SAMPLES, ioSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):

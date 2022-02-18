@@ -4,11 +4,6 @@ from .activations import *
 from .conversions import toComplex
 from .sizing import paddim
 
-import torch as t
-import torch.nn as nn
-from torch.jit import script as ts
-import torch.fft as tfft
-
 
 @ts
 def correlation(x:t.Tensor, y:t.Tensor, dim:int=-1, isbasis:bool=False) -> t.Tensor:
@@ -92,9 +87,9 @@ def hypercorrelation(x:t.Tensor, y:t.Tensor, cdtype:t.dtype=DEFAULT_COMPLEX_DTYP
     tapeConstructor:t.Tensor = t.ones((1, FFT_TAPE_LENGTH), dtype=cdtype)
     xfftTape:t.Tensor = t.zeros_like(x).unsqueeze(-1) @ tapeConstructor
     yfftTape:t.Tensor = t.zeros_like(y).unsqueeze(-1) @ tapeConstructor
-    assert torch.is_complex(xfftTape)
-    xfftTape[FFT_TAPE_CENTER] = torch.view_as_complex(x)
-    yfftTape[FFT_TAPE_CENTER] = torch.view_as_complex(y)
+    assert t.is_complex(xfftTape)
+    xfftTape[FFT_TAPE_CENTER] = t.view_as_complex(x)
+    yfftTape[FFT_TAPE_CENTER] = t.view_as_complex(y)
 
     # Deconstruct signals
     for tape in [xfftTape, yfftTape]:
@@ -180,7 +175,7 @@ def entropy(x:t.Tensor, softmax:bool=True, startdim:int=0, countrot:bool=True) -
     else:
         density = xabs
     if countrot:
-        density = torch.cat((density, xang), dim=-1)
+        density = t.cat((density, xang), dim=-1)
     
     # Calculate the entropy
     nits:t.Tensor = density * t.log2(density)
@@ -238,7 +233,7 @@ def skeeter(teacher:t.Tensor, student:t.Tensor, center:t.Tensor, teacherTemp:flo
     corrmse = hypercorr[..., HYDX_CORRMSE()]
 
     # Get the harmonic mean of the extracted values, and the higher the mean, the lower the loss
-    stackedResult = torch.stack((corrmean, corrmedian, corrmode, corrmse), dim=-1)
+    stackedResult = t.stack((corrmean, corrmedian, corrmode, corrmse), dim=-1)
     return -1 * hmean(stackedResult, dim=-1)
 
 

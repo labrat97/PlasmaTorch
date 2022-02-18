@@ -4,10 +4,6 @@ from ..sizing import *
 from ..activations import *
 from ..losses import correlation
 
-import torch as t
-import torch.nn as nn
-import torch.fft as tfft
-
 from abc import ABC, abstractmethod
 import time
 
