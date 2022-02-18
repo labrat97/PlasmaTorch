@@ -181,7 +181,7 @@ def collapse(x:t.Tensor, polarization:t.Tensor) -> t.Tensor:
 def superposition(a:t.Tensor, b:t.Tensor) -> t.Tensor:
   assert a.size(-1) == b.size(-1)
   
-  rawSuper:t.Tensor = a.unsqueeze(-1) @ b.unsqueeze(-1).transpose(-1, -2)
+  rawSuper:t.Tensor = a.unsqueeze(-1) @ b.unsqueeze(-2)
   return nsoftmax(x=rawSuper, dims=[-1, -2])
 
 @ts
