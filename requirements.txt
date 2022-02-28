@@ -1,3 +1,3 @@
 torch >= 1.10.0
-cid
+py-cid
 git+https://github.com/labrat97/IPyFS.git
