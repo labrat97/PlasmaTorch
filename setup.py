@@ -23,7 +23,7 @@ setup(
     long_description_content_type='text/markdown',
     author='labrat97',
     author_email='james@nineseven.net',
-    url='https://github.com/labrat97/plasmatorch',
+    url='https://github.com/labrat97/PlasmaTorch',
     packages=['plasmatorch'],
     install_requires=installReqs
 )
