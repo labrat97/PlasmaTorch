@@ -1,12 +1,7 @@
-import torch as t
-from torch.jit import script as ts
-import torch.nn as nn
-from torch.types import Number
-import torch.fft as tfft
-
-from .defaults import *
-from .conversions import *
-from .math import *
+from ..defaults import *
+from ..math import asigphi, i, pi, isigmoid
+from ..conversions import toComplex
+from ..sizing import resampleSmear
 
 
 @ts
@@ -83,7 +78,7 @@ def hzetas(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blankSamples:int=0,
             something closer to just the evaluation of the delta value. Defaults to asigphi().
         blankSamples (int, optional): The amount of samples to ignore at the start. Defaults to 0.
         samples (int, optional): The total amount of samples per element to output. Defaults to DEFAULT_FFT_SAMPLES.
-        fftformat (bool, optional): If enabled, runs the output through the resampleContinuous() function, 
+        fftformat (bool, optional): If enabled, runs the output through the resampleSmear() function, 
             using the final sampled value as the most significant value. Defaults to True.
 
     Returns:
@@ -115,7 +110,7 @@ def hzetas(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blankSamples:int=0,
 
     # If the signal should be continuous, force it.
     if fftformat:
-        return resampleContinuous(result, dim=-1, msi=-1)
+        return resampleSmear(result, samples=result.size(-1), dim=-1)
     return result
 
 @ts
@@ -204,7 +199,7 @@ def lerchs(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blank
             something closer to just the evaluation of the delta value. Defaults to asigphi()*3.
         blankSamples (int, optional): The amount of samples to ignore at the start. Defaults to 0.
         samples (int, optional): The total amount of samples per element to output. Defaults to DEFAULT_FFT_SAMPLES.
-        fftformat (bool, optional): If enabled, runs the output through the resampleContinuous() function, 
+        fftformat (bool, optional): If enabled, runs the output through the resampleSmear() function, 
             using the final sampled value as the most significant value. Defaults to True.
 
     Returns:
@@ -236,5 +231,5 @@ def lerchs(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blank
 
         # If the signal should be continuous, force it.
     if fftformat:
-        return resampleContinuous(result, dim=-1, msi=-1)
+        return resampleSmear(result, samples=result.size(-1), dim=-1)
     return result
