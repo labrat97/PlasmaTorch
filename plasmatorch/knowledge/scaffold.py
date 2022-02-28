@@ -6,7 +6,7 @@ from ..math import *
 from ..losses import *
 from ..entanglement import superposition
 
-from .ipfs import IPFile
+from ipyfs import IPFile
 
 import cid as CID
 
