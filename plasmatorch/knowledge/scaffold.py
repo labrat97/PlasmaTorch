@@ -7,7 +7,6 @@ from ..losses import *
 from ..entanglement import superposition
 
 from ipyfs import IPFile
-
 import cid as CID
 
 
@@ -39,6 +38,7 @@ class ScaffoldFilter(KnowledgeFilter):
         self.fastdev:nn.Parameter = nn.Parameter(strToTensor(fastdev), requires_grad=False)
 
         # Set up the configuration flags for the model inference
+        # Remember: The choice to use the CPU is specifically for swap
         self.freezeHeart:nn.Parameter = nn.Parameter(t.tensor([not ipns], device='cpu'), requires_grad=False)
         self.lstmType:nn.Parameter = nn.Parameter(t.tensor([isinstance(self.heart, nn.LSTM)], device='cpu'), requires_grad=False)
         self.linearType:nn.Parameter = nn.Parameter(t.tensor([isinstance(self.heart, nn.Linear)], device='cpu'), requires_grad=False)

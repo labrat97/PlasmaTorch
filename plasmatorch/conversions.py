@@ -51,10 +51,10 @@ def toComplex(x:t.Tensor) -> t.Tensor:
 @ts
 def strToTensor(x:str) -> t.Tensor:
   # Prepare memory for construction
-  rawstr = t.zeros((len(x)), dtype=t.int32, requires_grad=False, device='cpu')
+  rawstr = t.zeros((len(x)), dtype=t.int32, device='cpu')
 
   # Copy string
-  for idx, char in enumerate(rawstr):
+  for idx, char in enumerate(x):
     rawstr[idx] = ord(char)
   
   return rawstr
@@ -68,7 +68,7 @@ def tensorToStr(x:t.Tensor) -> List[str]:
     wx = x.flatten(end_dim=-2)
 
   # Prepare python traced output
-  pystr:str = []
+  pystr:List[str] = []
 
   # Copy the string out of the tensor into Python's format
   for idx in range(wx.size(0)):
@@ -78,7 +78,7 @@ def tensorToStr(x:t.Tensor) -> List[str]:
 
     # Copy element by element
     for jdx in range(target.size(0)):
-      build += target[jdx]
+      build += chr(target[jdx])
     
     # Add the string to the output list
     pystr.append(build)

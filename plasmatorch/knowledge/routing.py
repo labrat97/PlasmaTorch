@@ -48,7 +48,7 @@ class KnowledgeFilter(nn.Module, ABC):
         
         # The output of a knowledge filter will always be aggregatable as the weight's
         #   memory requirement linear scaled with the input samples.
-        self.aggregateLenses:nn.ParameterDict = nn.ParameterDict()
+        self.aggregateLenses:Tuple[nn.ParameterDict, nn.ParameterDict] = (nn.ParameterDict(), nn.ParameterDict())
 
 
     def implicitCorrelation(self, a:t.Tensor, b:t.Tensor, isbasis:bool=False) -> t.Tensor:

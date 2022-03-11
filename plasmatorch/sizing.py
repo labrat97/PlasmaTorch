@@ -90,36 +90,37 @@ def weightedResample(x:t.Tensor, lens:t.Tensor, dim:int=-1) -> t.Tensor:
         wx:t.Tensor = t.unsqueeze(flatbatch, -2) # [..., b, x] -> [..., b, 1, x]
 
     # Add dummy dimensions for sampling
-    wx.unsqueeze_(-2) # [..., b, c, x] -> [..., b, c, 1, x]
+    wx = wx.unsqueeze(-2) # [..., b, c, x] -> [..., b, c, 1, x]
     wxsize = wx.size()
     wl = slens.unsqueeze(-2).unsqueeze(-2).unsqueeze(-1) # [..., y] -> [..., 1, 1, y, 1]
     wl = t.cat([wl] * wx.size(-4), dim=-4) # [..., 1, 1, y, 1] -> [..., b, 1, y, 1]
     wl = t.cat((wl, t.zeros_like(wl)), dim=-1) # [..., b, 1, y, 1] -> [..., b, 1, y, [x_iter, 0]]
+    wlsize = wl.size()
 
     # Get ready for resampling
     result:t.Tensor = t.zeros(wxsize[:-1] + [lensSize[-1]], 
         dtype=x.dtype, device=x.device) # [..., b, c, 1, x]
-    poslut:t.Tensor = ((2. * xbias(wxsize[-1])) / wxsize[-1]) - 1.
+    poslut:t.Tensor = (((2. * xbias(wlsize[-2])) / wlsize[-2]) - 1.).unsqueeze(-1)
 
     # Resample each batch
     if batchOffset == 0:
-        wx.unsqueeze_(0) # [..., b, c, 1, x] -> [B, b, c, 1, x]
-        wl.unsqueeze_(0) # [..., b, 1, y, [x_iter, 0]] -> [B, b, 1, y, [x_iter, 0]]
-        result.unsqueeze_(0) # [..., b, c, 1, x] -> [B, b, c, 1, y]
+        wx = wx.unsqueeze(0) # [..., b, c, 1, x] -> [B, b, c, 1, x]
+        wl = wl.unsqueeze(0) # [..., b, 1, y, [x_iter, 0]] -> [B, b, 1, y, [x_iter, 0]]
+        result = result.unsqueeze(0) # [..., b, c, 1, x] -> [B, b, c, 1, y]
     for idx in range(wx.size(0)):
         wwx = wx[idx] # [b, c, 1, x]
         wwl = wl[idx] + poslut # [b, 1, x, [x_iter, 0]] centered at 0
-        result[idx] = nnf.grid_sample(wwx, wwl, mode='bilinear', padding_mode='reflect', align_corners=True)
+        result[idx] = nnf.grid_sample(wwx, wwl, mode='bilinear', padding_mode='reflection', align_corners=True)
 
     # Format the result
     if batchOffset == 0:
-        result.squeeze_(0) # [B, b, c, 1, y] -> [..., b, c, 1, y]
+        result = result.squeeze(0) # [B, b, c, 1, y] -> [..., b, c, 1, y]
     result = result.movedim(-3, -1) # [..., b, c, 1, y] -> [..., b, 1, y, c]
     if t.is_complex(x): # [..., b, 1, y, c] -> [..., b, 1, y]
         result = t.view_as_complex(result)
     else:
-        result.squeeze_(-1)
-    result.squeeze_(-2) # [..., b, 1, y] -> [..., b, y]
+        result = result.squeeze(-1)
+    result = result.squeeze(-2) # [..., b, 1, y] -> [..., b, y]
     result = unflatten(result, batchOffset, dimout.size()[:-1]) # [..., b, y] -> [..., y]
 
     return result.transpose(-1, dim)
