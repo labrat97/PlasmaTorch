@@ -47,26 +47,27 @@ def unflatten(x:t.Tensor, dim:int, size:List[int]):
 
 @ts
 def resampleSmear(x:t.Tensor, samples:int, dim:int=-1) -> t.Tensor:
-  # I know there are redundant if functions in this equation. Due to the out of order
-  #     size aquisition, this should have minimal performance impact relative to the actual 
-  #     computation. and improves readability
-  # Sample the constructing frequencies and phases, zero padding. Get rid of
-  #     inifinite values while evaluating.
-  xcomp:bool = x.is_complex()
-  if xcomp:
-    xfft:t.Tensor = t.fft.fft(nantonum(x), dim=dim, n=x.size(dim))
-  else:
-    xfft:t.Tensor = t.fft.rfft(nantonum(x), dim=dim, n=x.size(dim))
+    # I know there are redundant `if` calls in this equation. Due to the out of order
+    #     size aquisition, this should have minimal performance impact relative to the actual 
+    #     computation and improves readability.
+    xcomp:bool = x.is_complex()
 
-  # Put the samples back to smearwise where no zero padding exists
-  # This can be done because this is a natural signal
-  # No data is lost or obscured in theory during upsampling, downsampling loses higher frequencies
-  if xcomp:
-    y:t.Tensor = t.fft.ifft(xfft, dim=dim, n=samples)
-  else:
-    y:t.Tensor = t.fft.irfft(xfft, dim=dim, n=samples)
+    # Sample the constructing frequencies and phases, zero padding. Get rid of
+    #     inifinite values while evaluating.
+    if xcomp:
+        xfft:t.Tensor = t.fft.fft(nantonum(x), dim=dim, n=x.size(dim))
+    else:
+        xfft:t.Tensor = t.fft.rfft(nantonum(x), dim=dim, n=x.size(dim))
 
-  return y
+    # Put the samples back to smearwise where no zero padding exists
+    # This can be done because this is a natural signal
+    # No data is lost or obscured in theory during upsampling, downsampling loses higher frequencies
+    if xcomp:
+        y:t.Tensor = t.fft.ifft(xfft, dim=dim, n=samples)
+    else:
+        y:t.Tensor = t.fft.irfft(xfft, dim=dim, n=samples)
+
+    return y
 
 @ts 
 def weightedResample(x:t.Tensor, lens:t.Tensor, dim:int=-1) -> t.Tensor:
