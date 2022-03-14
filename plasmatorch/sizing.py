@@ -132,4 +132,6 @@ def weightedResample(x:t.Tensor, lens:t.Tensor, dim:int=-1) -> t.Tensor:
     result = result.squeeze(-2) # [..., b, 1, y] -> [..., b, y]
     result = unflatten(result, batchOffset, dimout.size()[:-1]) # [..., b, y] -> [..., y]
 
+    # Reapply the computed dimension to the appropriate dimension according to the
+    #   seeding tensor.
     return result.transpose(-1, dim)
