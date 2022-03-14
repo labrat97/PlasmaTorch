@@ -1,4 +1,4 @@
-from sizing import resampleSmear
+from sizing import resignal
 from .defaults import *
 from .entanglement import superposition
 
@@ -66,7 +66,7 @@ class ToroidalLinear(nn.Linear):
     def forward(self, a:t.Tensor, b:t.Tensor=None) -> Tuple[t.Tensor, t.Tensor]:
         # Make sure b is present for evaluation
         if b is None:
-            b = resampleSmear(a, self.weight.size(-1), dim=-1)
+            b = resignal(a, self.weight.size(-1), dim=-1)
         
         # Call the main torchscript function previously defined in this file
         return toroidalLinear(a=a, b=b, weight=self.weight, bias=self.bias, invbias=self.invbias)

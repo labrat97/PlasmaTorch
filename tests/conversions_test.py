@@ -47,10 +47,10 @@ class SmearResampleTest(unittest.TestCase):
         sxcRand = torch.rand_like(sxc)
 
         # Test smear sizing and basis vectors
-        randResize = resampleSmear(sxRand, samples=int(test.TEST_FFT_SAMPLES*2))
-        randcResize = resampleSmear(sxcRand, samples=int(test.TEST_FFT_SAMPLES*2))
-        randReturnSize = resampleSmear(randResize, samples=test.TEST_FFT_SAMPLES)
-        randcReturnSize = resampleSmear(randcResize, samples=test.TEST_FFT_SAMPLES)
+        randResize = resignal(sxRand, samples=int(test.TEST_FFT_SAMPLES*2))
+        randcResize = resignal(sxcRand, samples=int(test.TEST_FFT_SAMPLES*2))
+        randReturnSize = resignal(randResize, samples=test.TEST_FFT_SAMPLES)
+        randcReturnSize = resignal(randcResize, samples=test.TEST_FFT_SAMPLES)
 
         sxRandFFT = torch.fft.fft(sxRand, n=test.TEST_FFT_SAMPLES, dim=-1)
         randReturnSizeFFT = torch.fft.fft(randReturnSize, n=test.TEST_FFT_SAMPLES, dim=-1)
@@ -63,8 +63,8 @@ class SmearResampleTest(unittest.TestCase):
         self.assertTrue(FORWARD_BACK_COMPLEX, msg='Forward back test (imag)')
 
         # Test the expansion of the size of the smear
-        randResizeReturn = resampleSmear(randReturnSize, samples=int(test.TEST_FFT_SAMPLES*2))
-        randcResizeReturn = resampleSmear(randcReturnSize, samples=int(test.TEST_FFT_SAMPLES*2))
+        randResizeReturn = resignal(randReturnSize, samples=int(test.TEST_FFT_SAMPLES*2))
+        randcResizeReturn = resignal(randcReturnSize, samples=int(test.TEST_FFT_SAMPLES*2))
 
         randResizeFFT = torch.fft.fft(randResize, n=int(test.TEST_FFT_SAMPLES*2), dim=-1)
         randResizeReturnFFT = torch.fft.fft(randResizeReturn, n=int(test.TEST_FFT_SAMPLES*2), dim=-1)

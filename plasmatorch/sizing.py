@@ -46,7 +46,7 @@ def unflatten(x:t.Tensor, dim:int, size:List[int]):
     return y
 
 @ts
-def resampleSmear(x:t.Tensor, samples:int, dim:int=-1) -> t.Tensor:
+def resignal(x:t.Tensor, samples:int, dim:int=-1) -> t.Tensor:
     # I know there are redundant `if` calls in this equation. Due to the out of order
     #     size aquisition, this should have minimal performance impact relative to the actual 
     #     computation and improves readability.
@@ -109,7 +109,7 @@ def weightedResample(x:t.Tensor, lens:t.Tensor, dim:int=-1) -> t.Tensor:
     # Get ready for resampling
     result:t.Tensor = t.zeros(wxsize[:-1] + [lensSize[-1]], 
         dtype=x.dtype, device=x.device) # [..., b, c, 1, x]
-    poslut:t.Tensor = (((2. * xbias(wlsize[-2])) / wlsize[-2]) - 1.).unsqueeze(-1)
+    poslut:t.Tensor = (((2. * xbias(wlsize[-2])) / (wlsize[-2] - 1.)) - 1.).unsqueeze(-1)
 
     # Resample each batch
     if batchOffset == 0:

@@ -1,5 +1,5 @@
 from ..defaults import *
-from routing import KnowledgeFilter
+from .routing import KnowledgeFilter
 import cid
 
 AGGREGATOR_ID_LENGTH = 32

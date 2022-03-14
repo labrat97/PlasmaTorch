@@ -69,9 +69,9 @@ class KnowledgeFilter(nn.Module, ABC):
 
         # Resample the input vectors if needed
         if a.size(-1) != self.corrSamples:
-            a = resampleSmear(x=a, samples=self.corrSamples, dim=-1)
+            a = resignal(x=a, samples=self.corrSamples, dim=-1)
         if b.size(-1) != self.corrSamples:
-            b = resampleSmear(x=b, samples=self.corrSamples, dim=-1)
+            b = resignal(x=b, samples=self.corrSamples, dim=-1)
 
         # Find the respective correlation from the token with the input signals
         acorr:t.Tensor = correlation(x=a, y=selfcorr[0], dim=-1, isbasis=isbasis).mean(dim=-1).mean(dim=-1)
@@ -102,11 +102,11 @@ class KnowledgeFilter(nn.Module, ABC):
             # Use a basic Fourier Transform method to uniformly preserve the input signal
             if self.inputSamples > 0 and a.size(-1) != self.inputSamples:
                 if self.resampleWeight is None:
-                    wa:t.Tensor = resampleSmear(a, samples=self.inputSamples, dim=-1)
+                    wa:t.Tensor = resignal(a, samples=self.inputSamples, dim=-1)
             else:
                 wa:t.Tensor = toComplex(a)
             if self.inputSamples > 0 and b.size(-1) != self.inputSamples:
-                wb:t.Tensor = resampleSmear(b, samples=self.inputSamples, dim=-1)
+                wb:t.Tensor = resignal(b, samples=self.inputSamples, dim=-1)
             else:
                 wb:t.Tensor = toComplex(b)
         else:
@@ -133,9 +133,9 @@ class KnowledgeFilter(nn.Module, ABC):
 
         # Resample the output matrices to match the internal expected sample count
         if self.outputSamples > 0 and result.size(-1) != self.outputSamples:
-            result = resampleSmear(result, samples=self.outputSamples, dim=-1)
+            result = resignal(result, samples=self.outputSamples, dim=-1)
         if self.outputSamples > 0 and result.size(-2) != self.outputSamples:
-            result = resampleSmear(result, samples=self.outputSamples, dim=-2)
+            result = resignal(result, samples=self.outputSamples, dim=-2)
 
         # Log the execution time of this function for later evaluation.
         self.lastExec = time.time() - beginExec
@@ -163,7 +163,7 @@ class KnowledgeRouter(KnowledgeFilter):
         super(KnowledgeRouter, self).__init__(corrSamples=corrSamples, inputSamples=-1, outputSamples=outputSamples, cdtype=cdtype)
 
         # Store all of the filters that the router can call to
-        self.correlationMask:nn.Parameter = nn.Parameter(toComplex(torch.zeros((self.corrSamples, self.corrSamples), dtype=self.cdtype)))
+        self.correlationMask:nn.Parameter = nn.Parameter(toComplex(t.zeros((self.corrSamples, self.corrSamples), dtype=self.cdtype)))
         self.correlationPolarization:nn.Parameter = nn.Parameter(t.zeros((1), dtype=self.correlationMask.real.dtype))
         self.subfilters:nn.ModuleList = nn.ModuleList()
         self.callCounts:nn.ParameterList = nn.ParameterList()

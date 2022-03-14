@@ -1,7 +1,7 @@
 from ..defaults import *
 from ..math import asigphi, i, pi, isigmoid
 from ..conversions import toComplex
-from ..sizing import resampleSmear
+from ..sizing import resignal
 
 
 @ts
@@ -51,7 +51,7 @@ def hzetae(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.Tensor=t.tenso
     keepGoing:t.Tensor = (result.abs() >= aeps.abs()).type(t.int64)
 
     # Progress each value forward to convergence or max iteration
-    while torch.all(keepGoing) and idx < maxiter:
+    while t.all(keepGoing) and idx < maxiter:
         # Find and apply the changes according to the aeps variable
         # Multiplying s by keepGoing allows for a quicker exponential eval potentially
         # on the finished values
@@ -66,7 +66,7 @@ def hzetae(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.Tensor=t.tenso
     return result
 
 @ts
-def hzetas(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blankSamples:int=0, samples:int=DEFAULT_FFT_SAMPLES, fftformat:bool=True) -> torch.Tensor:
+def hzetas(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blankSamples:int=0, samples:int=DEFAULT_FFT_SAMPLES, fftformat:bool=True) -> t.Tensor:
     """Returns a set of samples from the Hurwitz Zeta function with an optional continuous, non-singularity occupied, resampling.
 
     Args:
@@ -110,7 +110,7 @@ def hzetas(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blankSamples:int=0,
 
     # If the signal should be continuous, force it.
     if fftformat:
-        return resampleSmear(result, samples=result.size(-1), dim=-1)
+        return resignal(result, samples=result.size(-1), dim=-1)
     return result
 
 @ts
@@ -171,7 +171,7 @@ def lerche(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.
     keepGoing:t.Tensor = (result.abs() >= aeps.abs()).type(t.int64)
 
     # Progress each element forward to convergence or max iteration
-    while torch.all(keepGoing) and idx < maxiter:
+    while t.all(keepGoing) and idx < maxiter:
         # Find and apply the changes according to the aeps variable
         # Multiplying lam & s by keepGoing allows for a quicker exponential eval potentially
         # on the finished values
@@ -231,5 +231,5 @@ def lerchs(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blank
 
         # If the signal should be continuous, force it.
     if fftformat:
-        return resampleSmear(result, samples=result.size(-1), dim=-1)
+        return resignal(result, samples=result.size(-1), dim=-1)
     return result

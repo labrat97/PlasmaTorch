@@ -2,8 +2,8 @@ import unittest
 import test
 
 import torch
-from defaults import DEFAULT_DTYPE
 from plasmatorch import *
+from plasmatorch.defaults import DEFAULT_DTYPE
 import math
 from random import randint
 
