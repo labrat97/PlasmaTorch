@@ -10,8 +10,8 @@ from random import randint
 class EntangleTest(unittest.TestCase):
     def testParameters(self):
         # Create the modules required to test the enclosed parameters for consistency
-        signals = randint(1, test.TBATCH)
-        channels = randint(1, test.TBATCH)
+        signals:int = 3
+        channels:int = 3
         subject = Entangle(inputSignals=signals, curveChannels=channels, \
             samples=test.TEST_FFT_SMALL_SAMPLES, useKnowledgeMask=True, \
             outputMode=EntangleOutputMode.BOTH, dtype=DEFAULT_DTYPE)
@@ -45,9 +45,9 @@ class EntangleTest(unittest.TestCase):
 
     def testSizing(self):
         # Parameter initialization
-        batches = randint(1, 3)
-        signals = randint(1, 3)
-        channels = randint(1, 3)
+        batches:int = 2
+        signals:int = 2
+        channels:int = 2
 
         # Create the modules required to test the enclosed parameters for consistency
         subject = Entangle(inputSignals=signals, curveChannels=channels, \
@@ -80,9 +80,9 @@ class EntangleTest(unittest.TestCase):
 
     def testValues(self):
         # Parameter initialization
-        batches = randint(1, 3)
-        signals = randint(1, 3)
-        channels = randint(1, 3)
+        batches:int = 2
+        signals:int = 3
+        channels:int = 3
 
         # Create the modules required to test the enclosed parameters for consistency
         subject = Entangle(inputSignals=signals, curveChannels=channels, \
@@ -134,9 +134,9 @@ class EntangleTest(unittest.TestCase):
 
     def testDifference(self):
         # Parameter initialization
-        batches = randint(1, 3)
-        signals = randint(1, 3)
-        channels = randint(1, 3)
+        batches:int = 2
+        signals:int = 3
+        channels:int = 3
 
         # Create the modules required to test the enclosed parameters for inconsistency
         subject = Entangle(inputSignals=signals, curveChannels=channels, \
