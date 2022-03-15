@@ -9,8 +9,8 @@ class SmearTest(unittest.TestCase):
         sx, _ = test.getsmear(DEFAULT_DTYPE)
         sxc, _ = test.getsmear(DEFAULT_COMPLEX_DTYPE)
         
-        self.assertEqual(sx.size(), torch.Size((test.KYLABATCH, test.TEST_FFT_SAMPLES)), msg='Sizing test (real)')
-        self.assertEqual(sxc.size(), torch.Size((test.KYLABATCH, test.TEST_FFT_SAMPLES)), msg='Sizing test (imag)')
+        self.assertEqual(sx.size(), torch.Size((test.TBATCH, test.TEST_FFT_SMALL_SAMPLES)), msg='Sizing test (real)')
+        self.assertEqual(sxc.size(), torch.Size((test.TBATCH, test.TEST_FFT_SMALL_SAMPLES)), msg='Sizing test (imag)')
 
     def testValues(self):
         sx, smear = test.getsmear(DEFAULT_DTYPE)
@@ -22,8 +22,8 @@ class SmearTest(unittest.TestCase):
         self.assertTrue(ZERO_TEST_COMPL, msg='Zero test (imag)')
 
         # Test smear with ones to test the bounds scalars
-        y = torch.ones((test.KYLABATCH, 1), dtype=DEFAULT_DTYPE)
-        yc = torch.ones((test.KYLABATCH, 1), dtype=DEFAULT_COMPLEX_DTYPE)
+        y = torch.ones((test.TBATCH, 1), dtype=DEFAULT_DTYPE)
+        yc = torch.ones((test.TBATCH, 1), dtype=DEFAULT_COMPLEX_DTYPE)
         sy = smear.forward(y)
         syc = smearc.forward(yc)
         
