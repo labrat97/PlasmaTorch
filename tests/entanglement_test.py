@@ -81,8 +81,8 @@ class EntangleTest(unittest.TestCase):
     def testValues(self):
         # Parameter initialization
         batches:int = 2
-        signals:int = 3
-        channels:int = 3
+        signals:int = 2
+        channels:int = 2
 
         # Create the modules required to test the enclosed parameters for consistency
         subject = Entangle(inputSignals=signals, curveChannels=channels, \
@@ -115,8 +115,8 @@ class EntangleTest(unittest.TestCase):
         colrc, suprc = subject.forward(xc)
         colcr, supcr = subject.forward(x)
         colcc, supcc = subject.forward(xc)
-        colrc0, suprc0 = subject.forward(toComplex(x))
-        colcc0, supcc0 = subjectc.forward(toComplex(x))
+        _, suprc0 = subject.forward(toComplex(x))
+        _, supcc0 = subjectc.forward(toComplex(x))
 
         # Make sure the values that come through on the other side consistent with themselves
         self.assertTrue(torch.all(colrr == colcr))
@@ -125,18 +125,16 @@ class EntangleTest(unittest.TestCase):
         self.assertTrue(torch.all(suprc == supcc))
 
         # Cannot garuntee self similar collapse state across output types due to rfft vs fft
-        #self.assertTrue(torch.all(colrr - colrc0.real < 0.0001))
         self.assertTrue(torch.all(suprr.real - suprc0.real < 0.0001))
         self.assertTrue(torch.all(suprr.imag - suprc0.imag < 0.0001))
-        #self.assertTrue(torch.all(colcr - colcc0.real < 0.0001))
         self.assertTrue(torch.all(supcr.real - supcc0.real < 0.0001))
         self.assertTrue(torch.all(supcr.imag - supcc0.imag < 0.0001))
 
     def testDifference(self):
         # Parameter initialization
         batches:int = 2
-        signals:int = 3
-        channels:int = 3
+        signals:int = 2
+        channels:int = 2
 
         # Create the modules required to test the enclosed parameters for inconsistency
         subject = Entangle(inputSignals=signals, curveChannels=channels, \
