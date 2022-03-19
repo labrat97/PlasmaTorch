@@ -1,6 +1,5 @@
 import sys
 import os
-import importlib.util
 import torch
 from plasmatorch import defaults, Smear
 
