@@ -4,9 +4,9 @@ from .routing import *
 from ..entanglement import *
 
 
-class PipelineFilter(KnowledgeFilter):
+class PipelineFilter(KnowledgeCollider):
     def __init__(self, pipes:nn.ModuleList, scaleCoeff:t.Tensor=phi(), corrSamples:int=DEFAULT_FFT_SAMPLES, ioSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
-        super(KnowledgeFilter, self).__init__(corrSamples=corrSamples, inputSamples=ioSamples, outputSamples=ioSamples, cdtype=cdtype)
+        super(KnowledgeCollider, self).__init__(corrSamples=corrSamples, inputSamples=ioSamples, outputSamples=ioSamples, cdtype=cdtype)
 
         # To handle importing sets of Scaffold Filters, a scalar divisor of Phi is recommended
         # for each layer of filter. The idea behind this is the preservation of presented data.
@@ -14,7 +14,7 @@ class PipelineFilter(KnowledgeFilter):
         # filter frequencies, all of the data should come out and be recoverable by the main agent.
         self.pipeModules:nn.ModuleList = nn.ModuleList(pipes)
         for module in self.pipeModules:
-            assert isinstance(module, KnowledgeFilter)
+            assert isinstance(module, KnowledgeCollider)
         
         # Each filter must also collapse its superpositional output due to the standard
         # for KnowledgeFilters. To accomplish this, a list of parameters is needed
@@ -92,17 +92,17 @@ class PipelineFilter(KnowledgeFilter):
         # Unflatten and return the accumulated result
         return nn.Unflatten(dim=0, unflattened_size=a.size()[:-1])(result)    
 
-    def addPipe(self, pipe:KnowledgeFilter):
+    def addPipe(self, pipe:KnowledgeCollider):
         # Add the pipe, simple enough. Do a little error checking while you're at it
-        assert isinstance(pipe, KnowledgeFilter)
+        assert isinstance(pipe, KnowledgeCollider)
         self.pipeModules.append(pipe)
 
         # Create a new respective polarization parameter
         newPol:t.Tensor = t.zeros((2), dtype=self.cdtype)
         self.pipePols.append(nn.Parameter(newPol))
 
-    def delPipe(self, idx:int=-1) -> Tuple[KnowledgeFilter, t.Tensor]:
-        filter:KnowledgeFilter = self.pipeModules[idx]
+    def delPipe(self, idx:int=-1) -> Tuple[KnowledgeCollider, t.Tensor]:
+        filter:KnowledgeCollider = self.pipeModules[idx]
         self.pipeModules = self.pipeModules[:idx].extend(self.pipeModules[idx+1:])
         polarization:t.Tensor = self.pipePols[idx].data
         self.pipePols = self.pipePols[:idx].extend(self.pipePols[idx+1:])

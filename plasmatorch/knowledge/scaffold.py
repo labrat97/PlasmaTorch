@@ -10,14 +10,14 @@ from ipyfs import IPFile
 import cid as CID
 
 
-class ScaffoldFilter(KnowledgeFilter):
+class ScaffoldFilter(KnowledgeCollider):
     def __init__(self, multihash:str, ipns:bool, corrSamples:int=DEFAULT_FFT_SAMPLES, 
         inputSamples:int=DEFAULT_FFT_SAMPLES, outputSamples:int=DEFAULT_FFT_SAMPLES, 
         cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE, ipfsCommand:str='ipfs', fastdev:str=None,
         weightName:str='weight', biasName:str='bias', invbiasName:str='invbias'):
 
         # Build the superclass
-        super(KnowledgeFilter, self).__init__(corrSamples=corrSamples, 
+        super(KnowledgeCollider, self).__init__(corrSamples=corrSamples, 
             inputSamples=inputSamples, outputSamples=outputSamples, cdtype=cdtype)
         
         # Iterate through the CID from IPFS, turning it into a byte array

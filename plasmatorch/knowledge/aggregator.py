@@ -1,5 +1,5 @@
 from ..defaults import *
-from .routing import KnowledgeFilter
+from .routing import KnowledgeCollider
 import cid
 
 AGGREGATOR_ID_LENGTH = 32
@@ -22,7 +22,7 @@ class WeightedAggregator(nn.Module):
         # Return the cid as a string
         return pycid.multihash
 
-    def __addSelf__(self, filter:KnowledgeFilter) -> Tuple[nn.Parameter, nn.Parameter]:
+    def __addSelf__(self, filter:KnowledgeCollider) -> Tuple[nn.Parameter, nn.Parameter]:
         # Get the key for the aggregator
         idstr = self.__idstr__()
 
@@ -41,13 +41,13 @@ class WeightedAggregator(nn.Module):
         # Show the calling function what the lenses are
         return (lensA, lensB)
     
-    def blank(self, filter:KnowledgeFilter) -> Tuple[t.Tensor, t.Tensor]:
+    def blank(self, filter:KnowledgeCollider) -> Tuple[t.Tensor, t.Tensor]:
         # Set up the output lenses
         lensA, lensB = self.__addSelf__(filter)
 
         
 
-    def forward(self, a:t.Tensor, b:t.Tensor, filter:KnowledgeFilter) -> Tuple[t.Tensor, t.Tensor]:
+    def forward(self, a:t.Tensor, b:t.Tensor, filter:KnowledgeCollider) -> Tuple[t.Tensor, t.Tensor]:
         # Set up the output lenses
         lensA, lensB = self.__addSelf__(filter)
 

@@ -1,7 +1,7 @@
-from ..defaults import *
-from ..math import asigphi, i, pi, isigmoid
-from ..conversions import toComplex
-from ..sizing import resignal
+from .defaults import *
+from .math import asigphi, i, pi, isigmoid
+from .conversions import toComplex
+from .sizing import resignal
 
 
 @ts

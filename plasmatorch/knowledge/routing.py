@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 import time
 
 
-class KnowledgeFilter(nn.Module, ABC):
+class KnowledgeCollider(nn.Module, ABC):
     """
     An abstract class used for creating encapsulated bits of knowledge to be called by
     other KnowledgeFilters or structures looking to call knowledge from plasmatorch.
@@ -21,7 +21,7 @@ class KnowledgeFilter(nn.Module, ABC):
             corrSamples (int, optional): The amount of samples to describe each curve. Defaults to DEFAULT_FFT_SAMPLES.
             cdtype (t.dtype, optional): The default datatype for the complex correlation parameter. Defaults to DEFAULT_COMPLEX_DTYPE.
         """
-        super(KnowledgeFilter, self).__init__()
+        super(KnowledgeCollider, self).__init__()
         
         # Store parameters to be modified and stored
         self.corrToken:nn.Parameter = nn.Parameter(toComplex(t.zeros((2, corrSamples), dtype=cdtype)), requires_grad=True)
@@ -143,7 +143,7 @@ class KnowledgeFilter(nn.Module, ABC):
         return result
 
 
-class KnowledgeRouter(KnowledgeFilter):
+class KnowledgeRouter(KnowledgeCollider):
     """
     A KnowledgeFilter type class that is used to call other knowledge filter type classes.
     Due to the way that the signal traversal works, this should be a borderline completely unified
@@ -169,23 +169,23 @@ class KnowledgeRouter(KnowledgeFilter):
         self.callCounts:nn.ParameterList = nn.ParameterList()
         self.maxk:int = maxk
 
-    def addFilter(self, x:KnowledgeFilter):
+    def addFilter(self, x:KnowledgeCollider):
         """Adds a knowledge filter to the router, circularly linking the router in the filter.
 
         Args:
             x (KnowledgeFilter): The filter to add to the router.
         """
         # Add a KnowledgeFilter that can be routed through later
-        assert isinstance(x, KnowledgeFilter)
+        assert isinstance(x, KnowledgeCollider)
         self.subfilters.append(x)
         x.routers.append(self)
         
         # Add a count for the system to evaluate later logrithmically
         self.callCounts.append(nn.Parameter(t.ones((1), dtype=t.float64), requires_grad=False))
 
-    def delFilter(self, idx:int) -> Tuple[KnowledgeFilter, t.Tensor]:
+    def delFilter(self, idx:int) -> Tuple[KnowledgeCollider, t.Tensor]:
         # Remove the knowledge filter and save for later
-        filter:KnowledgeFilter = self.subfilters[idx]
+        filter:KnowledgeCollider = self.subfilters[idx]
         self.subfilters = self.subfilters[:idx].extend(self.subfilters[idx+1:])
         filter.routers = filter.routers[:idx].extend(filter.routers[idx+1:])
 

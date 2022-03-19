@@ -1,11 +1,11 @@
 from ..defaults import *
-from .zeta import *
-from .routing import KnowledgeFilter
+from ..zeta import *
+from .routing import KnowledgeCollider
 from ..math import nsoftmax
 from ..conversions import nantonum
 
 
-class HurwitzFilter(KnowledgeFilter):
+class HurwitzFilter(KnowledgeCollider):
     def __init__(self, corrSamples:int=DEFAULT_FFT_SAMPLES, ioSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
         super(HurwitzFilter, self).__init__(corrSamples=corrSamples, inputSamples=ioSamples, outputSamples=ioSamples, cdtype=cdtype)
 
