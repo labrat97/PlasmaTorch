@@ -2,7 +2,7 @@ import unittest
 import test
 import torch
 from plasmatorch import *
-from plasmatorch.knowledge.zeta import *
+from plasmatorch.zeta import *
 from random import randint
 
 class HurwitzZetaTest(unittest.TestCase):
