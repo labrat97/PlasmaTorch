@@ -8,22 +8,61 @@ from abc import ABC, abstractmethod
 import time
 
 
-class KnowledgeCollider(nn.Module, ABC):
+
+class KnowledgeFilter(nn.Module, ABC):
     """
-    An abstract class used for creating encapsulated bits of knowledge to be called by
-    other KnowledgeFilters or structures looking to call knowledge from plasmatorch.
+    An abstract class used for creating encapsulated bits of knowledge to be applied
+    to signals in a per value way.
     """
     @abstractmethod
     def __init__(self, corrSamples:int=DEFAULT_FFT_SAMPLES, inputSamples:int=DEFAULT_FFT_SAMPLES, outputSamples:int=DEFAULT_FFT_SAMPLES, attentiveResample:bool=True, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
         """The abstract constructor for a knowledge filter.
 
         Args:
+            corrSamples (int, optional): The amount of samples used to describe each curve. Defaults to DEFAULT_FFT_SAMPLES.
+            inputSamples (int, optional): The amount of samples to signal the input with. Defaults to DEFAULT_FFT_SAMPLES.
+            outputSamples (int, optional): The amount of samples to signal the output with. Defaults to DEFAULT_FFT_SAMPLES.
+            attentiveResample (bool, optional): Use a weighted resampling system to find a better view of the input. Defaults to True.
+            cdtype (t.dtype, optional): The default datatype for the complex correlation parameter. Defaults to DEFAULT_COMPLEX_DTYPE.
+        """
+        super(KnowledgeFilter, self).__init__()
+
+        # Create parameters to be modified and stored during runtime
+        self.corrToken:nn.Parameter = nn.Parameter(toComplex(t.zeros((corrSamples), dtype=cdtype)), requires_grad=True)
+        self.callCount:nn.Parameter = nn.Parameter(t.zeros((1), dtype=t.int64), requires_grad=False)
+
+        # Some runtime data to make the filter optimize the signals coming in
+        self.corrSamples:int = self.corrToken.size(-1)
+        self.cdtype:t.dtype = self.corrToken.dtype
+        self.inputSamples:int = inputSamples
+        if inputSamples == 0:
+            self.inputSamples = self.corrSamples
+        self.outputSamples:int = outputSamples
+        if outputSamples == 0:
+            self.outputSamples = self.inputSamples
+        self.lastForwardExec:nn.Parameter = nn.Parameter(-t.ones((2), dtype=t.float), requires_grad=False)
+
+
+
+class KnowledgeCollider(nn.Module, ABC):
+    """
+    An abstract class used for creating encapsulated bits of knowledge interaction to be called by
+    other KnowledgeColliders or structures looking to collide knowledge from plasmatorch.
+    """
+    @abstractmethod
+    def __init__(self, corrSamples:int=DEFAULT_FFT_SAMPLES, inputSamples:int=DEFAULT_FFT_SAMPLES, outputSamples:int=DEFAULT_FFT_SAMPLES, attentiveResample:bool=True, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+        """The abstract constructor for a knowledge collider.
+
+        Args:
             corrSamples (int, optional): The amount of samples to describe each curve. Defaults to DEFAULT_FFT_SAMPLES.
+            inputSamples (int, optional): The amount of samples to signal the input with. Defaults to DEFAULT_FFT_SAMPLES.
+            outputSamples (int, optional): The amount of samples to signal the output with. Defaults to DEFAULT_FFT_SAMPLES.
+            attentiveResample (bool, optional): Use a weighted resampling system to find a better view of the input. Defaults to True.
             cdtype (t.dtype, optional): The default datatype for the complex correlation parameter. Defaults to DEFAULT_COMPLEX_DTYPE.
         """
         super(KnowledgeCollider, self).__init__()
         
-        # Store parameters to be modified and stored
+        # Create parameters to be modified and stored
         self.corrToken:nn.Parameter = nn.Parameter(toComplex(t.zeros((2, corrSamples), dtype=cdtype)), requires_grad=True)
         self.routers:nn.ModuleList = nn.ModuleList()
         self.callCount:nn.Parameter = nn.Parameter(t.zeros((1), dtype=t.int64), requires_grad=False)
@@ -37,8 +76,7 @@ class KnowledgeCollider(nn.Module, ABC):
         self.outputSamples:int = outputSamples
         if outputSamples == 0:
             self.outputSamples = self.inputSamples
-        self.lastForward:float = -1.
-        self.lastExec:float = -1.
+        self.lastForwardExec:nn.Parameter = nn.Parameter(-t.ones((2), dtype=t.float), requires_grad=False)
 
         # Resample the input with some grid resampled attention if requested
         # This is a linear parameter set which is nice
@@ -48,7 +86,8 @@ class KnowledgeCollider(nn.Module, ABC):
         
         # The output of a knowledge filter will always be aggregatable as the weight's
         #   memory requirement linear scaled with the input samples.
-        self.aggregateLenses:Tuple[nn.ParameterDict, nn.ParameterDict] = (nn.ParameterDict(), nn.ParameterDict())
+        self.aggregateLensIn:nn.ParameterDict = nn.ParameterDict()
+        self.aggregateLensOut:nn.ParameterDict = nn.ParameterDict()
 
 
     def implicitCorrelation(self, a:t.Tensor, b:t.Tensor, isbasis:bool=False) -> t.Tensor:

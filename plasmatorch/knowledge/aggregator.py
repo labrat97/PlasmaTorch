@@ -28,15 +28,15 @@ class WeightedAggregator(nn.Module):
 
         # Make sure both lenses exist in the selected KnowledgeFilter
         try:
-            lensA = filter.aggregateLenses[0][idstr]
+            lensA = filter.aggregateLensIn[idstr]
         except KeyError:
             lensA = nn.Parameter(t.zeros((self.samples[0]), dtype=t.float32, device='cpu'))
-            filter.aggregateLenses[0].update({idstr: lensA})
+            filter.aggregateLensIn.update({idstr: lensA})
         try:
-            lensB = filter.aggregateLenses[1][idstr]
+            lensB = filter.aggregateLensOut[idstr]
         except KeyError:
             lensB = nn.Parameter(t.zeros((self.samples[1]), dtype=t.float32, device='cpu'))
-            filter.aggregateLenses[1].update({idstr: lensB})
+            filter.aggregateLensOut.update({idstr: lensB})
         
         # Show the calling function what the lenses are
         return (lensA, lensB)
