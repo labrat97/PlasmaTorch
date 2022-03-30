@@ -83,8 +83,8 @@ class Turbulence(nn.Module):
         assert states.size() == inputSize
         
         # Shift both directions in computational elaboration
-        integralStates:t.Tensor = tfft.ifft(states, dim=-1)
-        basisStates:t.Tensor = tfft.fft(states, dim=-1)
+        integralStates:t.Tensor = tfft.ifft(states, dim=-1, norm=DEFAULT_FFT_NORM)
+        basisStates:t.Tensor = tfft.fft(states, dim=-1, norm=DEFAULT_FFT_NORM)
 
         # Entangle the queries and the states together
         egoKnot:t.Tensor = self.egoKnot.forward(queries, oneD=oneD)
@@ -133,11 +133,11 @@ class Turbulence(nn.Module):
         # Find what makes the variably 'zoomed' signal, and modify it with the
         # compressor-like signal evaluated earlier. If things are done right here,
         # comrpessor should broadcast across the warped signal.
-        warpedSignal:t.Tensor = tfft.fft(warpedState, n=self.samples, dim=-1) * compressorKnot
+        warpedSignal:t.Tensor = tfft.fft(warpedState, n=self.samples, dim=-1, norm=DEFAULT_FFT_NORM) * compressorKnot
 
         # Return the signal that is constructed from the final computations. This
         # signal is back into the constructed 'current' domain.
-        result:t.Tensor = tfft.ifft(warpedSignal, n=self.samples, dim=-1)
+        result:t.Tensor = tfft.ifft(warpedSignal, n=self.samples, dim=-1, norm=DEFAULT_FFT_NORM)
         if self.finalEntangle is None:
             return result
         result, _ = self.finalEntangle.forward(result.unsqueeze(-2))

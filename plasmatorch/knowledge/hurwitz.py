@@ -15,8 +15,8 @@ class HurwitzFilter(KnowledgeCollider):
 
     def __forward__(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
         # Find the basis vectors of the signal
-        afft = tfft.fft(a, n=self.inputSamples, dim=-1)
-        bfft = tfft.fft(b, n=self.inputSamples, dim=-1)
+        afft = tfft.fft(a, n=self.inputSamples, dim=-1, norm=DEFAULT_FFT_NORM)
+        bfft = tfft.fft(b, n=self.inputSamples, dim=-1, norm=DEFAULT_FFT_NORM)
 
         # Remap the input vectors before the evaluation of the Hurwitz-Zeta function
         softmap = nsoftmax(self.remap, dims=[-1, -2])

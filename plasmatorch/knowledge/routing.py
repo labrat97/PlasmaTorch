@@ -116,8 +116,8 @@ class KnowledgeCollider(nn.Module, ABC):
             actWeightB:t.Tensor = isoftmax(self.resampleWeight[1], dim=-1)
 
             # Turn the signal into a continuous signal (essentially a fully differentiable lens)
-            sampleWeightA:t.Tensor = tfft.irfft(actWeightA, n=actWeightA.size(-1), dim=-1, norm='forward')
-            sampleWeightB:t.Tensor = tfft.irfft(actWeightB, n=actWeightB.size(-1), dim=-1, norm='forward')
+            sampleWeightA:t.Tensor = tfft.irfft(actWeightA, n=actWeightA.size(-1), dim=-1, norm=DEFAULT_FFT_NORM)
+            sampleWeightB:t.Tensor = tfft.irfft(actWeightB, n=actWeightB.size(-1), dim=-1, norm=DEFAULT_FFT_NORM)
 
             # Apply lens to the input values
             wa:t.Tensor = weightedResample(a, lens=sampleWeightA, dim=-1)
@@ -197,8 +197,8 @@ class KnowledgeRouter(KnowledgeCollider):
 
     def __forward__(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
         # Find the basis vectors of the input signals
-        afft:t.Tensor = tfft.fft(a, n=self.corrSamples, dim=-1)
-        bfft:t.Tensor = tfft.fft(b, n=self.corrSamples, dim=-1)
+        afft:t.Tensor = tfft.fft(a, n=self.corrSamples, dim=-1, norm=DEFAULT_FFT_NORM)
+        bfft:t.Tensor = tfft.fft(b, n=self.corrSamples, dim=-1, norm=DEFAULT_FFT_NORM)
 
         # Entangle the signals with the `nsoftmax` function and a matmul, then sum out orthogonally
         superposition:t.Tensor = (afft.unsqueeze(-1) @ bfft.unsqueeze(-1).transpose(-1,-2)) * nsoftmax(self.correlationMask, dims=[-1,-2])

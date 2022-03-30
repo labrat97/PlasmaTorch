@@ -188,11 +188,11 @@ class Ringing(nn.Module):
     yfft = self.__createOutputSignal(forks=self.forkVals, xfft=xfft, posLow=posLow, posHigh=posHigh, posMix=posMix)
 
     # Generate the output signal in the time domain according to the sample size
-    return tfft.ifft(yfft, n=samples, dim=-1)
+    return tfft.ifft(yfft, n=samples, dim=-1, norm=DEFAULT_FFT_NORM)
 
   def forward(self, x:t.Tensor, stopTime:bool=False, regBatchInput:bool=True) -> t.Tensor:
     # Gather parameters needed to have some light attention to the tunes coming in
-    xfft = tfft.fft(x, dim=-1)
+    xfft = tfft.fft(x, dim=-1, norm=DEFAULT_FFT_NORM)
     xsamples = x.size()[-1]
     positions = isigmoid(self.forkPos) * (xsamples - 1)
 
@@ -230,4 +230,4 @@ class Ringing(nn.Module):
     yfft = self.__createOutputSignal(forks=forkVals, xfft=xfft, posLow=posLow, posHigh=posHigh, posMix=posMix)
 
     # Return constructed signal
-    return tfft.ifft(yfft, n=xsamples, dim=-1)
+    return tfft.ifft(yfft, n=xsamples, dim=-1, norm=DEFAULT_FFT_NORM)

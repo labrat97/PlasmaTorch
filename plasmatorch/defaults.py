@@ -17,6 +17,8 @@ DEFAULT_FFT_SAMPLES:int = 196884
 # The following numbers are the prime factors of 196884
 SMALL_FFT_SAMPLES:int = 1823
 SMALL_FFT_BATCH:int = (2*2)*(3*3*3)
+# Make the FFTs always work with the same type of signal
+DEFAULT_FFT_NORM:str = 'ortho'
 
 
 # The amount of knot descriptors used determines the ability of the knots to propogate through themselves.
