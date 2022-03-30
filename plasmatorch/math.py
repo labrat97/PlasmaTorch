@@ -303,3 +303,48 @@ def harmonicdist(x:t.Tensor) -> t.Tensor:
     # Find the closest harmonic value, refold the shape, then calculate the result
     closest = harmonics[finv].unflatten(0, inverse.size())
     return x - closest
+
+@ts
+def vfft(x:t.Tensor, n:int=-1, dim:int=-1, norm:str=DEFAULT_FFT_NORM) -> Tuple[t.Tensor, int]:
+    """Computes the FFT of `x` with respect to the tensor's complexity.
+
+    Args:
+        x (t.Tensor): The signal to perform the FFT on.
+        n (int): The amount of samples to be outputted from the FFT. Defaults to -1.
+        dim (int, optional): The dimension of the tensor to perform the FFT on. Defaults to -1.
+        norm (str, optional): The normalization function for the output of the FFT. Defaults to DEFAULT_FFT_NORM.
+
+    Returns:
+        Tuple[t.Tensor, int]: Returns the FFT output and the `ikey` argument for `ivfft()`.
+    """
+    if n == -1:
+        n = x.size(dim)
+    if x.is_complex():
+        return (tfft.fft(x, n=n, dim=dim, norm=norm), 0)
+    return (tfft.rfft(x, n=n, dim=dim, norm=norm), 1)
+
+@ts
+def ivfft(x:t.Tensor, n:int=-1, ikey:int=0, dim:int=-1, norm:str=DEFAULT_FFT_NORM) -> t.Tensor:
+    """Computes the inverse FFT of `x` with respect to the tensor's complexity.
+
+    Args:
+        x (t.Tensor): The signal to perform the inverse FFT on.
+        n (int): The amount of samples to be outputted from the inverse FFT. Defaults to -1.
+        ikey (int): The value outputted from `vfft()` for modulation of this function. Defaults to 0.
+        dim (int, optional): The dimension of the tensor to perform the inverse FFT on. Defaults to -1.
+        norm (str, optional): The normalization function for the output of the inverse FFT. Defaults to DEFAULT_FFT_NORM.
+
+    Raises:
+        IndexError: If `ikey` is not 0 (complex original) or 1 (real original), raise.
+
+    Returns:
+        t.Tensor: The output of the inverse FFT.
+    """
+    if n == -1:
+        n = x.size(dim)
+    if ikey == 0:
+        return tfft.ifft(x, n=n, dim=dim, norm=norm)
+    elif ikey == 1:
+        return tfft.irfft(x, n=n, dim=dim, norm=norm)
+    
+    raise IndexError
