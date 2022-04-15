@@ -42,6 +42,86 @@ class KnowledgeFilter(nn.Module, ABC):
             self.outputSamples = self.inputSamples
         self.lastForwardExec:nn.Parameter = nn.Parameter(-t.ones((2), dtype=t.float), requires_grad=False)
 
+        # Resample the input with some grid resampled attention if requested
+        # This is a linear parameter set which is nice
+        self.resampleWeight:nn.Parameter = None
+        if attentiveResample:
+            self.resampleWeight = nn.Parameter(toComplex(t.zeros((inputSamples), dtype=cdtype)))
+        
+        # No aggregator lenses are needed as this class shouldn't ever be hooked
+        #   up to an aggregator. It's not type compatible.
+
+
+        def implicitCorrelation(self, x:t.Tensor, isbasis:bool=True) -> t.Tensor:
+            """Calculate the stored correlation of the input signal with the tokenized
+            basis vectors. This is used to predict what could be inside of the function before
+            evaluating said function.
+
+            Args:
+                x (t.Tensor): A basis vector (optionally a signal) used for calculation.
+                isbasis (bool, optional): If False, the vectors coming in are preFFT'd. Defaults to True.
+
+            Returns:
+                t.Tensor: The average correlation accross the samples, curves, and vectors.
+            """
+            selfcorr = isigmoid(self.corrToken)
+            if x.size(-1) != self.corrSamples:
+                x = resignal(x, samples=self.corrSamples, dim=-1)
+            
+            return correlation(x=x, y=selfcorr, dim=-1, isbasis=isbasis).mean(dim=-1).mean(dim=-1)
+
+
+
+        @abstractmethod
+        def __forward__(self, x:t.Tensor) -> t.Tensor:
+            """Runs a tensor through speculative knowledge after being preformatted.
+
+            Args:
+                x (t.Tensor): The set of vectors defining a querying signal.
+
+            Returns:
+                t.Tensor: The speculative, queried, knowledge graph output signal.
+            """
+            pass
+
+
+        def forward(self, x:t.Tensor) -> t.Tensor:
+            # Time the execution of this function and store later
+            beginExec:float = time.time()
+
+            # Resample the input vector to match the internal expected sample count
+            if self.resampleWeight is None:
+                # Use a basic Fourier Transform method to uniformly preserve the input signal
+                if self.inputSamples > 0 and x.size(-1) != self.inputSamples:
+                    wx:t.Tensor = resignal(x, samples=self.inputSamples, dim=-1)
+                else:
+                    wx:t.Tensor = toComplex(x)
+            else:
+                # Use a grid resample with bilinear filtering, and centered, with UV coords
+                # Make input values bounded appropriately
+                actWeight:t.Tensor = isoftmax(self.resampleWeight, dim=-1)
+                # Turn the signal into a continuous signal (essentially a fully differentiable lens)
+                sampleWeight:t.Tensor = tfft.irfft(actWeight, n=actWeight.size(-1), dim=-1, norm='ortho')
+                # Apply the lens to the input values
+                wx:t.Tensor = weightedResample(x, lens=sampleWeight, dim=-1)
+            
+            # Call the internal __forward__() method so that this method may wrap safely.
+            # Timing the execution time is critical here as the total sample count is likely
+            #   to reach 196883 elements which can occupy over 4GB of system memory during evaluation.
+            #   It also takes a significantly longer amount of time to evaluate that big of a computation.
+            beginForward:float = time.time()
+            result:t.Tensor = self.__forward__(x=wx)
+            self.lastForward = time.time() - beginForward
+
+            # Resample the output matrices to math the internal expected sample count
+            if self.outputSamples > 0 and result.size(-1) != self.outputSamples:
+                result = resignal(result, samples=self.outputSamples, dim=-1)
+
+            # Log the execution time of this function for later evaluation.
+            self.lastExec = time.time() - beginExec
+
+            return result
+
 
 
 class KnowledgeCollider(nn.Module, ABC):
@@ -90,7 +170,7 @@ class KnowledgeCollider(nn.Module, ABC):
         self.aggregateLensOut:nn.ParameterDict = nn.ParameterDict()
 
 
-    def implicitCorrelation(self, a:t.Tensor, b:t.Tensor, isbasis:bool=False) -> t.Tensor:
+    def implicitCorrelation(self, a:t.Tensor, b:t.Tensor, isbasis:bool=True) -> t.Tensor:
         """Calculate the stored correlation of the input signal with the tokenized
         basis vectors. This is used to predict what could be inside of the function before
         evaluating said function.
@@ -98,7 +178,7 @@ class KnowledgeCollider(nn.Module, ABC):
         Args:
             a (t.Tensor): A basis vector (optionally a signal) used for calculation.
             b (t.Tensor): Another basis vector (optionally a signal) used for calculation.
-            isbasis (bool, optional): If False, the vectors coming in are preFFT'd. Defaults to False.
+            isbasis (bool, optional): If False, the vectors coming in are preFFT'd. Defaults to True.
 
         Returns:
             t.Tensor: The average correlation accross the samples, curves, and vectors.
@@ -140,8 +220,7 @@ class KnowledgeCollider(nn.Module, ABC):
         if self.resampleWeight is None:
             # Use a basic Fourier Transform method to uniformly preserve the input signal
             if self.inputSamples > 0 and a.size(-1) != self.inputSamples:
-                if self.resampleWeight is None:
-                    wa:t.Tensor = resignal(a, samples=self.inputSamples, dim=-1)
+                wa:t.Tensor = resignal(a, samples=self.inputSamples, dim=-1)
             else:
                 wa:t.Tensor = toComplex(a)
             if self.inputSamples > 0 and b.size(-1) != self.inputSamples:
@@ -184,7 +263,7 @@ class KnowledgeCollider(nn.Module, ABC):
 
 class KnowledgeRouter(KnowledgeCollider):
     """
-    A KnowledgeFilter type class that is used to call other knowledge filter type classes.
+    A KnowledgeCollider type class that is used to call other knowledge collider type classes.
     Due to the way that the signal traversal works, this should be a borderline completely unified
     tree traversal method due to the continuous nature. Every single layer of traversal is evaluated
     in parallel, and ever computation is chronologically independent. Every depth will also do a layered
@@ -201,38 +280,38 @@ class KnowledgeRouter(KnowledgeCollider):
         """
         super(KnowledgeRouter, self).__init__(corrSamples=corrSamples, inputSamples=-1, outputSamples=outputSamples, cdtype=cdtype)
 
-        # Store all of the filters that the router can call to
+        # Store all of the colliders that the router can call to
         self.correlationMask:nn.Parameter = nn.Parameter(toComplex(t.zeros((self.corrSamples, self.corrSamples), dtype=self.cdtype)))
         self.correlationPolarization:nn.Parameter = nn.Parameter(t.zeros((1), dtype=self.correlationMask.real.dtype))
-        self.subfilters:nn.ModuleList = nn.ModuleList()
+        self.subcolliders:nn.ModuleList = nn.ModuleList()
         self.callCounts:nn.ParameterList = nn.ParameterList()
         self.maxk:int = maxk
 
-    def addFilter(self, x:KnowledgeCollider):
-        """Adds a knowledge filter to the router, circularly linking the router in the filter.
+    def addCollider(self, x:KnowledgeCollider):
+        """Adds a knowledge collider to the router, circularly linking the router in the collider.
 
         Args:
-            x (KnowledgeFilter): The filter to add to the router.
+            x (KnowledgeCollider): The collider to add to the router.
         """
-        # Add a KnowledgeFilter that can be routed through later
+        # Add a KnowledgeCollider that can be routed through later
         assert isinstance(x, KnowledgeCollider)
-        self.subfilters.append(x)
+        self.subcolliders.append(x)
         x.routers.append(self)
         
         # Add a count for the system to evaluate later logrithmically
         self.callCounts.append(nn.Parameter(t.ones((1), dtype=t.float64), requires_grad=False))
 
-    def delFilter(self, idx:int) -> Tuple[KnowledgeCollider, t.Tensor]:
-        # Remove the knowledge filter and save for later
-        filter:KnowledgeCollider = self.subfilters[idx]
-        self.subfilters = self.subfilters[:idx].extend(self.subfilters[idx+1:])
-        filter.routers = filter.routers[:idx].extend(filter.routers[idx+1:])
+    def delCollider(self, idx:int) -> Tuple[KnowledgeCollider, t.Tensor]:
+        # Remove the knowledge collider and save for later
+        collider:KnowledgeCollider = self.subcolliders[idx]
+        self.subcolliders = self.subcolliders[:idx].extend(self.subcolliders[idx+1:])
+        collider.routers = collider.routers[:idx].extend(collider.routers[idx+1:])
 
         # Also grab the call counts because those need to go
         count:t.Tensor = self.callCounts[idx]
         self.callCounts = self.callCounts[:idx].extend(self.callCounts[idx+1:])
 
-        return (filter, count)
+        return (collider, count)
 
     def __forward__(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
         # Find the basis vectors of the input signals
@@ -244,7 +323,7 @@ class KnowledgeRouter(KnowledgeCollider):
         afft = superposition.sum(dim=-1)
         bfft = superposition.sum(dim=-2)
 
-        # Flatten the batches to be able to easily index the contained filters.
+        # Flatten the batches to be able to easily index the contained colliders.
         # In this router, the signals are being ignored in their individual channels
         #   and flattened into the rest of the batches. This is done to maximize
         #   the reusability of the knowledge contained.
@@ -254,25 +333,25 @@ class KnowledgeRouter(KnowledgeCollider):
         bflat = t.flatten(b, start_dim=0, end_dim=-2)
         
         # Create the storage for the correlations
-        icorrs:t.Tensor = t.zeros((len(self.subfilters), aflat[...,0].numel()), dtype=aflat.dtype)
+        icorrs:t.Tensor = t.zeros((len(self.subcolliders), aflat[...,0].numel()), dtype=aflat.dtype)
 
-        # Evaluate the correlation for all contained knowledge filters
-        for idx, kfilter in enumerate(self.subfilters):
-            icorrs[idx] = kfilter.implicitCorrelation(a=afftflat, b=bfftflat, isbasis=True)
+        # Evaluate the correlation for all contained knowledge colliders
+        for idx, kcollider in enumerate(self.subcolliders):
+            icorrs[idx] = kcollider.implicitCorrelation(a=afftflat, b=bfftflat, isbasis=True)
 
         # Grab the top correlation indices, choosing the modules to be evaluated
         _, topcorrs = t.topk(icorrs.abs(), k=self.maxk, dim=0, largest=True)
         topcorrs.transpose_(0, 1)
 
-        # Run each signal through each set of knowledge filters and geometric mean together
+        # Run each signal through each set of knowledge colliders and geometric mean together
         result:t.Tensor = t.zeros_like(aflat)
         for sdx in range(topcorrs.size(0)):
             for kdx in topcorrs[sdx]:
-                # Pull the filter
-                kfilter = self.subfilters[kdx]
+                # Pull the collider
+                kcollider = self.subcolliders[kdx]
 
-                # Add the resultant signal to the current filter (router) result signal
-                result[sdx].add_(kfilter.forward(a=aflat[sdx], b=bflat[sdx]))
+                # Add the resultant signal to the current collider (router) result signal
+                result[sdx].add_(kcollider.forward(a=aflat[sdx], b=bflat[sdx]))
             # Divide by the number of indices used to collect all of the signals
             result[sdx].div_(topcorrs[sdx].numel())
 
