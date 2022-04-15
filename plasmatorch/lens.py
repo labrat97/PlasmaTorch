@@ -35,8 +35,21 @@ class Lens(KnowledgeFilter):
             attentiveResample=False, cdtype=cdtype)
 
         # Store the parameters for the lens basis vector, to be used later in an irfft call
-        self.lensBasis:nn.Parameter(t.zeros((samples), dtype=self.cdtype))
+        self.lensBasis:nn.Parameter = nn.Parameter(t.zeros((samples), dtype=self.cdtype))
 
         # Store the direction of the lens evaluation, defined by the above enum
-        self.lensDir:nn.Parameter(PolarLensPosition.NS + t.zeros((1), dtype=t.int8), requires_grad=False)
+        self.lensDir:nn.Parameter = nn.Parameter(PolarLensPosition.NS + t.zeros((1), dtype=t.int8), requires_grad=False)
 
+        # Store how much padding to add to the lens circularly
+        self.lensPadding:nn.Parameter = nn.Parameter(padding + t.zeros((1), dtype=t.int64), requires_grad=False)
+
+    def setDirection(self, dir:PolarLensPosition):
+        # Translate to what the tensor can understand
+        self.lensDir[0] = int(dir)
+
+    def __forward__(self, x:t.Tensor) -> t.Tensor:
+        # Create the lens as a signal
+        lensIntrinsics:t.Tensor = tfft.irfft(self.lensBasis, n=self.lensBasis.size(-1), dim=-1, norm='ortho')
+
+        # Circularly pad the lens with the amount of padding specified in the class construction
+        
