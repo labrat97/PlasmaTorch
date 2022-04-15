@@ -6,5 +6,5 @@ from .attention import *
 from .math import *
 from .losses import *
 from .sizing import *
-from .compressor import *
+from .lens import *
 from .zeta import *

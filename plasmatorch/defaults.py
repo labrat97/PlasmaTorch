@@ -32,9 +32,9 @@ DEFAULT_SPACE_PRIME:int = 11
 # Circular padding is used because knots are, by nature, circular.
 DEFAULT_PADDING:str = 'circular'
 
-# The default amount of samples to use in an aggregator's signal compressor
-DEFAULT_SIGNAL_COMPRESSION_PADDING:int = 5
-DEFAULT_SIGNAL_COMPRESSION_SUPERSAMPLES:int = DEFAULT_FFT_SAMPLES
+# The default amount of samples to use in lenses
+DEFAULT_SIGNAL_LENS_PADDING:int = 5
+DEFAULT_SIGNAL_LENS_SAMPLES:int = DEFAULT_FFT_SAMPLES
 
 
 @ts
