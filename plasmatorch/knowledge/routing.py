@@ -52,75 +52,75 @@ class KnowledgeFilter(nn.Module, ABC):
         #   up to an aggregator. It's not type compatible.
 
 
-        def implicitCorrelation(self, x:t.Tensor, isbasis:bool=True) -> t.Tensor:
-            """Calculate the stored correlation of the input signal with the tokenized
-            basis vectors. This is used to predict what could be inside of the function before
-            evaluating said function.
+    def implicitCorrelation(self, x:t.Tensor, isbasis:bool=True) -> t.Tensor:
+        """Calculate the stored correlation of the input signal with the tokenized
+        basis vectors. This is used to predict what could be inside of the function before
+        evaluating said function.
 
-            Args:
-                x (t.Tensor): A basis vector (optionally a signal) used for calculation.
-                isbasis (bool, optional): If False, the vectors coming in are preFFT'd. Defaults to True.
+        Args:
+            x (t.Tensor): A basis vector (optionally a signal) used for calculation.
+            isbasis (bool, optional): If False, the vectors coming in are preFFT'd. Defaults to True.
 
-            Returns:
-                t.Tensor: The average correlation accross the samples, curves, and vectors.
-            """
-            selfcorr = isigmoid(self.corrToken)
-            if x.size(-1) != self.corrSamples:
-                x = resignal(x, samples=self.corrSamples, dim=-1)
-            
-            return correlation(x=x, y=selfcorr, dim=-1, isbasis=isbasis).mean(dim=-1).mean(dim=-1)
-
-
-
-        @abstractmethod
-        def __forward__(self, x:t.Tensor) -> t.Tensor:
-            """Runs a tensor through speculative knowledge after being preformatted.
-
-            Args:
-                x (t.Tensor): The set of vectors defining a querying signal.
-
-            Returns:
-                t.Tensor: The speculative, queried, knowledge graph output signal.
-            """
-            pass
+        Returns:
+            t.Tensor: The average correlation accross the samples, curves, and vectors.
+        """
+        selfcorr = isigmoid(self.corrToken)
+        if x.size(-1) != self.corrSamples:
+            x = resignal(x, samples=self.corrSamples, dim=-1)
+        
+        return correlation(x=x, y=selfcorr, dim=-1, isbasis=isbasis).mean(dim=-1).mean(dim=-1)
 
 
-        def forward(self, x:t.Tensor) -> t.Tensor:
-            # Time the execution of this function and store later
-            beginExec:float = time.time()
 
-            # Resample the input vector to match the internal expected sample count
-            if self.resampleWeight is None:
-                # Use a basic Fourier Transform method to uniformly preserve the input signal
-                if self.inputSamples > 0 and x.size(-1) != self.inputSamples:
-                    wx:t.Tensor = resignal(x, samples=self.inputSamples, dim=-1)
-                else:
-                    wx:t.Tensor = toComplex(x)
+    @abstractmethod
+    def __forward__(self, x:t.Tensor) -> t.Tensor:
+        """Runs a tensor through speculative knowledge after being preformatted.
+
+        Args:
+            x (t.Tensor): The set of vectors defining a querying signal.
+
+        Returns:
+            t.Tensor: The speculative, queried, knowledge graph output signal.
+        """
+        pass
+
+
+    def forward(self, x:t.Tensor) -> t.Tensor:
+        # Time the execution of this function and store later
+        beginExec:float = time.time()
+
+        # Resample the input vector to match the internal expected sample count
+        if self.resampleWeight is None:
+            # Use a basic Fourier Transform method to uniformly preserve the input signal
+            if self.inputSamples > 0 and x.size(-1) != self.inputSamples:
+                wx:t.Tensor = resignal(x, samples=self.inputSamples, dim=-1)
             else:
-                # Use a grid resample with bilinear filtering, and centered, with UV coords
-                # Make input values bounded appropriately
-                actWeight:t.Tensor = isoftmax(self.resampleWeight, dim=-1)
-                # Turn the signal into a continuous signal (essentially a fully differentiable lens)
-                sampleWeight:t.Tensor = tfft.irfft(actWeight, n=actWeight.size(-1), dim=-1, norm='ortho')
-                # Apply the lens to the input values
-                wx:t.Tensor = weightedResample(x, lens=sampleWeight, dim=-1)
-            
-            # Call the internal __forward__() method so that this method may wrap safely.
-            # Timing the execution time is critical here as the total sample count is likely
-            #   to reach 196883 elements which can occupy over 4GB of system memory during evaluation.
-            #   It also takes a significantly longer amount of time to evaluate that big of a computation.
-            beginForward:float = time.time()
-            result:t.Tensor = self.__forward__(x=wx)
-            self.lastForward = time.time() - beginForward
+                wx:t.Tensor = toComplex(x)
+        else:
+            # Use a grid resample with bilinear filtering, and centered, with UV coords
+            # Make input values bounded appropriately
+            actWeight:t.Tensor = isoftmax(self.resampleWeight, dim=-1)
+            # Turn the signal into a continuous signal (essentially a fully differentiable lens)
+            sampleWeight:t.Tensor = tfft.irfft(actWeight, n=actWeight.size(-1), dim=-1, norm='ortho')
+            # Apply the lens to the input values
+            wx:t.Tensor = weightedResample(x, lens=sampleWeight, dim=-1)
+        
+        # Call the internal __forward__() method so that this method may wrap safely.
+        # Timing the execution time is critical here as the total sample count is likely
+        #   to reach 196883 elements which can occupy over 4GB of system memory during evaluation.
+        #   It also takes a significantly longer amount of time to evaluate that big of a computation.
+        beginForward:float = time.time()
+        result:t.Tensor = self.__forward__(x=wx)
+        self.lastForward = time.time() - beginForward
 
-            # Resample the output matrices to math the internal expected sample count
-            if self.outputSamples > 0 and result.size(-1) != self.outputSamples:
-                result = resignal(result, samples=self.outputSamples, dim=-1)
+        # Resample the output matrices to math the internal expected sample count
+        if self.outputSamples > 0 and result.size(-1) != self.outputSamples:
+            result = resignal(result, samples=self.outputSamples, dim=-1)
 
-            # Log the execution time of this function for later evaluation.
-            self.lastExec = time.time() - beginExec
+        # Log the execution time of this function for later evaluation.
+        self.lastExec = time.time() - beginExec
 
-            return result
+        return result
 
 
 
