@@ -40,8 +40,8 @@ class Lens(KnowledgeFilter):
         # Store the direction of the lens evaluation, defined by the above enum
         self.lensDir:nn.Parameter = nn.Parameter(PolarLensPosition.NS + t.zeros((1), dtype=t.int8), requires_grad=False)
 
-        # Store how much padding to add to the lens circularly
-        self.lensPadding:nn.Parameter = nn.Parameter(padding + t.zeros((1), dtype=t.int64), requires_grad=False)
+        # Store how much padding to add to the signal (expanded) circularly
+        self.signalPadding:nn.Parameter = nn.Parameter(abs(padding) + t.zeros((1), dtype=t.int64), requires_grad=False)
 
     def setDirection(self, dir:PolarLensPosition):
         # Translate to what the tensor can understand
@@ -50,6 +50,22 @@ class Lens(KnowledgeFilter):
     def __forward__(self, x:t.Tensor) -> t.Tensor:
         # Create the lens as a signal
         lensIntrinsics:t.Tensor = tfft.irfft(self.lensBasis, n=self.lensBasis.size(-1), dim=-1, norm='ortho')
+        lensSquish:t.Tensor = (lensIntrinsics + 1.) / 2.
 
-        # Circularly pad the lens with the amount of padding specified in the class construction
+        # Clip the lens into a circular padding aligning to the corners
+        lensCast:t.Tensor = lensSquish.to(t.int64, non_blocking=True)
+        lensClip:t.Tensor = (lensIntrinsics.abs() > 1.).to(t.int64, non_blocking=True)
+        lensDir:t.Tensor = lensIntrinsics.sign()
+
+        # Apply the clipping
+        clippedIntrinsics:t.Tensor = ((lensSquish - (lensCast * lensClip * lensDir)) * 2.) + 1.
+
+        # Add padding to the input signal to allow viewing outside of the maximal signal representation
+        xpad:t.Tensor = paddim(x=x, lowpad=self.signalPadding, highpad=self.signalPadding, dim=-1, mode='circular')
         
+        # Modify the lens intrinsics to be bound within the unpadded signal in the padded signal
+        lensScalar:float = x.size(-1) / (x.size(-1) + (2. * self.signalPadding[0]))
+        padIntrinsics:t.Tensor = lensScalar * clippedIntrinsics
+
+        # Apply the lens through a weighted resample
+        return weightedResample(xpad, padIntrinsics, dim=-1)
