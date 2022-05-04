@@ -1,3 +1,4 @@
+from torch import BoolTensor
 from ..defaults import *
 from ..conversions import *
 from ..sizing import *
@@ -51,7 +52,6 @@ class KnowledgeFilter(nn.Module, ABC):
         # No aggregator lenses are needed as this class shouldn't ever be hooked
         #   up to an aggregator. It's not type compatible.
 
-
     def implicitCorrelation(self, x:t.Tensor, isbasis:bool=True) -> t.Tensor:
         """Calculate the stored correlation of the input signal with the tokenized
         basis vectors. This is used to predict what could be inside of the function before
@@ -69,8 +69,6 @@ class KnowledgeFilter(nn.Module, ABC):
             x = resignal(x, samples=self.corrSamples, dim=-1)
         
         return correlation(x=x, y=selfcorr, dim=-1, isbasis=isbasis).mean(dim=-1).mean(dim=-1)
-
-
 
     @abstractmethod
     def __forward__(self, x:t.Tensor) -> t.Tensor:
@@ -90,30 +88,34 @@ class KnowledgeFilter(nn.Module, ABC):
         beginExec:float = time.time()
 
         # Resample the input vector to match the internal expected sample count
-        if self.resampleWeight is None:
-            # Use a basic Fourier Transform method to uniformly preserve the input signal
-            if self.inputSamples > 0 and x.size(-1) != self.inputSamples:
-                wx:t.Tensor = resignal(x, samples=self.inputSamples, dim=-1)
+        if self.inputSamples > 0:
+            if self.resampleWeight is None:
+                # Use a basic Fourier Transform method to uniformly preserve the input signal
+                if x.size(-1) != self.inputSamples:
+                    wx:t.Tensor = resignal(x, samples=self.inputSamples, dim=-1)
+                else:
+                    wx:t.Tensor = toComplex(x)
             else:
-                wx:t.Tensor = toComplex(x)
+                # Use a grid resample with bilinear filtering, and centered, with UV coords
+                # Make input values bounded appropriately
+                actWeight:t.Tensor = isoftmax(self.resampleWeight, dim=-1)
+                # Turn the signal into a continuous signal (essentially a fully differentiable lens)
+                sampleWeight:t.Tensor = tfft.irfft(actWeight, n=actWeight.size(-1), dim=-1, norm='ortho')
+                # Apply the lens to the input values
+                wx:t.Tensor = weightedResample(x, lens=sampleWeight, dim=-1)
         else:
-            # Use a grid resample with bilinear filtering, and centered, with UV coords
-            # Make input values bounded appropriately
-            actWeight:t.Tensor = isoftmax(self.resampleWeight, dim=-1)
-            # Turn the signal into a continuous signal (essentially a fully differentiable lens)
-            sampleWeight:t.Tensor = tfft.irfft(actWeight, n=actWeight.size(-1), dim=-1, norm='ortho')
-            # Apply the lens to the input values
-            wx:t.Tensor = weightedResample(x, lens=sampleWeight, dim=-1)
-        
+            # No valid input sample setting was provided, ensure complex representation
+            wx:t.Tensor = toComplex(x)
+
         # Call the internal __forward__() method so that this method may wrap safely.
         # Timing the execution time is critical here as the total sample count is likely
-        #   to reach 196883 elements which can occupy over 4GB of system memory during evaluation.
+        #   to reach 196884 elements which can occupy over 4GB of system memory during evaluation.
         #   It also takes a significantly longer amount of time to evaluate that big of a computation.
         beginForward:float = time.time()
         result:t.Tensor = self.__forward__(x=wx)
         self.lastForward = time.time() - beginForward
 
-        # Resample the output matrices to math the internal expected sample count
+        # Resample the output tensors to match the internal expected sample count
         if self.outputSamples > 0 and result.size(-1) != self.outputSamples:
             result = resignal(result, samples=self.outputSamples, dim=-1)
 
@@ -217,33 +219,37 @@ class KnowledgeCollider(nn.Module, ABC):
         beginExec:float = time.time()
 
         # Resample the input vectors to match the internal expected sample count
-        if self.resampleWeight is None:
-            # Use a basic Fourier Transform method to uniformly preserve the input signal
-            if self.inputSamples > 0 and a.size(-1) != self.inputSamples:
-                wa:t.Tensor = resignal(a, samples=self.inputSamples, dim=-1)
+        if self.inputSamples > 0:
+            if self.resampleWeight is None:
+                # Use a basic Fourier Transform method to uniformly preserve the input signal
+                if self.inputSamples > 0 and a.size(-1) != self.inputSamples:
+                    wa:t.Tensor = resignal(a, samples=self.inputSamples, dim=-1)
+                else:
+                    wa:t.Tensor = toComplex(a)
+                if self.inputSamples > 0 and b.size(-1) != self.inputSamples:
+                    wb:t.Tensor = resignal(b, samples=self.inputSamples, dim=-1)
+                else:
+                    wb:t.Tensor = toComplex(b)
             else:
-                wa:t.Tensor = toComplex(a)
-            if self.inputSamples > 0 and b.size(-1) != self.inputSamples:
-                wb:t.Tensor = resignal(b, samples=self.inputSamples, dim=-1)
-            else:
-                wb:t.Tensor = toComplex(b)
+                # Use a grid resample with bilinear filtering and centered, UV coords
+                # Make input values bounded appropriately
+                actWeightA:t.Tensor = isoftmax(self.resampleWeight[0], dim=-1)
+                actWeightB:t.Tensor = isoftmax(self.resampleWeight[1], dim=-1)
+
+                # Turn the signal into a continuous signal (essentially a fully differentiable lens)
+                sampleWeightA:t.Tensor = tfft.irfft(actWeightA, n=actWeightA.size(-1), dim=-1, norm='ortho')
+                sampleWeightB:t.Tensor = tfft.irfft(actWeightB, n=actWeightB.size(-1), dim=-1, norm='ortho')
+
+                # Apply lens to the input values
+                wa:t.Tensor = weightedResample(a, lens=sampleWeightA, dim=-1)
+                wb:t.Tensor = weightedResample(b, lens=sampleWeightB, dim=-1)
         else:
-            # Use a grid resample with bilinear filtering and centered, UV coords
-            # Make input values bounded appropriately
-            actWeightA:t.Tensor = isoftmax(self.resampleWeight[0], dim=-1)
-            actWeightB:t.Tensor = isoftmax(self.resampleWeight[1], dim=-1)
-
-            # Turn the signal into a continuous signal (essentially a fully differentiable lens)
-            sampleWeightA:t.Tensor = tfft.irfft(actWeightA, n=actWeightA.size(-1), dim=-1, norm='ortho')
-            sampleWeightB:t.Tensor = tfft.irfft(actWeightB, n=actWeightB.size(-1), dim=-1, norm='ortho')
-
-            # Apply lens to the input values
-            wa:t.Tensor = weightedResample(a, lens=sampleWeightA, dim=-1)
-            wb:t.Tensor = weightedResample(b, lens=sampleWeightB, dim=-1)
+            wa:t.Tensor = toComplex(a)
+            wb:t.Tensor = toComplex(b)
         
         # Call the internal __forward__() method so that this method may wrap safely.
         # Timing the execution time is critical here as the total sample count is likely
-        #   to reach 196883 elements which can occupy over 4GB of system memory during evaluation.
+        #   to reach 196884 elements which can occupy over 4GB of system memory during evaluation.
         #   It also takes a significantly longer amount of time to evaluate that big of a computation.
         beginForward:float = time.time()
         result:t.Tensor = self.__forward__(a=wa, b=wb)
