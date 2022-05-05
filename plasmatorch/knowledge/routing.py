@@ -48,9 +48,7 @@ class KnowledgeFilter(nn.Module, ABC):
         self.resampleWeight:nn.Parameter = None
         if attentiveResample:
             self.resampleWeight = nn.Parameter(toComplex(t.zeros((inputSamples), dtype=cdtype)))
-        
-        # No aggregator lenses are needed as this class shouldn't ever be hooked
-        #   up to an aggregator. It's not type compatible.
+
 
     def implicitCorrelation(self, x:t.Tensor, isbasis:bool=True) -> t.Tensor:
         """Calculate the stored correlation of the input signal with the tokenized
@@ -69,6 +67,7 @@ class KnowledgeFilter(nn.Module, ABC):
             x = resignal(x, samples=self.corrSamples, dim=-1)
         
         return correlation(x=x, y=selfcorr, dim=-1, isbasis=isbasis).mean(dim=-1).mean(dim=-1)
+
 
     @abstractmethod
     def __forward__(self, x:t.Tensor) -> t.Tensor:
@@ -165,11 +164,6 @@ class KnowledgeCollider(nn.Module, ABC):
         self.resampleWeight:nn.Parameter = None
         if attentiveResample:
             self.resampleWeight = nn.Parameter(toComplex(t.zeros((2, inputSamples), dtype=cdtype)))
-        
-        # The output of a knowledge filter will always be aggregatable as the weight's
-        #   memory requirement linear scaled with the input samples.
-        self.aggregateLensIn:nn.ParameterDict = nn.ParameterDict()
-        self.aggregateLensOut:nn.ParameterDict = nn.ParameterDict()
 
 
     def implicitCorrelation(self, a:t.Tensor, b:t.Tensor, isbasis:bool=True) -> t.Tensor:
@@ -201,6 +195,7 @@ class KnowledgeCollider(nn.Module, ABC):
         # Find the mean of the mean correlations
         return (acorr + bcorr) / 2.
 
+
     @abstractmethod
     def __forward__(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
         """Runs two tensors through comparative knowledge after being preformatted.
@@ -213,6 +208,7 @@ class KnowledgeCollider(nn.Module, ABC):
             t.Tensor: The comparative knowledge graph output signal.
         """
         pass
+
 
     def forward(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
         # Time the execution of this function and store later
@@ -267,6 +263,7 @@ class KnowledgeCollider(nn.Module, ABC):
         return result
 
 
+
 class KnowledgeRouter(KnowledgeCollider):
     """
     A KnowledgeCollider type class that is used to call other knowledge collider type classes.
@@ -293,6 +290,7 @@ class KnowledgeRouter(KnowledgeCollider):
         self.callCounts:nn.ParameterList = nn.ParameterList()
         self.maxk:int = maxk
 
+
     def addCollider(self, x:KnowledgeCollider):
         """Adds a knowledge collider to the router, circularly linking the router in the collider.
 
@@ -307,6 +305,7 @@ class KnowledgeRouter(KnowledgeCollider):
         # Add a count for the system to evaluate later logrithmically
         self.callCounts.append(nn.Parameter(t.ones((1), dtype=t.float64), requires_grad=False))
 
+
     def delCollider(self, idx:int) -> Tuple[KnowledgeCollider, t.Tensor]:
         # Remove the knowledge collider and save for later
         collider:KnowledgeCollider = self.subcolliders[idx]
@@ -318,6 +317,7 @@ class KnowledgeRouter(KnowledgeCollider):
         self.callCounts = self.callCounts[:idx].extend(self.callCounts[idx+1:])
 
         return (collider, count)
+
 
     def __forward__(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
         # Find the basis vectors of the input signals
