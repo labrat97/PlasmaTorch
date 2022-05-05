@@ -39,7 +39,8 @@ class PolarLens(KnowledgeFilter):
 
     def __forward__(self, x:t.Tensor) -> t.Tensor:
         # Create the lens as a signal
-        lensIntrinsics:t.Tensor = self.lensDir * tfft.irfft(self.lensBasis, n=self.lensBasis.size(-1), dim=-1, norm='ortho')
+        softlens:t.Tensor = isoftmax(self.lensBasis, dim=-1)
+        lensIntrinsics:t.Tensor = self.lensDir * tfft.irfft(softlens, n=softlens.size(-1), dim=-1, norm='ortho')
         lensSquish:t.Tensor = (lensIntrinsics + 1.) / 2.
 
         # Clip the lens into a circular padding aligning to the corners
