@@ -103,13 +103,6 @@ class InterferringLens(KnowledgeCollider):
         # Bitwise or everything together
         return InterferringLensPosition(int(nsDir | (weDir << 1)))
 
-    def __getDirScalars__(self) -> Tuple[int, int]:
-        # Get the internally stored direction as a scalar of -1 or 1 per axis
-        nsdir:t.int8 = self.lensDir[0] & (0b1 << 0)
-        wedir:t.int8 = self.lensDir[0] & (0b1 << 1)
-
-        return (2 * (nsdir, wedir)) - 1
-
     def __forward__(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
         # Run each channel through an individually defined lens
         la:t.Tensor = self.nsLens.forward(x=a)
