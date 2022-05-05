@@ -36,6 +36,9 @@ DEFAULT_PADDING:str = 'circular'
 DEFAULT_SIGNAL_LENS_PADDING:int = 5
 DEFAULT_SIGNAL_LENS_SAMPLES:int = DEFAULT_FFT_SAMPLES
 
+# The number of samples to use in the internal lens definition
+GREISS_SAMPLES:int = 196884
+
 
 @ts
 def isSmear(x:t.Tensor) -> bool:
