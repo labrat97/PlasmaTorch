@@ -4,12 +4,16 @@ from .knowledge import *
 
 from enum import Enum
 
+
+
 class PolarLensPosition(Enum):
     """Defines the discrete direction of observation through a lens that has only two
     directions to be observed through.
     """
-    NS = 0
-    SN = 1
+    NS = 0b0
+    SN = 0b1
+
+
 
 class PolarLens(KnowledgeFilter):
     """Defines a lens that can be viewed through two discrete directions (hence the
@@ -33,9 +37,11 @@ class PolarLens(KnowledgeFilter):
         # Store how much padding to add to the signal before the lensing, circularly
         self.signalPadding:nn.Parameter = nn.Parameter(abs(padding) + t.zeros((1), dtype=t.int64), requires_grad=False)
 
+
     def setDirection(self, dir:PolarLensPosition):
         # Translate to what the tensor can understand in the equation
         self.lensDir[0] = (2 * int(dir)) - 1
+
 
     def __forward__(self, x:t.Tensor) -> t.Tensor:
         # Create the lens as a signal
@@ -62,6 +68,7 @@ class PolarLens(KnowledgeFilter):
         return weightedResample(xpad, padIntrinsics, dim=-1)
 
 
+
 class InterferringLensPosition(Enum):
     """Defines the discrete direction of observation through a lens that can be viewed
     in a discrete cartesean setting.
@@ -70,6 +77,7 @@ class InterferringLensPosition(Enum):
     SNWE = 0b1 | (0b0 << 1)
     NSEW = 0b0 | (0b1 << 1)
     SNEW = 0b1 | (0b1 << 1)
+
 
 class InterferringLens(KnowledgeCollider):
     """Defines a lens that can be viewed through four discrete directions (hence the
@@ -87,6 +95,7 @@ class InterferringLens(KnowledgeCollider):
         self.nsLens:PolarLens = PolarLens(samples=samples, padding=padding, corrSamples=corrSamples, cdtype=self.cdtype)
         self.weLens:PolarLens = PolarLens(samples=samples, padding=padding, corrSamples=corrSamples, cdtype=self.cdtype)
 
+
     def setDirection(self, dir:InterferringLensPosition):
         # Split out the enum into its associated directions for PolarLenses
         nsDir:int = (int(dir) >> 0) & 0b1
@@ -96,6 +105,7 @@ class InterferringLens(KnowledgeCollider):
         self.nsLens.setDirection(nsDir)
         self.weLens.setDirection(weDir)
 
+
     def getDirection(self) -> InterferringLensPosition:
         # Get the individual directions
         nsDir:t.int8 = self.nsLens.lensDir[0]
@@ -103,6 +113,7 @@ class InterferringLens(KnowledgeCollider):
 
         # Bitwise or everything together
         return InterferringLensPosition(int(nsDir | (weDir << 1)))
+
 
     def __forward__(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
         # Run each channel through an individually defined lens
