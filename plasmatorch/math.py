@@ -1,13 +1,17 @@
 from .defaults import *
 from .conversions import toComplex, nantonum
 
+
+
 @ts
 def pi() -> t.Tensor:
     return (t.ones((1)) * 3.14159265358979323846264338327950288419716939937510).detach()
 
+
 @ts
 def emconst() -> t.Tensor:
     return (t.ones((1)) * 0.57721566490153286060651209008240243104215933593992).detach()
+
 
 @ts
 def phi() -> t.Tensor:
@@ -16,9 +20,11 @@ def phi() -> t.Tensor:
 
     return ((one + square) / 2).detach()
 
+
 @ts
 def asigphi() -> t.Tensor:
     return -t.log(phi() - 1)
+
 
 @ts
 def xbias(n:int, bias:int=0):
@@ -27,16 +33,19 @@ def xbias(n:int, bias:int=0):
         composer[i].add_(i)
     return composer
 
+
 @ts
 def latticeParams(dims:int, basisParam:t.Tensor=phi()) -> t.Tensor:
     powers = xbias(n=dims, bias=0)
     return basisParam ** (-powers)
+
 
 @ts
 def i() -> t.Tensor:
     return t.view_as_complex(t.stack(
         (t.zeros(1), t.ones(1)), \
         dim=-1)).detach()
+
 
 @ts
 def isoftmax(x:t.Tensor, dim:int) -> t.Tensor:
@@ -56,6 +65,7 @@ def isoftmax(x:t.Tensor, dim:int) -> t.Tensor:
     # Return in proper datatype
     return t.view_as_complex(t.stack((newReal, newImag), dim=-1))
 
+
 @ts
 def nsoftmax(x:t.Tensor, dims:List[int]) -> t.Tensor:
     # Because n^0 == 1, this should be an appropriate initializer
@@ -70,6 +80,7 @@ def nsoftmax(x:t.Tensor, dims:List[int]) -> t.Tensor:
         result.mul_(nroot)
 
     return result
+
 
 @ts
 def primishvals(n:int, base:t.Tensor=t.zeros(0, dtype=t.int64), gaussApprox:bool=False) -> t.Tensor:
@@ -100,6 +111,7 @@ def primishvals(n:int, base:t.Tensor=t.zeros(0, dtype=t.int64), gaussApprox:bool
         pitr  = int((itr - 3) / 2) + 1
 
     return result
+
 
 @ts
 def realprimishdist(x:t.Tensor, relative:bool=True, gaussApprox:bool=False) -> t.Tensor:
@@ -151,6 +163,7 @@ def realprimishdist(x:t.Tensor, relative:bool=True, gaussApprox:bool=False) -> t
     
     return result
 
+
 @ts
 def gaussianprimishdist(x:t.Tensor, relative:bool=True) -> t.Tensor:
     # Force complex type
@@ -179,15 +192,17 @@ def gaussianprimishdist(x:t.Tensor, relative:bool=True) -> t.Tensor:
     # Take the minimum distance
     magnitudePerc = rdcomposite.min(other=idcomposite)
     return magnitudePerc.min(other=gaussdist)
-    
+
+
 @ts
 def iprimishdist(x:t.Tensor, relative:bool=True) -> t.Tensor:
     if not t.is_complex(x):
         return realprimishdist(x, relative=relative)
     return gaussianprimishdist(x, relative=relative)
 
+
 @ts
-def isigmoid(x:t.Tensor) -> t.Tensor:
+def presigmoid(x:t.Tensor) -> t.Tensor:
     # Normal sigmoid
     if not x.is_complex():
         return t.sigmoid(x)
@@ -219,29 +234,58 @@ def isigmoid(x:t.Tensor) -> t.Tensor:
     examVal:t.Tensor = examineQuad * t.sigmoid(rotScalar * xabs)
 
     # Add everything together according to the previously applied boolean based scalars
-    finalSigmoidMag:t.Tensor = posVal + negVal + examVal
+    return posVal + negVal + examVal
+
+
+@ts
+def isigmoid(x:t.Tensor) -> t.Tensor:
+    # Normal sigmoid
+    if not x.is_complex():
+        return t.sigmoid(x)
+
+    # Get the prefixing magnitude from the presigmoid() equation defined above
+    preMag:t.Tensor = presigmoid(x)
 
     # Create the complex value alignment to finally push the signal through. As a note,
     # I really don't like the fact that there are hard non-differentiable absolute
     # values in this evaluation, but I would not like to lose the current sigmoid properties
-    xabs_e = t.view_as_complex(t.stack((x.real.abs(), x.imag.abs()), dim=-1))
-    sigmoidComplexVal:t.Tensor = xabs_e / xabs
+    xabs_e:t.Tensor = t.view_as_complex(t.stack((x.real.abs(), x.imag.abs()), dim=-1))
+    sigmoidComplexVal:t.Tensor = xabs_e / x.abs()
 
-    # NaN binding for zero cases
+    # NaN binding for zero cases. This is being used over the default sgn() call
+    #   due to the non-zero value that occurs at the complex origin in the isigmoid() function.
     sigmoidComplexVal = t.view_as_complex(t.stack(
         (t.nan_to_num(sigmoidComplexVal.real, nan=1.), t.nan_to_num(sigmoidComplexVal.imag, nan=0.)),
         dim=-1))
 
     # Calculate and return
-    return finalSigmoidMag * sigmoidComplexVal
+    return preMag * sigmoidComplexVal
+
+
+@ts
+def pretanh(x:t.Tensor) -> t.Tensor:
+    # Normal tanh
+    if not x.is_complex():
+        return t.tanh(x)
+
+    # This is not a real function, it kinda does tanh things over the complex plane.
+    # The way this actually works is by bounding the isigmoid function into the range
+    #   of (-1, 1) rather than (0, 1). This is effectively the same as a 
+    #   standard tanh evaluation in terms of nn activiation.
+    return (2. * presigmoid(x)) - 1.
+
 
 @ts
 def itanh(x:t.Tensor) -> t.Tensor:
-    # This is not a real function, it kinda does tanh things over the complex plane.
-    # The way this actually works is by bounding the isigmoid function into the range
-    #   of (-1, 1) rather than (0, 1). This is effectively the same, if not more efficient
-    #   than a standard tanh evaluation.
-    return 2. * (isigmoid(x) - isigmoid(t.zeros((1))))
+    # Normal tanh
+    if not x.is_complex():
+        return t.tanh(x)
+
+    # Add the complex signal to the magnitude calculation defined in the above
+    #   pretanh() method. This can only be done here due to the 0.+0.j base value
+    #   of the function.
+    return pretanh(x) * x.sgn()
+
 
 @ts
 def icos(x:t.Tensor) -> t.Tensor:
@@ -249,8 +293,11 @@ def icos(x:t.Tensor) -> t.Tensor:
     if not x.is_complex():
         return t.cos(x)
 
-    # Main conversion
+    # Main computation.
+    # A multiplier of 2. is needed on the angling system due to the fact that cos()
+    #   is secretly actually just sin() squared.
     return t.cos(x.abs()) * t.exp(i() * 2. * x.angle())
+
 
 @ts
 def isin(x:t.Tensor) -> t.Tensor:
@@ -258,8 +305,11 @@ def isin(x:t.Tensor) -> t.Tensor:
     if not x.is_complex():
         return t.sin(x)
 
-    # Main conversion
+    # Main computation.
+    # The sin() function actually maps perfectly to the complex plane, no weird identities
+    #   and fuckery are needed.
     return t.sin(x.abs()) * t.exp(i() * x.angle())
+
 
 @ts
 def hmean(x:t.Tensor, dim:int=-1) -> t.Tensor:
@@ -280,6 +330,7 @@ def hmean(x:t.Tensor, dim:int=-1) -> t.Tensor:
     # Calculate the harmonic mean
     return vals / invx.sum(dim=dim)
 
+
 @ts
 def harmonicvals(n:int, nosum:bool=False, addzero:bool=False) -> t.Tensor:
     # Quick error checking
@@ -299,6 +350,7 @@ def harmonicvals(n:int, nosum:bool=False, addzero:bool=False) -> t.Tensor:
     # Sum the triangle together so that the harmonic values come out
     return composition.transpose(-1, -2).sum(dim=-1)
 
+
 @ts
 def harmonicdist(x:t.Tensor) -> t.Tensor:
     # Gather constants for evaluation
@@ -315,6 +367,7 @@ def harmonicdist(x:t.Tensor) -> t.Tensor:
     # Find the closest harmonic value, refold the shape, then calculate the result
     closest = harmonics[finv].unflatten(0, inverse.size())
     return x - closest
+
 
 @ts
 def vfft(x:t.Tensor, n:int=-1, dim:int=-1, norm:str=DEFAULT_FFT_NORM) -> Tuple[t.Tensor, int]:
@@ -334,6 +387,7 @@ def vfft(x:t.Tensor, n:int=-1, dim:int=-1, norm:str=DEFAULT_FFT_NORM) -> Tuple[t
     if x.is_complex():
         return (tfft.fft(x, n=n, dim=dim, norm=norm), 0)
     return (tfft.rfft(x, n=n, dim=dim, norm=norm), 1)
+
 
 @ts
 def ivfft(x:t.Tensor, n:int=-1, ikey:int=0, dim:int=-1, norm:str=DEFAULT_FFT_NORM) -> t.Tensor:
