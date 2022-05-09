@@ -204,12 +204,11 @@ def isigmoid(x:t.Tensor) -> t.Tensor:
     examineQuadRight:t.Tensor = t.logical_and(x.real >= 0, x.imag < 0)
     examineQuadLeft:t.Tensor = t.logical_and(x.imag >= 0, x.real < 0)
     examineQuad:t.Tensor = t.logical_and(examineQuadLeft, examineQuadRight).type(t.uint8)
-    
 
     # The positive and negative quadrants are just the magnitude of the absolute value piped into
     # the evaluation of a normal sigmoid, then bound to the appropriate side of the sign
-    posVal:t.Tensor = posQuad * t.sigmoid(posQuad * xabs)
-    negVal:t.Tensor = negQuad * t.sigmoid(negQuad * -xabs)
+    posVal:t.Tensor = posQuad * t.sigmoid(xabs)
+    negVal:t.Tensor = negQuad * t.sigmoid(-xabs)
 
     # The "examine" quadrants will use a cosine activation to toggle between the signs compounded in the
     # magnitude evaluation for the sigmoid.
@@ -217,7 +216,7 @@ def isigmoid(x:t.Tensor) -> t.Tensor:
         (examineQuadLeft.type(t.uint8) * (ang - (PI2))*2) \
             + (examineQuadRight.type(t.uint8) * (ang + (PI2))*2)
     ))
-    examVal:t.Tensor = examineQuad * t.sigmoid(examineQuad * rotScalar * xabs)
+    examVal:t.Tensor = examineQuad * t.sigmoid(rotScalar * xabs)
 
     # Add everything together according to the previously applied boolean based scalars
     finalSigmoidMag:t.Tensor = posVal + negVal + examVal
@@ -228,8 +227,21 @@ def isigmoid(x:t.Tensor) -> t.Tensor:
     xabs_e = t.view_as_complex(t.stack((x.real.abs(), x.imag.abs()), dim=-1))
     sigmoidComplexVal:t.Tensor = xabs_e / xabs
 
+    # NaN binding for zero cases
+    sigmoidComplexVal = t.view_as_complex(t.stack(
+        (t.nan_to_num(sigmoidComplexVal.real, nan=1.), t.nan_to_num(sigmoidComplexVal.imag, nan=0.)),
+        dim=-1))
+
     # Calculate and return
     return finalSigmoidMag * sigmoidComplexVal
+
+@ts
+def itanh(x:t.Tensor) -> t.Tensor:
+    # This is not a real function, it kinda does tanh things over the complex plane.
+    # The way this actually works is by bounding the isigmoid function into the range
+    #   of (-1, 1) rather than (0, 1). This is effectively the same, if not more efficient
+    #   than a standard tanh evaluation.
+    return 2. * (isigmoid(x) - isigmoid(t.zeros((1))))
 
 @ts
 def icos(x:t.Tensor) -> t.Tensor:
