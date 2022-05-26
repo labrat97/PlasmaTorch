@@ -2,7 +2,7 @@ from .defaults import *
 from .math import *
 from .activations import *
 from .conversions import toComplex
-from .sizing import paddim
+from .sizing import paddim, resignal
 
 
 @ts
@@ -26,8 +26,8 @@ def correlation(x:t.Tensor, y:t.Tensor, dim:int=-1, isbasis:bool=False) -> t.Ten
 
     if not isbasis:
         # Find basis of the signals
-        xfft:t.Tensor = tfft.fft(x, n=samples, dim=dim)
-        yfft:t.Tensor = tfft.fft(y, n=samples, dim=dim)
+        xfft, _ = vfft(toComplex(x), n=samples, dim=dim)
+        yfft, _ = vfft(toComplex(y), n=samples, dim=dim)
     elif xsize[dim] != ysize[dim]:
         # Transfer over the signals to just be computed onto
         xfft:t.Tensor = toComplex(paddim(x, lowpad=0, highpad=samples-xsize[dim], dim=dim))
@@ -37,7 +37,7 @@ def correlation(x:t.Tensor, y:t.Tensor, dim:int=-1, isbasis:bool=False) -> t.Ten
         yfft:t.Tensor = toComplex(y)
 
     # Calculate the correlation
-    return tfft.ifft(xfft * yfft.conj(), n=samples, dim=dim)
+    return ivfft(xfft * yfft.conj(), n=samples, dim=dim)
 
 
 @ts
@@ -74,12 +74,10 @@ def hypercorrelation(x:t.Tensor, y:t.Tensor, cdtype:t.dtype=DEFAULT_COMPLEX_DTYP
     # Extract the max samples used for the function and pad with an FFT relay
     if xsize[dim] > ysize[dim]:
         samples:int = xsize[dim]
-        tempfft:t.Tensor = tfft.fft(y, n=samples, dim=dim)
-        y = tfft.ifft(tempfft, n=samples, dim=dim)
+        y = resignal(y, samples=samples, dim=dim)
     elif ysize[dim] > xsize[dim]:
         samples:int = ysize[dim]
-        tempfft:t.Tensor = tfft.fft(x, n=samples, dim=dim)
-        x = tfft.ifft(tempfft, n=samples, dim=dim)
+        x = resignal(x, samples=samples, dim=dim)
     else:
         samples:int = xsize[dim]
 
@@ -94,8 +92,8 @@ def hypercorrelation(x:t.Tensor, y:t.Tensor, cdtype:t.dtype=DEFAULT_COMPLEX_DTYP
     # Deconstruct signals
     for tape in [xfftTape, yfftTape]:
         for idx in range(1, FFT_LAYERS + 1):
-            tape[FFT_TAPE_CENTER + idx] = tfft.fft(tape[FFT_TAPE_CENTER + idx - 1], n=samples, dim=dim)
-            tape[FFT_TAPE_CENTER - idx] = tfft.fft(tape[FFT_TAPE_CENTER + idx + 1], n=samples, dim=dim)
+            tape[FFT_TAPE_CENTER + idx], _ = vfft(tape[FFT_TAPE_CENTER + idx - 1], n=samples, dim=dim)
+            tape[FFT_TAPE_CENTER - idx], _ = vfft(tape[FFT_TAPE_CENTER + idx + 1], n=samples, dim=dim)
     
     # Apply full cross correlation between different representations of the input signals
     if x.numel() > y.numel():
@@ -104,20 +102,20 @@ def hypercorrelation(x:t.Tensor, y:t.Tensor, cdtype:t.dtype=DEFAULT_COMPLEX_DTYP
         unfiltered:t.Tensor = t.zeros_like(yfftTape).unsqueeze(-1) @ tapeConstructor
     for xidx in range(FFT_TAPE_LENGTH):
         for yidx in range(FFT_TAPE_LENGTH):
-            unfiltered[..., xidx, yidx] = correlation(xfftTape[..., xidx], yfftTape[..., yidx])
+            unfiltered[..., xidx, yidx] = correlation(xfftTape[..., xidx], yfftTape[..., yidx], dim=dim, isbasis=True)
     
     # Quick exit from the computation
     if fullOutput:
         return unfiltered
     
     # Find mean, min, max, median, and mode
-    meanbase:t.Tensor = unfiltered.mean(dim=-1)
-    corrmean:t.Tensor = meanbase.mean(dim=-1)
-    corrmin:t.Tensor = meanbase.min(dim=-1)[0]
-    corrmax:t.Tensor = meanbase.max(dim=-1)[0]
-    corrmedian:t.Tensor = meanbase.median(dim=-1)[0]
-    corrmode:t.Tensor = meanbase.mode(dim=-1)[0]
-    corrmse:t.Tensor = (unfiltered * unfiltered).mean(dim=-1).mean(dim=-1)
+    meanbase:t.Tensor = unfiltered.mean(dim=dim)
+    corrmean:t.Tensor = meanbase.mean(dim=dim)
+    corrmin:t.Tensor = meanbase.min(dim=dim)[0]
+    corrmax:t.Tensor = meanbase.max(dim=dim)[0]
+    corrmedian:t.Tensor = meanbase.median(dim=dim)[0]
+    corrmode:t.Tensor = meanbase.mode(dim=dim)[0]
+    corrmse:t.Tensor = (unfiltered * unfiltered).mean(dim=dim).mean(dim=dim)
 
     # Return as a single tensor in the previously commented/written order
     return t.stack((corrmean, corrmin, corrmax, corrmedian, corrmode, corrmse), dim=-1)
@@ -214,18 +212,14 @@ def skeeter(teacher:t.Tensor, student:t.Tensor, center:t.Tensor, teacherTemp:flo
     else:
         samples:int = ssize[dim]
     
-    # Get the basis of the incoming signals
-    tenurefft = tfft.fft(tenure, n=samples, dim=dim)
-    studentfft = tfft.fft(student, n=samples, dim=dim)
-    
     # Soften and sharpen the inputs as somewhat seen in the DINO loss from (what is likely now formerly known as) Facebook AI
-    softtenfft:t.Tensor = isoftmax((tenurefft - center) / teacherTemp, dim=dim)
-    softstufft:t.Tensor = isoftmax(studentfft / studentTemp, dim=dim)
+    softten:t.Tensor = isoftmax((tenure - center) / teacherTemp, dim=dim)
+    softstu:t.Tensor = isoftmax(student / studentTemp, dim=dim)
 
     # Turning the signal from a frequency domain signal back to a time domain
     # signal can be temporarily ignored as hypercorrelation operates accross all
     # possible occuring orders of the time-frequency superposition
-    hypercorr:t.Tensor = hypercorrelation(x=softtenfft, y=softstufft, cdtype=cdtype, \
+    hypercorr:t.Tensor = hypercorrelation(x=softten, y=softstu, cdtype=cdtype, \
         dim=dim, fullOutput=False, extraTransform=False)
     corrmean = hypercorr[..., HYDX_CORRMEAN()]
     corrmedian = hypercorr[..., HYDX_CORRMEDIAN()]

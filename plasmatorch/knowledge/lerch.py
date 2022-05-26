@@ -5,8 +5,8 @@ from ..conversions import nantonum, toComplex
 
 
 class LerchFilter(KnowledgeCollider):
-    def __init__(self, corrSamples:int=DEFAULT_FFT_SAMPLES, ioSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
-        super(LerchFilter, self).__init__(corrSamples=corrSamples, inputSamples=ioSamples, outputSamples=ioSamples, cdtype=cdtype)
+    def __init__(self, keySamples:int=DEFAULT_FFT_SAMPLES, ioSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+        super(LerchFilter, self).__init__(keySamples=keySamples, inputSamples=ioSamples, outputSamples=ioSamples, cdtype=cdtype)
 
         # Store the internal lambda values and plug into the lambda section of the Lerch-Zeta function
         self.lambdas:nn.Parameter = nn.Parameter(toComplex(t.randn((2, ioSamples), dtype=self.cdtype)))

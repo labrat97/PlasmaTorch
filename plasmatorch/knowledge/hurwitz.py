@@ -1,13 +1,13 @@
 from ..defaults import *
 from ..zeta import *
 from .routing import KnowledgeCollider
-from ..math import nsoftmax
+from ..math import nsoftmax, vfft
 from ..conversions import nantonum
 
 
 class HurwitzFilter(KnowledgeCollider):
-    def __init__(self, corrSamples:int=DEFAULT_FFT_SAMPLES, ioSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
-        super(HurwitzFilter, self).__init__(corrSamples=corrSamples, inputSamples=ioSamples, outputSamples=ioSamples, cdtype=cdtype)
+    def __init__(self, keySamples:int=DEFAULT_FFT_SAMPLES, ioSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+        super(HurwitzFilter, self).__init__(keySamples=keySamples, inputSamples=ioSamples, outputSamples=ioSamples, cdtype=cdtype)
 
         # Store parameters to remap the input values to one another prior to the evaluation of the
         # hurwitz zeta function.
@@ -15,8 +15,8 @@ class HurwitzFilter(KnowledgeCollider):
 
     def __forward__(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
         # Find the basis vectors of the signal
-        afft = tfft.fft(a, n=self.inputSamples, dim=-1)
-        bfft = tfft.fft(b, n=self.inputSamples, dim=-1)
+        afft, _ = vfft(a, n=self.inputSamples, dim=-1)
+        bfft, _ = vfft(b, n=self.inputSamples, dim=-1)
 
         # Remap the input vectors before the evaluation of the Hurwitz-Zeta function
         softmap = nsoftmax(self.remap, dims=[-1, -2])

@@ -3,7 +3,7 @@ from .math import nantonum, xbias
 
 
 @ts
-def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str='constant', value:float=0.0):
+def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str=DEFAULT_PADDING, value:float=0.0):
     # Transpose the dim of interest to the end of the tensor
     xT:t.Tensor = x.transpose(dim, -1)
 
@@ -14,7 +14,7 @@ def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str='constant', va
     return xPad.transpose(dim, -1)
 
 @ts
-def dimmatch(a:t.Tensor, b:t.Tensor, dim:int, mode:str='constant', value:float=0.0) -> Tuple[t.Tensor, t.Tensor]:
+def dimmatch(a:t.Tensor, b:t.Tensor, dim:int, mode:str=DEFAULT_PADDING, value:float=0.0) -> Tuple[t.Tensor, t.Tensor]:
     # Extract sizing parameters
     asize:int = a.size()[dim]
     bsize:int = b.size()[dim]

@@ -5,8 +5,8 @@ from ..entanglement import *
 
 
 class PipelineFilter(KnowledgeCollider):
-    def __init__(self, pipes:nn.ModuleList, scaleCoeff:t.Tensor=phi(), corrSamples:int=DEFAULT_FFT_SAMPLES, ioSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
-        super(KnowledgeCollider, self).__init__(corrSamples=corrSamples, inputSamples=ioSamples, outputSamples=ioSamples, cdtype=cdtype)
+    def __init__(self, pipes:nn.ModuleList, scaleCoeff:t.Tensor=phi(), keySamples:int=DEFAULT_FFT_SAMPLES, ioSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+        super(KnowledgeCollider, self).__init__(keySamples=keySamples, inputSamples=ioSamples, outputSamples=ioSamples, cdtype=cdtype)
 
         # To handle importing sets of Scaffold Filters, a scalar divisor of Phi is recommended
         # for each layer of filter. The idea behind this is the preservation of presented data.
