@@ -10,10 +10,17 @@ from typing import Tuple, List, Dict
 DEFAULT_DTYPE:t.dtype = t.float32
 DEFAULT_COMPLEX_DTYPE:t.dtype = t.complex64
 
+# Some constants from Greiss Algebra and Monster Group Vertex Algebra
+GREISS_SAMPLES:int = 196884
+MONSTER_CURVES:int = 196883
+SUPERSINGULAR_PRIMES_LH:List[int] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 41, 47, 59, 71]
+SUPERSINGULAR_PRIMES_HL:List[int] = SUPERSINGULAR_PRIMES_LH[::-1]
+SUPERSINGULAR_PRIMES:List[int] = SUPERSINGULAR_PRIMES_HL
+
 # The FFT samples used are done so like this to account for the full expressiveness
 #   of the Finite Sporadic Cyclic Groups. Enabling the full causal sample resolution
 #   allows for all of the sporadic patterns in reality to be described according to Conway.
-DEFAULT_FFT_SAMPLES:int = 196884
+DEFAULT_FFT_SAMPLES:int = GREISS_SAMPLES
 DEFAULT_FFT_NORM:str = 'ortho'
 # The following numbers are the prime factors of 196884
 SMALL_FFT_SAMPLES:int = 1823
@@ -36,8 +43,8 @@ DEFAULT_PADDING:str = 'circular'
 DEFAULT_SIGNAL_LENS_PADDING:int = 5
 DEFAULT_SIGNAL_LENS_SAMPLES:int = DEFAULT_FFT_SAMPLES
 
-# The number of samples to use in the internal lens definition
-GREISS_SAMPLES:int = 196884
+# The normal amount of lenses used in a signal aggregation system
+AGGREGATE_LENSES:int = 7
 
 
 @ts
