@@ -6,8 +6,8 @@ from ..conversions import nantonum
 
 
 class HurwitzFilter(KnowledgeCollider):
-    def __init__(self, corrSamples:int=DEFAULT_FFT_SAMPLES, ioSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
-        super(HurwitzFilter, self).__init__(corrSamples=corrSamples, inputSamples=ioSamples, outputSamples=ioSamples, cdtype=cdtype)
+    def __init__(self, keySamples:int=DEFAULT_FFT_SAMPLES, ioSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+        super(HurwitzFilter, self).__init__(keySamples=keySamples, inputSamples=ioSamples, outputSamples=ioSamples, cdtype=cdtype)
 
         # Store parameters to remap the input values to one another prior to the evaluation of the
         # hurwitz zeta function.

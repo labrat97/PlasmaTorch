@@ -4,6 +4,7 @@ from ..conversions import *
 from ..sizing import *
 from ..activations import *
 from ..losses import correlation
+from ..lens import lens
 
 from abc import ABC, abstractmethod
 import time
@@ -16,11 +17,11 @@ class KnowledgeFilter(nn.Module, ABC):
     to signals in a per value way.
     """
     @abstractmethod
-    def __init__(self, corrSamples:int=DEFAULT_FFT_SAMPLES, inputSamples:int=DEFAULT_FFT_SAMPLES, outputSamples:int=DEFAULT_FFT_SAMPLES, attentiveResample:bool=True, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+    def __init__(self, keySamples:int=DEFAULT_FFT_SAMPLES, inputSamples:int=DEFAULT_FFT_SAMPLES, outputSamples:int=DEFAULT_FFT_SAMPLES, attentiveResample:bool=True, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
         """The abstract constructor for a knowledge filter.
 
         Args:
-            corrSamples (int, optional): The amount of samples used to describe each curve. Defaults to DEFAULT_FFT_SAMPLES.
+            keySamples (int, optional): The amount of samples used to describe each curve's position. Defaults to DEFAULT_FFT_SAMPLES.
             inputSamples (int, optional): The amount of samples to signal the input with. Defaults to DEFAULT_FFT_SAMPLES.
             outputSamples (int, optional): The amount of samples to signal the output with. Defaults to DEFAULT_FFT_SAMPLES.
             attentiveResample (bool, optional): Use a weighted resampling system to find a better view of the input. Defaults to True.
@@ -29,15 +30,17 @@ class KnowledgeFilter(nn.Module, ABC):
         super(KnowledgeFilter, self).__init__()
 
         # Create parameters to be modified and stored during runtime
-        self.corrToken:nn.Parameter = nn.Parameter(toComplex(t.zeros((corrSamples), dtype=cdtype)), requires_grad=True)
+        self.keyBasis:nn.Parameter = nn.Parameter(toComplex(t.zeros((keySamples), dtype=cdtype)), requires_grad=True)
+        self.keyCarry:nn.Parameter = nn.Parameter(t.zeros_like(self.keyBasis), requires_grad=True)
+        self.corrBias:nn.Parameter = nn.Parameter(t.zeros_like(self.keyBasis), requires_grad=True)
         self.callCount:nn.Parameter = nn.Parameter(t.zeros((1), dtype=t.int64), requires_grad=False)
 
         # Some runtime data to make the filter optimize the signals coming in
-        self.corrSamples:int = self.corrToken.size(-1)
-        self.cdtype:t.dtype = self.corrToken.dtype
+        self.keySamples:int = self.keyBasis.size(-1)
+        self.cdtype:t.dtype = self.keyBasis.dtype
         self.inputSamples:int = inputSamples
         if inputSamples == 0:
-            self.inputSamples = self.corrSamples
+            self.inputSamples = self.keySamples
         self.outputSamples:int = outputSamples
         if outputSamples == 0:
             self.outputSamples = self.inputSamples
@@ -48,6 +51,10 @@ class KnowledgeFilter(nn.Module, ABC):
         self.resampleWeight:nn.Parameter = None
         if attentiveResample:
             self.resampleWeight = nn.Parameter(toComplex(t.zeros((inputSamples), dtype=cdtype)))
+
+        # Cache the last result of the class to carry more data forward into methods optionally
+        # This should not be serialized so no Parameter
+        self.lastFilter:t.Tensor = None
 
 
     def implicitCorrelation(self, x:t.Tensor, isbasis:bool=True) -> t.Tensor:
@@ -62,11 +69,24 @@ class KnowledgeFilter(nn.Module, ABC):
         Returns:
             t.Tensor: The average correlation accross the samples, curves, and vectors.
         """
-        selfcorr = isigmoid(self.corrToken)
-        if x.size(-1) != self.corrSamples:
-            x = resignal(x, samples=self.corrSamples, dim=-1)
+        # Calculate the self correlation based on the internal positioning keyBasis
+        selfCarry = isigmoid(self.keyCarry)
+        selfCorr = isigmoid((selfCarry * self.keyBasis) + self.corrBias)
+
+        # Assert the input signal is signal compatible with the correlation signal
+        if x.size(-1) != self.keySamples:
+            x = resignal(x, samples=self.keySamples, dim=-1)
         
-        return correlation(x=x, y=selfcorr, dim=-1, isbasis=isbasis).mean(dim=-1).mean(dim=-1)
+        return correlation(x=x, y=selfCorr, dim=-1, isbasis=isbasis).mean(dim=-1).mean(dim=-1)
+    
+    
+    def keySignal(self) -> t.Tensor:
+        """Get the key token encoded as a signal.
+
+        Returns:
+            t.Tensor: The key signal.
+        """
+        return tfft.ifft(self.keyBasis)
 
 
     @abstractmethod
@@ -101,7 +121,7 @@ class KnowledgeFilter(nn.Module, ABC):
                 # Turn the signal into a continuous signal (essentially a fully differentiable lens)
                 sampleWeight:t.Tensor = tfft.irfft(actWeight, n=actWeight.size(-1), dim=-1, norm='ortho')
                 # Apply the lens to the input values
-                wx:t.Tensor = weightedResample(x, lens=sampleWeight, dim=-1)
+                wx:t.Tensor = lens(x, lens=sampleWeight, dim=-1)
         else:
             # No valid input sample setting was provided, ensure complex representation
             wx:t.Tensor = toComplex(x)
@@ -121,6 +141,9 @@ class KnowledgeFilter(nn.Module, ABC):
         # Log the execution time of this function for later evaluation.
         self.lastExec = time.time() - beginExec
 
+        # Save a reference to the data last returned by this filter
+        self.lastFilter = result
+
         return result
 
 
@@ -131,11 +154,11 @@ class KnowledgeCollider(nn.Module, ABC):
     other KnowledgeColliders or structures looking to collide knowledge from plasmatorch.
     """
     @abstractmethod
-    def __init__(self, corrSamples:int=DEFAULT_FFT_SAMPLES, inputSamples:int=DEFAULT_FFT_SAMPLES, outputSamples:int=DEFAULT_FFT_SAMPLES, attentiveResample:bool=True, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+    def __init__(self, keySamples:int=DEFAULT_FFT_SAMPLES, inputSamples:int=DEFAULT_FFT_SAMPLES, outputSamples:int=DEFAULT_FFT_SAMPLES, attentiveResample:bool=True, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
         """The abstract constructor for a knowledge collider.
 
         Args:
-            corrSamples (int, optional): The amount of samples to describe each curve. Defaults to DEFAULT_FFT_SAMPLES.
+            keySamples (int, optional): The amount of samples to describe each curve. Defaults to DEFAULT_FFT_SAMPLES.
             inputSamples (int, optional): The amount of samples to signal the input with. Defaults to DEFAULT_FFT_SAMPLES.
             outputSamples (int, optional): The amount of samples to signal the output with. Defaults to DEFAULT_FFT_SAMPLES.
             attentiveResample (bool, optional): Use a weighted resampling system to find a better view of the input. Defaults to True.
@@ -144,16 +167,17 @@ class KnowledgeCollider(nn.Module, ABC):
         super(KnowledgeCollider, self).__init__()
         
         # Create parameters to be modified and stored
-        self.corrToken:nn.Parameter = nn.Parameter(toComplex(t.zeros((2, corrSamples), dtype=cdtype)), requires_grad=True)
-        self.routers:nn.ModuleList = nn.ModuleList()
+        self.keyBasis:nn.Parameter = nn.Parameter(toComplex(t.zeros((2, keySamples), dtype=cdtype)), requires_grad=True)
+        self.keyCarry:nn.Parameter = nn.Parameter(t.zeros_like(self.keyBasis), requires_grad=True)
+        self.corrBias:nn.Parameter = nn.Parameter(t.zeros_like(self.keyBasis), requires_grad=True)
         self.callCount:nn.Parameter = nn.Parameter(t.zeros((1), dtype=t.int64), requires_grad=False)
 
         # Some runtime data to make the filter optimize the signals coming in
-        self.corrSamples:int = self.corrToken.size(-1)
-        self.cdtype:t.dtype = self.corrToken.dtype
+        self.keySamples:int = self.keyBasis.size(-1)
+        self.cdtype:t.dtype = self.keyBasis.dtype
         self.inputSamples:int = inputSamples
         if inputSamples == 0:
-            self.inputSamples = self.corrSamples
+            self.inputSamples = self.keySamples
         self.outputSamples:int = outputSamples
         if outputSamples == 0:
             self.outputSamples = self.inputSamples
@@ -164,6 +188,10 @@ class KnowledgeCollider(nn.Module, ABC):
         self.resampleWeight:nn.Parameter = None
         if attentiveResample:
             self.resampleWeight = nn.Parameter(toComplex(t.zeros((2, inputSamples), dtype=cdtype)))
+
+        # Cache the last result of the class to carry more data forward into methods optionally
+        # This should not be saved when serialized, so no Parameter
+        self.lastCollision:t.Tensor = None
 
 
     def implicitCorrelation(self, a:t.Tensor, b:t.Tensor, isbasis:bool=True) -> t.Tensor:
@@ -179,18 +207,19 @@ class KnowledgeCollider(nn.Module, ABC):
         Returns:
             t.Tensor: The average correlation accross the samples, curves, and vectors.
         """
-        # Put the self correlation into an easy to process bounds
-        selfcorr = isigmoid(self.corrToken)
+        # Put the self correlation into an easy to process bounds, processing from the key
+        selfCarry = isigmoid(self.keyCarry)
+        selfCorr = isigmoid((selfCarry * self.keyBasis) + self.corrBias)
 
         # Resample the input vectors if needed
-        if a.size(-1) != self.corrSamples:
-            a = resignal(x=a, samples=self.corrSamples, dim=-1)
-        if b.size(-1) != self.corrSamples:
-            b = resignal(x=b, samples=self.corrSamples, dim=-1)
+        if a.size(-1) != self.keySamples:
+            a = resignal(x=a, samples=self.keySamples, dim=-1)
+        if b.size(-1) != self.keySamples:
+            b = resignal(x=b, samples=self.keySamples, dim=-1)
 
         # Find the respective correlation from the token with the input signals
-        acorr:t.Tensor = correlation(x=a, y=selfcorr[0], dim=-1, isbasis=isbasis).mean(dim=-1).mean(dim=-1)
-        bcorr:t.Tensor = correlation(x=b, y=selfcorr[1], dim=-1, isbasis=isbasis).mean(dim=-1).mean(dim=-1)
+        acorr:t.Tensor = correlation(x=a, y=selfCorr[0], dim=-1, isbasis=isbasis).mean(dim=-1).mean(dim=-1)
+        bcorr:t.Tensor = correlation(x=b, y=selfCorr[1], dim=-1, isbasis=isbasis).mean(dim=-1).mean(dim=-1)
 
         # Find the mean of the mean correlations
         return (acorr + bcorr) / 2.
@@ -216,7 +245,7 @@ class KnowledgeCollider(nn.Module, ABC):
 
         # Resample the input vectors to match the internal expected sample count
         if self.inputSamples > 0:
-            if self.resampleWeight is None:
+            if self.resampler is None:
                 # Use a basic Fourier Transform method to uniformly preserve the input signal
                 if self.inputSamples > 0 and a.size(-1) != self.inputSamples:
                     wa:t.Tensor = resignal(a, samples=self.inputSamples, dim=-1)
@@ -237,8 +266,8 @@ class KnowledgeCollider(nn.Module, ABC):
                 sampleWeightB:t.Tensor = tfft.irfft(actWeightB, n=actWeightB.size(-1), dim=-1, norm='ortho')
 
                 # Apply lens to the input values
-                wa:t.Tensor = weightedResample(a, lens=sampleWeightA, dim=-1)
-                wb:t.Tensor = weightedResample(b, lens=sampleWeightB, dim=-1)
+                wa:t.Tensor = lens(a, lens=sampleWeightA, dim=-1)
+                wb:t.Tensor = lens(b, lens=sampleWeightB, dim=-1)
         else:
             wa:t.Tensor = toComplex(a)
             wb:t.Tensor = toComplex(b)
@@ -260,6 +289,9 @@ class KnowledgeCollider(nn.Module, ABC):
         # Log the execution time of this function for later evaluation.
         self.lastExec = time.time() - beginExec
 
+        # Save a reference to the data last returned by this filter
+        self.lastCollision = result
+
         return result
 
 
@@ -273,18 +305,18 @@ class KnowledgeRouter(KnowledgeCollider):
     set of amplitudes from the previous signal, making the potential for things like the harmonic series
     just fall out.
     """
-    def __init__(self, maxk:int=3, corrSamples:int=DEFAULT_FFT_SAMPLES, outputSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+    def __init__(self, maxk:int=3, keySamples:int=DEFAULT_FFT_SAMPLES, outputSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
         """The constructor for a KnowledgeRouter, defining performance parameters 
 
         Args:
             maxk (int, optional): The starting amount of maximum signals to evaluate. Defaults to 3.
-            corrSamples (int, optional): The amount of samples to describe each curve. Defaults to DEFAULT_FFT_SAMPLES.
+            keySamples (int, optional): The amount of samples to describe each curve. Defaults to DEFAULT_FFT_SAMPLES.
             cdtype (t.dtype, optional): The default datatype for the complex correlation parameter. Defaults to DEFAULT_COMPLEX_DTYPE.
         """
-        super(KnowledgeRouter, self).__init__(corrSamples=corrSamples, inputSamples=-1, outputSamples=outputSamples, cdtype=cdtype)
+        super(KnowledgeRouter, self).__init__(keySamples=keySamples, inputSamples=-1, outputSamples=outputSamples, cdtype=cdtype)
 
         # Store all of the colliders that the router can call to
-        self.correlationMask:nn.Parameter = nn.Parameter(toComplex(t.zeros((self.corrSamples, self.corrSamples), dtype=self.cdtype)))
+        self.correlationMask:nn.Parameter = nn.Parameter(toComplex(t.zeros((self.keySamples, self.keySamples), dtype=self.cdtype)))
         self.correlationPolarization:nn.Parameter = nn.Parameter(t.zeros((1), dtype=self.correlationMask.real.dtype))
         self.subcolliders:nn.ModuleList = nn.ModuleList()
         self.callCounts:nn.ParameterList = nn.ParameterList()
@@ -321,8 +353,8 @@ class KnowledgeRouter(KnowledgeCollider):
 
     def __forward__(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
         # Find the basis vectors of the input signals
-        afft, _ = vfft(a, n=self.corrSamples, dim=-1)
-        bfft, _ = vfft(b, n=self.corrSamples, dim=-1)
+        afft = tfft.fft(a, n=self.keySamples, dim=-1)
+        bfft = tfft.fft(b, n=self.keySamples, dim=-1)
 
         # Entangle the signals with the `nsoftmax` function and a matmul, then sum out orthogonally
         superposition:t.Tensor = (afft.unsqueeze(-1) @ bfft.unsqueeze(-1).transpose(-1,-2)) * nsoftmax(self.correlationMask, dims=[-1,-2])
