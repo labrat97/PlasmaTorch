@@ -7,7 +7,7 @@ from enum import Enum
 
 
 @ts
-def lens(x:t.Tensor, lens:t.Tensor, padding:int=DEFAULT_SIGNAL_LENS_PADDING, dim=-1) -> t.Tensor:
+def lens(x:t.Tensor, lens:t.Tensor, padding:int=DEFAULT_SIGNAL_LENS_PADDING, dim:int=-1) -> t.Tensor:
     # Cast the lens to having something of circular padding with aligned corners
     lensSquish:t.Tensor = (lens + 1.) / 2.
     lensCast:t.Tensor = lensSquish.to(t.int64, non_blocking=True)
@@ -46,7 +46,8 @@ class PolarLens(KnowledgeFilter):
     """
     def __init__(self, samples:int=DEFAULT_SIGNAL_LENS_SAMPLES, padding:int=DEFAULT_SIGNAL_LENS_PADDING,
         corrSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
-
+        # The attentive resample system is essentially a shitty lens that isn't a module
+        #   used as a parameter in the super class for resizing incoming signals.
         super(PolarLens, self).__init__(corrSamples=corrSamples, inputSamples=-1, outputSamples=samples, 
             attentiveResample=False, cdtype=cdtype)
 
@@ -63,9 +64,15 @@ class PolarLens(KnowledgeFilter):
         self.signalPadding:nn.Parameter = nn.Parameter(abs(padding) + t.zeros((1), dtype=t.int64), requires_grad=False)
 
 
-    def setDirection(self, dir:PolarLensPosition):
+    def setDirection(self, dir:PolarLensPosition) -> PolarLensPosition:
+        # Save the old value just in case that is useful and return
+        oldValue:PolarLensPosition = PolarLensPosition((self.lensDir[0] + 1) / 2)
+
         # Translate to what the tensor can understand in the equation
         self.lensDir[0] = (2 * int(dir)) - 1
+
+        # Return the replaced old value
+        return oldValue
 
 
     def __forward__(self, x:t.Tensor) -> t.Tensor:
