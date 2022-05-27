@@ -5,12 +5,12 @@ from .routing import KnowledgeCollider
 
 # TODO: Fuck, this isn't needed, integrate functionality into the router; break out method
 # TODO: FUCK, THIS IS NEEDED. FUCK THE ROUTER, IT ROUTES AND IS TYPE COMPATIBLE WITH IT'S FILTERS
-class Superfolder(nn.Module):
+class Aggregator(nn.Module):
     def __init__(self, lensSlots:int=AGGREGATE_LENSES, outputSamples:int=DEFAULT_FFT_SAMPLES, 
     colliders:List[KnowledgeCollider]=None, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
         # Do not use the attentive resample option available in the aggregator as it is essentially 
         #   just a lensing system.
-        super(Superfolder, self).__init__()
+        super(Aggregator, self).__init__()
 
         # Used for building complex types
         typeDummy:t.Tensor = toComplex(t.zeros((1), dtype=cdtype))
