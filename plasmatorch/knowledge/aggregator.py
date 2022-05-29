@@ -1,6 +1,7 @@
 from ..defaults import *
 from ..activations import *
 from ..conversions import toComplex
+from ..sizing import weightedResample
 from .routing import KnowledgeCollider
 
 
@@ -86,7 +87,11 @@ class Aggregator(nn.Module):
             # Get the associated lens position for the collision
             ldxArr[idx] = self.__keyToIdx__(collider)
 
-        # Stack all of the lens indexes into a set of interpolatable indicies
-        ldx:t.Tensor = t.stack(ldxArr, dim=-1)
+        # Stack all of the lens indexes into a set of interpolatable indicies,
+        #   then align to the corners by binding into (-1.0, 1.0)
+        ldx:t.Tensor = (2.0 * t.stack(ldxArr, dim=-1)) - 1.0
 
-        
+        # Choose the lens to use, per collision, smoothly through resampling
+        # TODO: Test whatever the fuck is going on here
+        lensSample:t.Tensor = weightedResample(self.lensBasis, ldx, dim=1, ortho=False)
+
