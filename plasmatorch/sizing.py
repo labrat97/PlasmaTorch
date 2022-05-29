@@ -70,7 +70,7 @@ def resignal(x:t.Tensor, samples:int, dim:int=-1) -> t.Tensor:
     return y
 
 @ts 
-def weightedResample(x:t.Tensor, lens:t.Tensor, dim:int=-1) -> t.Tensor:
+def weightedResample(x:t.Tensor, lens:t.Tensor, dim:int=-1, ortho:bool=True) -> t.Tensor:
     # Make sure there isn't an imaginary lens vector
     assert not t.is_complex(lens)
     # Make sure the dim can be referenced
@@ -109,7 +109,9 @@ def weightedResample(x:t.Tensor, lens:t.Tensor, dim:int=-1) -> t.Tensor:
     # Get ready for resampling
     result:t.Tensor = t.zeros(wxsize[:-1] + [lensSize[-1]], 
         dtype=x.dtype, device=x.device) # [..., b, c, 1, x]
-    poslut:t.Tensor = (((2. * xbias(wlsize[-2])) / (wlsize[-2] - 1.)) - 1.).unsqueeze(-1)
+    # Set up an orthoganal lookup system
+    if ortho:
+        ortholut:t.Tensor = (((2. * xbias(wlsize[-2])) / (wlsize[-2] - 1.)) - 1.).unsqueeze(-1)
 
     # Resample each batch
     if batchOffset == 0:
@@ -118,7 +120,10 @@ def weightedResample(x:t.Tensor, lens:t.Tensor, dim:int=-1) -> t.Tensor:
         result = result.unsqueeze(0) # [..., b, c, 1, x] -> [B, b, c, 1, y]
     for idx in range(wx.size(0)):
         wwx = wx[idx] # [b, c, 1, x]
-        wwl = wl[idx] + poslut # [b, 1, x, [x_iter, 0]] centered at 0
+        if ortho:
+            wwl = wl[idx] + ortholut # [b, 1, x, [x_iter, 0]] passthrough centered at 0.0
+        else:
+            wwl = (wl[idx] + 1.0) / 2.0 # [b, 1, x, [x_iter, 0]] corner aligned, centered at 0.0
         result[idx] = nnf.grid_sample(wwx, wwl, mode='bilinear', padding_mode='reflection', align_corners=True)
 
     # Format the result
