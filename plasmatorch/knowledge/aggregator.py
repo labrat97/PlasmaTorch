@@ -54,29 +54,27 @@ class Aggregator(nn.Module):
         self.colliders.append(collider)
 
 
-    def __keyToIdx__(self, collider:KnowledgeCollider) -> Tuple[t.Tensor]:
-        # Running data for the method
-        result:Tuple[t.Tensor] = (None, None)
-        selectorSide = self.lensSelectorProj.size(-1)
-
+    def __keyToIdx__(self, collider:KnowledgeCollider) -> t.Tensor:
         # Turn the key basis vector into something that can be maximally remapped through Greiss algebra
         greissKey:t.Tensor = tfft.ifft(itanh(collider.keyBasis), n=GREISS_SAMPLES, norm='ortho', dim=-1)
 
         # Matmul the Greiss key into the latent type used to select lenses
         # Use an irfft as an activation function to get to real values for the
         #   final convolution
-        lensTriuSignal:t.Tensor = tfft.irfft(greissKey @ self.lensSelectorProj, n=selectorSide, norm='ortho', dim=-1)
+        lensProjSignal:t.Tensor = tfft.irfft(greissKey @ self.lensSelectorProj, n=self.lensSelectorProj.size(-1), norm='ortho', dim=-1)
 
         # Evaluate the final lens selection through a convolution and an activation,
         #   binding the value between (0.0, 1.0)
-        ldx:t.Tensor = nnf.sigmoid(lensTriuSignal @ self.lensSelectorConv)
+        return nnf.sigmoid(lensProjSignal @ self.lensSelectorConv).squeeze(-1)
 
 
     def forward(self, a:t.Tensor, b:t.Tensor, callColliders:bool=False) -> Tuple[t.Tensor]:
         # Running data for caching the outputs of the internal colliders
         collCount = len(self.colliders)
-        ldx = [None] * collCount    # Lens index -> Tuple([input, output])
+        ldxArr = [None] * collCount    # Lens index -> Tuple([input, output])
 
+        # Iterate through the colliders, gathering collisions to get lens interpolation
+        #   values for aggregation
         for idx, collModule in enumerate(self.colliders):
             # Do a light casting to a KnowledgeCollider
             collider:KnowledgeCollider = self.__colliderCaster__(collModule)
@@ -86,4 +84,9 @@ class Aggregator(nn.Module):
                 _ = collider.forward(a, b)
             
             # Get the associated lens position for the collision
-            ldx[idx] = self.__keyToIdx__(collider)
+            ldxArr[idx] = self.__keyToIdx__(collider)
+
+        # Stack all of the lens indexes into a set of interpolatable indicies
+        ldx:t.Tensor = t.stack(ldxArr, dim=-1)
+
+        
