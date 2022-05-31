@@ -1,4 +1,3 @@
-from torch import BoolTensor
 from ..defaults import *
 from ..conversions import *
 from ..sizing import *
