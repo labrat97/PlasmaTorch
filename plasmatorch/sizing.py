@@ -3,7 +3,7 @@ from .math import nantonum, xbias
 
 
 @ts
-def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str=DEFAULT_PADDING, value:float=0.0):
+def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str=DEFAULT_PADDING, value:float=0.0) -> t.Tensor:
     # Transpose the dim of interest to the end of the tensor
     xT:t.Tensor = x.transpose(dim, -1)
 
@@ -27,7 +27,7 @@ def dimmatch(a:t.Tensor, b:t.Tensor, dim:int, mode:str=DEFAULT_PADDING, value:fl
     return a, b
 
 @ts
-def unflatten(x:t.Tensor, dim:int, size:List[int]):
+def unflatten(x:t.Tensor, dim:int, size:List[int]) -> t.Tensor:
     # Assert that the tensor unflattens to the appropriate size at the provided dim
     numel:int = 1
     for n in size:
