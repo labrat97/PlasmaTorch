@@ -70,15 +70,15 @@ def resignal(x:t.Tensor, samples:int, dim:int=-1) -> t.Tensor:
     return y
 
 @ts 
-def weightedResample(x:t.Tensor, lens:t.Tensor, dim:int=-1, ortho:bool=True) -> t.Tensor:
+def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True) -> t.Tensor:
     # Make sure there isn't an imaginary lens vector
-    assert not t.is_complex(lens)
+    assert not t.is_complex(pos)
     # Make sure the dim can be referenced
-    lensSize = lens.size()
+    lensSize = pos.size()
     assert not (dim == 0 and len(lensSize) > 1)
     # Make sure the lens is for a 1D system
     assert len(lensSize) <= 2
-    slens = lens.squeeze(0)
+    slens = pos.squeeze(0)
     lensSize = slens.size()
 
     # Ensure that there is a batch
