@@ -17,6 +17,9 @@ def lens(x:t.Tensor, lens:t.Tensor, padding:int=DEFAULT_SIGNAL_LENS_PADDING, dim
     Returns:
         t.Tensor: The signal after refraction through the lens.
     """
+    # Light error checking
+    assert not t.is_complex(lens)
+
     # Cast the lens to having something of circular padding with aligned corners
     lensSquish:t.Tensor = (lens + 1.) / 2.
     lensCast:t.Tensor = lensSquish.to(t.int64, non_blocking=True)
