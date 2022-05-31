@@ -80,13 +80,16 @@ class KnowledgeFilter(nn.Module, ABC):
         return correlation(x=x, y=selfCorr, dim=-1, isbasis=isbasis).mean(dim=-1).mean(dim=-1)
     
     
-    def keySignal(self) -> t.Tensor:
-        """Get the key token encoded as a signal.
+    def keySignal(self, samples:int=-1) -> t.Tensor:
+        """Get the key basis vector encoded as a signal.
+        
+        Args:
+            samples (t.Tensor, optional): The amount of samples to encode the basis vector as. If negative, keep basis sizing. Defaults to -1.
 
         Returns:
             t.Tensor: The key signal.
         """
-        return tfft.ifft(self.keyBasis)
+        return tfft.ifft(self.keyBasis, n=samples, dim=-1)
 
 
     @abstractmethod
@@ -223,6 +226,18 @@ class KnowledgeCollider(nn.Module, ABC):
 
         # Find the mean of the mean correlations
         return (acorr + bcorr) / 2.
+
+    
+    def keySignal(self, samples:int=-1) -> t.Tensor:
+        """Get the key basis vector encoded as a signal.
+
+        Args:
+            samples (t.Tensor, optional): The amount of samples to encode the basis vector as. If negative, keep basis sizing. Defaults to -1.
+
+        Returns:
+            t.Tensor: The key signal.
+        """
+        return tfft.ifft(self.keyBasis, n=samples, dim=-1)
 
 
     @abstractmethod

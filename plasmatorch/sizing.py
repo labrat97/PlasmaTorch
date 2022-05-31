@@ -3,7 +3,7 @@ from .math import nantonum, xbias
 
 
 @ts
-def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str=DEFAULT_PADDING, value:float=0.0):
+def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str=DEFAULT_PADDING, value:float=0.0) -> t.Tensor:
     # Transpose the dim of interest to the end of the tensor
     xT:t.Tensor = x.transpose(dim, -1)
 
@@ -27,7 +27,7 @@ def dimmatch(a:t.Tensor, b:t.Tensor, dim:int, mode:str=DEFAULT_PADDING, value:fl
     return a, b
 
 @ts
-def unflatten(x:t.Tensor, dim:int, size:List[int]):
+def unflatten(x:t.Tensor, dim:int, size:List[int]) -> t.Tensor:
     # Assert that the tensor unflattens to the appropriate size at the provided dim
     numel:int = 1
     for n in size:
@@ -70,15 +70,15 @@ def resignal(x:t.Tensor, samples:int, dim:int=-1) -> t.Tensor:
     return y
 
 @ts 
-def weightedResample(x:t.Tensor, lens:t.Tensor, dim:int=-1) -> t.Tensor:
+def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True) -> t.Tensor:
     # Make sure there isn't an imaginary lens vector
-    assert not t.is_complex(lens)
+    assert not t.is_complex(pos)
     # Make sure the dim can be referenced
-    lensSize = lens.size()
+    lensSize = pos.size()
     assert not (dim == 0 and len(lensSize) > 1)
     # Make sure the lens is for a 1D system
     assert len(lensSize) <= 2
-    slens = lens.squeeze(0)
+    slens = pos.squeeze(0)
     lensSize = slens.size()
 
     # Ensure that there is a batch
@@ -109,7 +109,12 @@ def weightedResample(x:t.Tensor, lens:t.Tensor, dim:int=-1) -> t.Tensor:
     # Get ready for resampling
     result:t.Tensor = t.zeros(wxsize[:-1] + [lensSize[-1]], 
         dtype=x.dtype, device=x.device) # [..., b, c, 1, x]
-    poslut:t.Tensor = (((2. * xbias(wlsize[-2])) / (wlsize[-2] - 1.)) - 1.).unsqueeze(-1)
+    # Set up an orthoganal lookup system
+    if ortho:
+        ortholut:t.Tensor = (((2. * xbias(wlsize[-2])) / (wlsize[-2] - 1.)) - 1.).unsqueeze(-1)
+    # Keep the normal [-1.0, 1.0] corner alignment
+    else:
+        ortholut:t.Tensor = t.zeros((wlsize[-2])).unsqueeze(-1)
 
     # Resample each batch
     if batchOffset == 0:
@@ -118,7 +123,7 @@ def weightedResample(x:t.Tensor, lens:t.Tensor, dim:int=-1) -> t.Tensor:
         result = result.unsqueeze(0) # [..., b, c, 1, x] -> [B, b, c, 1, y]
     for idx in range(wx.size(0)):
         wwx = wx[idx] # [b, c, 1, x]
-        wwl = wl[idx] + poslut # [b, 1, x, [x_iter, 0]] centered at 0
+        wwl = wl[idx] + ortholut # [b, 1, x, [x_iter, 0]]
         result[idx] = nnf.grid_sample(wwx, wwl, mode='bilinear', padding_mode='reflection', align_corners=True)
 
     # Format the result
