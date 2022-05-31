@@ -114,7 +114,7 @@ def weightedResample(x:t.Tensor, lens:t.Tensor, dim:int=-1, ortho:bool=True) -> 
         ortholut:t.Tensor = (((2. * xbias(wlsize[-2])) / (wlsize[-2] - 1.)) - 1.).unsqueeze(-1)
     # Keep the normal [-1.0, 1.0] corner alignment
     else:
-        ortholut:t.Tensor = t.zeros((wlsize[-2]))
+        ortholut:t.Tensor = t.zeros((wlsize[-2])).unsqueeze(-1)
 
     # Resample each batch
     if batchOffset == 0:
