@@ -91,7 +91,14 @@ class Aggregator(nn.Module):
         #   then align to the corners by binding into (-1.0, 1.0)
         ldx:t.Tensor = (2.0 * t.stack(ldxArr, dim=-1)) - 1.0
 
-        # Choose the lens to use, per collision, smoothly through resampling
-        # TODO: Test whatever the fuck is going on here
-        lensSample:t.Tensor = weightedResample(self.lensBasis, ldx, dim=1, ortho=False)
+        # Choose the lens to use, per collision, smoothly through resampling. The
+        #   dimensions should be layed out [IO, collision, GREISS_SAMPLES]
+        lbSample:t.Tensor = weightedResample(self.lensBasis, ldx, dim=1, ortho=False)
+        lInput:t.Tensor = tfft.irfft(lbSample[0], n=GREISS_SAMPLES, dim=-1, norm='ortho') # Input -> [collision, GREISS_SAMPLES]
+        lOutput:t.Tensor = tfft.irfft(lbSample[1], n=GREISS_SAMPLES, dim=-1, norm='ortho') # Output -> [collision, GREISS_SAMPLES]
+        lBalancer:t.Tensor = tfft.irfft(
+            nnf.softmax(lbSample[1], dim=0), 
+            n=GREISS_SAMPLES, dim=-1, norm='ortho') # Adds to one, balancer -> [collision, GREISS_SAMPLES]
 
+        # Iterate through the collisions stored in the collider, applying the lenses
+        # TODO: This
