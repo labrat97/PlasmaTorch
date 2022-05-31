@@ -123,11 +123,8 @@ def weightedResample(x:t.Tensor, lens:t.Tensor, dim:int=-1, ortho:bool=True) -> 
         result = result.unsqueeze(0) # [..., b, c, 1, x] -> [B, b, c, 1, y]
     for idx in range(wx.size(0)):
         wwx = wx[idx] # [b, c, 1, x]
-        if ortho:
-            wwl = wl[idx] + ortholut # [b, 1, x, [x_iter, 0]] passthrough centered at 0.0
-        else:
-            wwl = (wl[idx] + 1.0) / 2.0 # [b, 1, x, [x_iter, 0]] corner aligned, centered at 0.0
-        result[idx] = nnf.grid_sample(wwx, wwl, mode='bicubic', padding_mode='reflection', align_corners=True)
+        wwl = wl[idx] + ortholut # [b, 1, x, [x_iter, 0]]
+        result[idx] = nnf.grid_sample(wwx, wwl, mode='bilinear', padding_mode='reflection', align_corners=True)
 
     # Format the result
     if batchOffset == 0:
