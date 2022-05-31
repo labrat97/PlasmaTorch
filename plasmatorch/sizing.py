@@ -112,6 +112,9 @@ def weightedResample(x:t.Tensor, lens:t.Tensor, dim:int=-1, ortho:bool=True) -> 
     # Set up an orthoganal lookup system
     if ortho:
         ortholut:t.Tensor = (((2. * xbias(wlsize[-2])) / (wlsize[-2] - 1.)) - 1.).unsqueeze(-1)
+    # Keep the normal [-1.0, 1.0] corner alignment
+    else:
+        ortholut:t.Tensor = t.zeros((wlsize[-2]))
 
     # Resample each batch
     if batchOffset == 0:
@@ -124,7 +127,7 @@ def weightedResample(x:t.Tensor, lens:t.Tensor, dim:int=-1, ortho:bool=True) -> 
             wwl = wl[idx] + ortholut # [b, 1, x, [x_iter, 0]] passthrough centered at 0.0
         else:
             wwl = (wl[idx] + 1.0) / 2.0 # [b, 1, x, [x_iter, 0]] corner aligned, centered at 0.0
-        result[idx] = nnf.grid_sample(wwx, wwl, mode='bilinear', padding_mode='reflection', align_corners=True)
+        result[idx] = nnf.grid_sample(wwx, wwl, mode='bicubic', padding_mode='reflection', align_corners=True)
 
     # Format the result
     if batchOffset == 0:
