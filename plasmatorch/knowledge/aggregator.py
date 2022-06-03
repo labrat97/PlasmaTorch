@@ -1,3 +1,4 @@
+from plasmatorch.entanglement import entangle, superposition
 from ..defaults import *
 from ..activations import *
 from ..conversions import toComplex
@@ -36,7 +37,7 @@ class Aggregator(nn.Module):
         # The final convolution needs to be real valued to properly interpolate the lenses
         self.lensSelectorConv:nn.Parameter = nn.Parameter(t.randn((2, selectorSide, 1), dtype=typeDummy.real.dtype))
         # The final polarization needs to ALSO be real valued to properly mix the signal collapse
-        self.lensPolarizer:nn.Parameter = nn.Parameter(t.randn((2, selectorSide, 1), dtype=typeDummy.real.dtype))
+        self.lensPolarizer:nn.Parameter = nn.Parameter(t.randn((2, selectorSide, 2), dtype=typeDummy.dtype))
 
         # The starting set of KnowledgeColliders to run the feeding signals through
         self.colliders:nn.ModuleList = nn.ModuleList(colliders)
@@ -77,14 +78,15 @@ class Aggregator(nn.Module):
     def __keyToPolarization__(self, selection:t.Tensor) -> t.Tensor:
         # Evaluate the final lens polarization, used for signal collapse, through convolution
         #   and an activation binding the resultant value between (0.0, 1.0)
-        return nnf.sigmoid(selection @ self.lensPolarizer).squeeze(-1)
+        # No squeezing needed as two polarizations come out for each signal individually
+        return nnf.sigmoid(selection @ self.lensPolarizer)
 
 
     def forward(self, a:t.Tensor, b:t.Tensor, callColliders:bool=False) -> Tuple[t.Tensor]:
         # Running data for caching the outputs of the internal colliders
         collCount = len(self.colliders)
-        ldxArr = [None] * collCount # Lens index
-        polArr = [None] * collCount # Polarization
+        ldxArr = [None] * collCount # Lens indices
+        polArr = [None] * collCount # Polarizations
 
         # Iterate through the colliders, gathering collisions to get lens interpolation
         #   values for aggregation
@@ -109,10 +111,6 @@ class Aggregator(nn.Module):
         #   then align to the corners by binding into (-1.0, 1.0)
         ldx:t.Tensor = (2.0 * t.stack(ldxArr, dim=-1)) - 1.0
 
-        # Also stack all of the polarizations into a system that can be called in
-        #   one batch with the call out to the entangle() method
-        polarizations:t.Tensor = t.stack(polArr, dim=-1)
-
         # Choose the lens to use, per collision, smoothly through resampling. The
         #   dimensions should be layed out [IO, collision, GREISS_SAMPLES]
         lbSample:t.Tensor = weightedResample(self.lensBasis, ldx, dim=1, ortho=False)
@@ -127,8 +125,25 @@ class Aggregator(nn.Module):
 
         # Lens the signals into the input collision as an entanglement
         for idx, collision in enumerate(collisions):
-            la:t.Tensor = lens(a, lens=lInput[idx], dim=-1)
-            lb:t.Tensor = lens(b, lens=lInput[idx], dim=-1)
-            wa:t.Tensor = resignal(la, samples=collision.size(-2), dim=-1)
-            wb:t.Tensor = resignal(lb, samples=collision.size(-1), dim=-1)
+            # Apply input lens and resignal
+            la:t.Tensor = resignal(
+                lens(a, lens=lInput[idx], dim=-1), 
+                samples=collision.size(-2), dim=-1)
+            lb:t.Tensor = resignal(
+                lens(b, lens=lInput[idx], dim=-1),
+                samples=collision.size(-1), dim=-1)
+
+            # Entangle the signals with two polarizations to get a proper seperable
+            #   collapse signal
+            entanglement:t.Tensor = entangle(a=la, b=lb, mask=collision, polarization=polArr[idx])
+
+            # Use the output lens with the collapsed output signals from the entanglement.
+            # Because of the polarization signal, the final dim is the collapsed signals
+            #   from the entanglement. The actual dim to lens is the dim that holds BOTH output
+            #   signals or -2.
+            lent:t.Tensor = lens(entanglement, lens=lOutput[idx], dim=-2)
+
+            # Take the signal that defines the output of the system compared to the
+            #   rest of the systems and multiply it to the output to keep the total output
+            #   summing to one per sample.
 
