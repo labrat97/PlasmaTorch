@@ -385,3 +385,9 @@ def ifft(x:t.Tensor, n:int=-1, dim:int=-1) -> t.Tensor:
 
     # Pass values through to normal function, leave true 1/sqrt(n) definition
     return tfft.ifft(x, n=n, dim=dim, norm='ortho')
+
+@ts
+def realfold(x:t.Tensor) -> t.Tensor:
+    if x.is_complex():
+        return x.real - x.imag
+    return x

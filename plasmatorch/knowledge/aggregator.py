@@ -1,7 +1,8 @@
 from ..defaults import *
 from ..activations import *
 from ..conversions import toComplex
-from ..sizing import weightedResample
+from ..sizing import resignal, weightedResample
+from ..lens import lens
 from .routing import KnowledgeCollider
 
 
@@ -34,6 +35,8 @@ class Aggregator(nn.Module):
         self.lensSelectorProj:nn.Parameter = nn.Parameter(t.randn((2, GREISS_SAMPLES, selectorSide), dtype=typeDummy.dtype))
         # The final convolution needs to be real valued to properly interpolate the lenses
         self.lensSelectorConv:nn.Parameter = nn.Parameter(t.randn((2, selectorSide, 1), dtype=typeDummy.real.dtype))
+        # The final polarization needs to ALSO be real valued to properly mix the signal collapse
+        self.lensPolarizer:nn.Parameter = nn.Parameter(t.randn((2, selectorSide, 1), dtype=typeDummy.real.dtype))
 
         # The starting set of KnowledgeColliders to run the feeding signals through
         self.colliders:nn.ModuleList = nn.ModuleList(colliders)
@@ -55,24 +58,33 @@ class Aggregator(nn.Module):
         self.colliders.append(collider)
 
 
-    def __keyToIdx__(self, collider:KnowledgeCollider) -> t.Tensor:
+    def __keyToSelection__(self, collider:KnowledgeCollider) -> t.Tensor:
         # Turn the key basis vector into something that can be maximally remapped through Greiss algebra
         greissKey:t.Tensor = tfft.ifft(itanh(collider.keyBasis), n=GREISS_SAMPLES, norm='ortho', dim=-1)
 
         # Matmul the Greiss key into the latent type used to select lenses
-        # Use an irfft as an activation function to get to real values for the
-        #   final convolution
-        lensProjSignal:t.Tensor = tfft.irfft(greissKey @ self.lensSelectorProj, n=self.lensSelectorProj.size(-1), norm='ortho', dim=-1)
+        return tfft.ifft(
+            greissKey @ self.lensSelectorProj, n=self.lensSelectorProj.size(-1), 
+            norm='ortho', dim=-1)
 
+    def __keyToIdx__(self, selection:t.Tensor) -> t.Tensor:
         # Evaluate the final lens selection through a convolution and an activation,
         #   binding the value between (0.0, 1.0)
-        return nnf.sigmoid(lensProjSignal @ self.lensSelectorConv).squeeze(-1)
+        # Use realfold() to collapse into a real value for proper interpolation
+        return nnf.sigmoid(realfold(selection) @ self.lensSelectorConv).squeeze(-1)
+
+
+    def __keyToPolarization__(self, selection:t.Tensor) -> t.Tensor:
+        # Evaluate the final lens polarization, used for signal collapse, through convolution
+        #   and an activation binding the resultant value between (0.0, 1.0)
+        return nnf.sigmoid(selection @ self.lensPolarizer).squeeze(-1)
 
 
     def forward(self, a:t.Tensor, b:t.Tensor, callColliders:bool=False) -> Tuple[t.Tensor]:
         # Running data for caching the outputs of the internal colliders
         collCount = len(self.colliders)
-        ldxArr = [None] * collCount    # Lens index -> Tuple([input, output])
+        ldxArr = [None] * collCount # Lens index
+        polArr = [None] * collCount # Polarization
 
         # Iterate through the colliders, gathering collisions to get lens interpolation
         #   values for aggregation
@@ -84,21 +96,39 @@ class Aggregator(nn.Module):
             if callColliders:
                 _ = collider.forward(a, b)
             
-            # Get the associated lens position for the collision
-            ldxArr[idx] = self.__keyToIdx__(collider)
+            # Get the associated implicit lens selection signal through the lens
+            #   projection system
+            lproj:t.Tensor = self.__keyToSelection__(collider)
+            
+            # Convert the implicit projection to the interpolated lens index and
+            #   entanglement polarization
+            ldxArr[idx] = self.__keyToIdx__(lproj)
+            polArr[idx] = self.__keyToPolarization__(lproj)
 
         # Stack all of the lens indexes into a set of interpolatable indicies,
         #   then align to the corners by binding into (-1.0, 1.0)
         ldx:t.Tensor = (2.0 * t.stack(ldxArr, dim=-1)) - 1.0
 
+        # Also stack all of the polarizations into a system that can be called in
+        #   one batch with the call out to the entangle() method
+        polarizations:t.Tensor = t.stack(polArr, dim=-1)
+
         # Choose the lens to use, per collision, smoothly through resampling. The
         #   dimensions should be layed out [IO, collision, GREISS_SAMPLES]
         lbSample:t.Tensor = weightedResample(self.lensBasis, ldx, dim=1, ortho=False)
-        lInput:t.Tensor = tfft.irfft(lbSample[0], n=GREISS_SAMPLES, dim=-1, norm='ortho') # Input -> [collision, GREISS_SAMPLES]
-        lOutput:t.Tensor = tfft.irfft(lbSample[1], n=GREISS_SAMPLES, dim=-1, norm='ortho') # Output -> [collision, GREISS_SAMPLES]
-        lBalancer:t.Tensor = tfft.irfft(
+        lInput:t.Tensor = realfold(tfft.ifft(lbSample[0], n=GREISS_SAMPLES, dim=-1, norm='ortho')) # Input -> [collision, GREISS_SAMPLES]
+        lOutput:t.Tensor = realfold(tfft.ifft(lbSample[1], n=GREISS_SAMPLES, dim=-1, norm='ortho')) # Output -> [collision, GREISS_SAMPLES]
+        lBalancer:t.Tensor = realfold(tfft.ifft(
             nnf.softmax(lbSample[1], dim=0), 
-            n=GREISS_SAMPLES, dim=-1, norm='ortho') # Adds to one, balancer -> [collision, GREISS_SAMPLES]
+            n=GREISS_SAMPLES, dim=-1, norm='ortho')) # Adds to one, balancer -> [collision, GREISS_SAMPLES]
 
-        # Iterate through the collisions stored in the collider, applying the lenses
-        # TODO: This
+        # Stack the collisions into the same set of batches found in the lens parameters
+        collisions:List[t.Tensor] = [self.__colliderCaster__(collider).lastCollision for collider in self.colliders]
+
+        # Lens the signals into the input collision as an entanglement
+        for idx, collision in enumerate(collisions):
+            la:t.Tensor = lens(a, lens=lInput[idx], dim=-1)
+            lb:t.Tensor = lens(b, lens=lInput[idx], dim=-1)
+            wa:t.Tensor = resignal(la, samples=collision.size(-2), dim=-1)
+            wb:t.Tensor = resignal(lb, samples=collision.size(-1), dim=-1)
+
