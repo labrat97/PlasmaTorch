@@ -7,8 +7,7 @@ from ..lens import lens
 from .routing import KnowledgeCollider
 
 
-# TODO: Fuck, this isn't needed, integrate functionality into the router; break out method
-# TODO: FUCK, THIS IS NEEDED. FUCK THE ROUTER, IT ROUTES AND IS TYPE COMPATIBLE WITH IT'S FILTERS
+
 class Aggregator(nn.Module):
     def __init__(self, lensSlots:int=AGGREGATE_LENSES, outputSamples:int=-1, 
     colliders:List[KnowledgeCollider]=None, selectorSide:int=SUPERSINGULAR_PRIMES_LH[3], cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
@@ -87,6 +86,7 @@ class Aggregator(nn.Module):
         collCount = len(self.colliders)
         ldxArr = [None] * collCount # Lens indices
         polArr = [None] * collCount # Polarizations
+        results:Tuple[t.Tensor] = (t.zeros_like(toComplex(a)), t.zeros_like(toComplex(b)))
 
         # Iterate through the colliders, gathering collisions to get lens interpolation
         #   values for aggregation
@@ -134,16 +134,22 @@ class Aggregator(nn.Module):
                 samples=collision.size(-1), dim=-1)
 
             # Entangle the signals with two polarizations to get a proper seperable
-            #   collapse signal
+            #   collapse signal.
+            # Move the two signals to the -2 dim to keep the -1 dim idea consistent.
             entanglement:t.Tensor = entangle(a=la, b=lb, mask=collision, polarization=polArr[idx])
 
             # Use the output lens with the collapsed output signals from the entanglement.
             # Because of the polarization signal, the final dim is the collapsed signals
             #   from the entanglement. The actual dim to lens is the dim that holds BOTH output
-            #   signals or -2.
-            lent:t.Tensor = lens(entanglement, lens=lOutput[idx], dim=-2)
-
+            #   signals or -1.
             # Take the signal that defines the output of the system compared to the
             #   rest of the systems and multiply it to the output to keep the total output
             #   summing to one per sample.
+            observation:t.Tensor = lBalancer[idx].unsqueeze(-1) * lens(entanglement, lens=lOutput[idx], dim=-1)
 
+            # Seperate the observation into the appriopriate bins to be returned as the results
+            results[0].add_(observation[..., 0]) # Signal a
+            results[1].add_(observation[..., 1]) # Signal b
+        
+        # Return the results as signal a and signal b respectively
+        return results
