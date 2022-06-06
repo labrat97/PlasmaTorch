@@ -9,7 +9,7 @@ def pi() -> t.Tensor:
 
 
 @ts
-def emconst() -> t.Tensor:
+def egamma() -> t.Tensor:
     return (t.ones((1)) * 0.57721566490153286060651209008240243104215933593992).detach()
 
 
@@ -354,7 +354,7 @@ def harmonicvals(n:int, nosum:bool=False, addzero:bool=False) -> t.Tensor:
 @ts
 def harmonicdist(x:t.Tensor) -> t.Tensor:
     # Gather constants for evaluation
-    em:t.Tensor = emconst()
+    em:t.Tensor = egamma()
 
     # Take the inverse harmonic index of the input values and flatten them after for indexing
     inverse:t.Tensor = t.round(t.exp(x - em)) + t.exp(-em)
