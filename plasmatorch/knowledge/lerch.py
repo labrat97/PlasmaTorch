@@ -5,7 +5,17 @@ from ..conversions import nantonum, toComplex
 
 
 class LerchFilter(KnowledgeCollider):
+    """Creates a KnowledgeCollider that runs two signals through the Lerch-Zeta function. Using this
+    allows for some really irrational expressions of reality if training properly ensues.
+    """
     def __init__(self, keySamples:int=DEFAULT_FFT_SAMPLES, ioSamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+        """Initialize the Lerch-Zeta functionality of the class.
+
+        Args:
+            keySamples (int, optional): The amount of samples to use for the key basis parameter. Defaults to DEFAULT_FFT_SAMPLES.
+            ioSamples (int, optional): The amount of samples to use for input and output to the collider. Defaults to DEFAULT_FFT_SAMPLES.
+            cdtype (t.dtype, optional): The default complex type to use in the class. Defaults to DEFAULT_COMPLEX_DTYPE.
+        """
         super(LerchFilter, self).__init__(keySamples=keySamples, inputSamples=ioSamples, outputSamples=ioSamples, cdtype=cdtype)
 
         # Store the internal lambda values and plug into the lambda section of the Lerch-Zeta function
