@@ -5,6 +5,19 @@ from .conversions import nantonum
 
 @ts
 def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str=DEFAULT_PADDING, value:float=0.0) -> t.Tensor:
+    """Pad the selected dimension with the torch.nnf pad() method internally.
+
+    Args:
+        x (t.Tensor): The signal to pad.
+        lowpad (int): The number of samples to pad at the start of the tensor's indices.
+        highpad (int): The number of samples to pad at the end of the tensor's indices.
+        dim (int): The dimension to pad.
+        mode (str, optional): The padding mode to use for the specified dim. Defaults to DEFAULT_PADDING.
+        value (float, optional): The value to use to pad if applicable from the mode parameter. Defaults to 0.0.
+
+    Returns:
+        t.Tensor: The padded signal.
+    """
     # Transpose the dim of interest to the end of the tensor
     xT:t.Tensor = x.transpose(dim, -1)
 
@@ -16,6 +29,18 @@ def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str=DEFAULT_PADDIN
 
 @ts
 def dimmatch(a:t.Tensor, b:t.Tensor, dim:int, mode:str=DEFAULT_PADDING, value:float=0.0) -> Tuple[t.Tensor, t.Tensor]:
+    """Make the selected dimension have the same size between two tensors.
+
+    Args:
+        a (t.Tensor): The first tensor to match.
+        b (t.Tensor): The second tensor to match.
+        dim (int): The dimension to perform the matching operation on.
+        mode (str, optional): The padding mode to use for the specified dim. Defaults to DEFAULT_PADDING.
+        value (float, optional): The value to use to pad if applicable from the mode parameter. Defaults to 0.0.
+
+    Returns:
+        Tuple[t.Tensor, t.Tensor]: Signals a and b, respectively, with the selected dim having matching sample counts.
+    """
     # Extract sizing parameters
     asize:int = a.size()[dim]
     bsize:int = b.size()[dim]
@@ -29,6 +54,16 @@ def dimmatch(a:t.Tensor, b:t.Tensor, dim:int, mode:str=DEFAULT_PADDING, value:fl
 
 @ts
 def unflatten(x:t.Tensor, dim:int, size:List[int]) -> t.Tensor:
+    """Run the equivalent of a functional unflatten on the provided signal.
+
+    Args:
+        x (t.Tensor): The signal to unflatten.
+        dim (int): The dimension to unflatten in the signal.
+        size (List[int]): The new expanded size of the unflattened dimension.
+
+    Returns:
+        t.Tensor: The unflattened signal.
+    """
     # Assert that the tensor unflattens to the appropriate size at the provided dim
     numel:int = 1
     for n in size:
@@ -48,6 +83,17 @@ def unflatten(x:t.Tensor, dim:int, size:List[int]) -> t.Tensor:
 
 @ts
 def resignal(x:t.Tensor, samples:int, dim:int=-1) -> t.Tensor:
+    """Takes the input signal, finds the basis frequency responses for the signal, then applies said
+    responses to a properly sized dimension.
+
+    Args:
+        x (t.Tensor): The signal to resignal.
+        samples (int): The amount of samples to use in the selected dimension of the input signal.
+        dim (int, optional): The dimension to resignal in x. Defaults to -1.
+
+    Returns:
+        t.Tensor: The resignalled input signal.
+    """
     # I know there are redundant `if` calls in this equation. Due to the out of order
     #     size aquisition, this should have minimal performance impact relative to the actual 
     #     computation and improves readability.
@@ -72,6 +118,17 @@ def resignal(x:t.Tensor, samples:int, dim:int=-1) -> t.Tensor:
 
 @ts 
 def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True) -> t.Tensor:
+    """Resample the specified dimension with the position offsets provided.
+
+    Args:
+        x (t.Tensor): The signal to perform the resampling on.
+        pos (t.Tensor): The positions to sample from per sample.
+        dim (int, optional): The dimension to resample. Defaults to -1.
+        ortho (bool, optional): If True, 0.0 equates to a perfect per-element passthrough. If False, 0.0 is the default center from the align_corners option in grid_sample(). Defaults to True.
+
+    Returns:
+        t.Tensor: The resampled input signal.
+    """
     # Make sure there isn't an imaginary lens vector
     assert not t.is_complex(pos)
     # Make sure the dim can be referenced
