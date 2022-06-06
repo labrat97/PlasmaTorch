@@ -389,5 +389,5 @@ def ifft(x:t.Tensor, n:int=-1, dim:int=-1) -> t.Tensor:
 @ts
 def realfold(x:t.Tensor, phase:t.Tensor=pi()) -> t.Tensor:
     if x.is_complex():
-        return x.real + (t.cos(phase) * x.imag)
+        return x.real + (icos(phase) * x.imag)
     return x
