@@ -1,5 +1,6 @@
 from .defaults import *
-from .math import nantonum, xbias
+from .math import xbias
+from .conversions import nantonum
 
 
 @ts

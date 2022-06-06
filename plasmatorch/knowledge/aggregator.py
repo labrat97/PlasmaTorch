@@ -1,9 +1,9 @@
-from plasmatorch.entanglement import entangle, superposition
 from ..defaults import *
 from ..activations import *
 from ..conversions import toComplex
 from ..sizing import resignal, weightedResample
 from ..lens import lens
+from ..entanglement import entangle
 from .routing import KnowledgeCollider
 
 
@@ -52,8 +52,9 @@ class Aggregator(nn.Module):
         # The final polarization needs to ALSO be real valued to properly mix the signal collapse
         self.lensPolarizer:nn.Parameter = nn.Parameter(t.randn((2, selectorSide, 2), dtype=typeDummy.dtype))
 
-        # The starting set of KnowledgeColliders to run the feeding signals through
-        self.colliders:nn.ModuleList = nn.ModuleList(colliders)
+        # The starting set of KnowledgeColliders to run the feeding signals through.
+        # Don't store in an nn.ModuleList because these shouldn't be stored with the class, only referenced during runtime.
+        self.colliders:List[KnowledgeCollider] = colliders
 
 
     def __colliderCaster__(self, collider) -> KnowledgeCollider:
@@ -111,6 +112,10 @@ class Aggregator(nn.Module):
         Returns:
             Tuple[t.Tensor]: Resultant signal (a, b).
         """
+        # Quick return if no collisions to push through
+        if self.colliders is None or len(self.colliders) == 0:
+            return (a, b)
+
         # Running data for caching the outputs of the internal colliders
         collCount = len(self.colliders)
         ldxArr = [None] * collCount # Lens indices
