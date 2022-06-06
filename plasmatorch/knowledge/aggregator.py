@@ -9,8 +9,22 @@ from .routing import KnowledgeCollider
 
 
 class Aggregator(nn.Module):
+    """An Aggregator is a class used to shove very large signals (likely 196884 samples) into smaller
+    collisions from KnowledgeCollider classes. These collisions result in a mask that the signal is then
+    lensed into and out of so that an entanglement can ensue minus the 196884^2 complex floats that would
+    need to be stored in memory.
+    """
     def __init__(self, lensSlots:int=AGGREGATE_LENSES, outputSamples:int=-1, 
     colliders:List[KnowledgeCollider]=None, selectorSide:int=SUPERSINGULAR_PRIMES_LH[3], cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+        """Initialize the class so that it may function in a full neural system.
+
+        Args:
+            lensSlots (int, optional): The amount of lenses to interpolate between internally. Defaults to AGGREGATE_LENSES.
+            outputSamples (int, optional): The amount of samples to output each signal to, negative being no resize. Defaults to -1.
+            colliders (List[KnowledgeCollider], optional): A list of KnowledgeColliders to use for forward() evaluation. Defaults to None.
+            selectorSide (int, optional): The amount of neurons used after the convolutional encoding from the key basis signal. Defaults to SUPERSINGULAR_PRIMES_LH[3].
+            cdtype (t.dtype, optional): The default complex type. Defaults to DEFAULT_COMPLEX_DTYPE.
+        """
         # Do not use the attentive resample option available in the aggregator as it is essentially 
         #   just a lensing system.
         super(Aggregator, self).__init__()
@@ -51,6 +65,11 @@ class Aggregator(nn.Module):
 
 
     def addCollider(self, collider:KnowledgeCollider):
+        """Adds a KnowledgeCollider to the internal list of colliders for later evaluation.
+
+        Args:
+            collider (KnowledgeCollider): The collider to add to the internal set for later aggregation.
+        """
         # Type and value check the arguments
         self.__colliderCaster__(collider)
 
@@ -82,6 +101,16 @@ class Aggregator(nn.Module):
 
 
     def forward(self, a:t.Tensor, b:t.Tensor, callColliders:bool=False) -> Tuple[t.Tensor]:
+        """The default forward call of the module.
+
+        Args:
+            a (t.Tensor): The first signal to send through for entanglement.
+            b (t.Tensor): The second signal to send through for entanglement.
+            callColliders (bool, optional): If True, call the stored colliders with the provided signals to update the internal collisions. Defaults to False.
+
+        Returns:
+            Tuple[t.Tensor]: Resultant signal (a, b).
+        """
         # Running data for caching the outputs of the internal colliders
         collCount = len(self.colliders)
         ldxArr = [None] * collCount # Lens indices
