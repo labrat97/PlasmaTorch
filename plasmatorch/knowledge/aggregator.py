@@ -1,9 +1,9 @@
-from plasmatorch.entanglement import entangle, superposition
 from ..defaults import *
 from ..activations import *
 from ..conversions import toComplex
 from ..sizing import resignal, weightedResample
 from ..lens import lens
+from ..entanglement import entangle
 from .routing import KnowledgeCollider
 
 
