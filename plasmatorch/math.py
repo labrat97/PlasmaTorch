@@ -1,5 +1,5 @@
 from .defaults import *
-from .conversions import toComplex, nantonum
+from .conversions import toComplex
 
 
 
@@ -387,7 +387,7 @@ def ifft(x:t.Tensor, n:int=-1, dim:int=-1) -> t.Tensor:
     return tfft.ifft(x, n=n, dim=dim, norm='ortho')
 
 @ts
-def realfold(x:t.Tensor) -> t.Tensor:
+def realfold(x:t.Tensor, phase:t.Tensor=pi()) -> t.Tensor:
     if x.is_complex():
-        return x.real - x.imag
+        return x.real + (t.cos(phase) * x.imag)
     return x
