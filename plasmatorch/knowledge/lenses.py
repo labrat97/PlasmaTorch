@@ -49,6 +49,11 @@ class PolarLens(KnowledgeFilter):
         return oldValue
 
 
+    def getDirection(self) -> PolarLensPosition:
+        # Translate from what the tensor can understand back into the python enum
+        return PolarLensPosition((self.lensDir[0] + 1) / 2)
+
+
     def __forward__(self, x:t.Tensor) -> t.Tensor:
         # Create the lens as a signal
         softlens:t.Tensor = isigmoid(self.lensBasis, dim=-1)
@@ -98,8 +103,8 @@ class InterferringLens(KnowledgeCollider):
 
     def getDirection(self) -> InterferringLensPosition:
         # Get the individual directions
-        nsDir:t.int8 = self.nsLens.lensDir[0]
-        weDir:t.int8 = self.weLens.lensDir[0]
+        nsDir:int = int(self.nsLens.getDirection())
+        weDir:int = int(self.weLens.getDirection())
 
         # Bitwise or everything together
         return InterferringLensPosition(int(nsDir | (weDir << 1)))
