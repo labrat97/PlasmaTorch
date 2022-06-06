@@ -39,6 +39,15 @@ class PolarLens(KnowledgeFilter):
 
 
     def setDirection(self, dir:PolarLensPosition) -> PolarLensPosition:
+        """Set the viewing direction of the lens. Viewing the lens opposite of the prior view
+        is roughly the reversal of the lensing.
+
+        Args:
+            dir (PolarLensPosition): The direction to set the lens to.
+
+        Returns:
+            PolarLensPosition: The old lens position.
+        """
         # Save the old value just in case that is useful and return
         oldValue:PolarLensPosition = PolarLensPosition((self.lensDir[0] + 1) / 2)
 
