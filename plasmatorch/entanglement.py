@@ -149,6 +149,7 @@ class Entangle(nn.Module):
 
 @ts
 def collapse(x:t.Tensor, polarization:t.Tensor) -> t.Tensor:
+  # Brief argument check
   assert x.size(-1) == x.size(-2)
   
   # Get the sums of the matrix on each view according to transposition on the final
@@ -173,16 +174,23 @@ def collapse(x:t.Tensor, polarization:t.Tensor) -> t.Tensor:
 
 @ts
 def superposition(a:t.Tensor, b:t.Tensor) -> t.Tensor:
+  # Brief argument check
   assert a.size(-1) == b.size(-1)
   
+  # Do the matrix multiplication required 
   rawSuper:t.Tensor = a.unsqueeze(-1) @ b.unsqueeze(-2)
   return nsoftmax(x=rawSuper, dims=[-1, -2])
 
 @ts
 def entangle(a:t.Tensor, b:t.Tensor, mask:t.Tensor, polarization:t.Tensor) -> t.Tensor:
-  assert a.size(-1) == b.size(-1)
+  # Assert the arguments are size compatible with each other
   assert len(mask.size()) >= 2
+  assert mask.size(-2) == a.size(-1)
+  assert mask.size(-1) == b.size(-1)
 
-  super:t.Tensor = a.unsqueeze(-1) @ b.unsqueeze(-1).transpose(-1, -2)
+  # Create superposition and cover in a mask
+  super:t.Tensor = superposition(a, b)
   entSuper:t.Tensor = super * nsoftmax(mask, dims=[-1, -2])
+
+  # Collapse the masked superposition using polarization in the collapse() method
   return collapse(entSuper, polarization)

@@ -1,5 +1,5 @@
 from .defaults import *
-from .conversions import toComplex, nantonum
+from .conversions import toComplex
 
 
 
@@ -385,3 +385,9 @@ def ifft(x:t.Tensor, n:int=-1, dim:int=-1) -> t.Tensor:
 
     # Pass values through to normal function, leave true 1/sqrt(n) definition
     return tfft.ifft(x, n=n, dim=dim, norm='ortho')
+
+@ts
+def realfold(x:t.Tensor, phase:t.Tensor=pi()) -> t.Tensor:
+    if x.is_complex():
+        return x.real + (icos(phase) * x.imag)
+    return x
