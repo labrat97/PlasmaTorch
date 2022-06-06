@@ -149,6 +149,18 @@ class KnowledgeFilter(nn.Module, ABC):
         return result
 
 
+    def __call__(self, x:t.Tensor) -> t.Tensor:
+        """Wrap the forward() method.
+
+        Args:
+            x (t.Tensor): The signal to run through the filter.
+
+        Returns:
+            t.Tensor: The resultant signal.
+        """
+        return self.forward(x)
+
+
 
 class KnowledgeCollider(nn.Module, ABC):
     """
@@ -307,6 +319,19 @@ class KnowledgeCollider(nn.Module, ABC):
         self.lastCollision = result
 
         return result
+
+
+    def __call__(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
+        """Wrap the forward() method of the collider.
+
+        Args:
+            a (t.Tensor): The first signal to collide.
+            b (t.Tensor): The second signal to collide.
+
+        Returns:
+            t.Tensor: The collided signals.
+        """
+        return self.forward(a, b)
 
 
 
