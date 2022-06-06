@@ -2,21 +2,21 @@ import unittest
 import test
 
 import torch
-from defaults import DEFAULT_DTYPE
 from plasmatorch import *
+from plasmatorch.defaults import DEFAULT_DTYPE
 import math
 from random import randint
 
 class EntangleTest(unittest.TestCase):
     def testParameters(self):
         # Create the modules required to test the enclosed parameters for consistency
-        signals = randint(1, 13)
-        channels = randint(1, 13)
+        signals:int = 3
+        channels:int = 3
         subject = Entangle(inputSignals=signals, curveChannels=channels, \
-            samples=test.TEST_FFT_SAMPLES, useKnowledgeMask=True, \
+            samples=test.TEST_FFT_SMALL_SAMPLES, useKnowledgeMask=True, \
             outputMode=EntangleOutputMode.BOTH, dtype=DEFAULT_DTYPE)
         subjectc = Entangle(inputSignals=signals, curveChannels=channels, \
-            samples=test.TEST_FFT_SAMPLES, useKnowledgeMask=True, \
+            samples=test.TEST_FFT_SMALL_SAMPLES, useKnowledgeMask=True, \
             outputMode=EntangleOutputMode.BOTH, dtype=DEFAULT_COMPLEX_DTYPE)
         
 
@@ -32,34 +32,34 @@ class EntangleTest(unittest.TestCase):
         # Make sure that the weights aren't the wrong size resulting in less effecient computation
         self.assertEqual(subject.signalCount, signals)
         self.assertEqual(subject.curveChannels, channels)
-        self.assertEqual(subject.samples, test.TEST_FFT_SAMPLES)
+        self.assertEqual(subject.samples, test.TEST_FFT_SMALL_SAMPLES)
         self.assertEqual(subject.outputMode, EntangleOutputMode.BOTH)
         self.assertEqual(len(subject.entangleActivation), signals)
         self.assertEqual(len(subject.entanglePolarization), signals)
-        self.assertEqual(subject.knowledgeMask.size(), (signals, channels, test.TEST_FFT_SAMPLES, test.TEST_FFT_SAMPLES))
+        self.assertEqual(subject.knowledgeMask.size(), (signals, channels, test.TEST_FFT_SMALL_SAMPLES, test.TEST_FFT_SMALL_SAMPLES))
 
         # Assert that the identity matrix is properly being transfered over to the
         #   real numbers only to initialize the knowledge mask weights
-        self.assertTrue(torch.all(subject.knowledgeMask == toComplex(torch.eye(test.TEST_FFT_SAMPLES))))
-        self.assertTrue(torch.all(subjectc.knowledgeMask == toComplex(torch.eye(test.TEST_FFT_SAMPLES))))
+        self.assertTrue(torch.all(subject.knowledgeMask == toComplex(torch.eye(test.TEST_FFT_SMALL_SAMPLES))))
+        self.assertTrue(torch.all(subjectc.knowledgeMask == toComplex(torch.eye(test.TEST_FFT_SMALL_SAMPLES))))
 
     def testSizing(self):
         # Parameter initialization
-        batches = randint(1, 4)
-        signals = randint(1, 7)
-        channels = randint(1, 5)
+        batches:int = 2
+        signals:int = 2
+        channels:int = 2
 
         # Create the modules required to test the enclosed parameters for consistency
         subject = Entangle(inputSignals=signals, curveChannels=channels, \
-            samples=test.TEST_FFT_SAMPLES, useKnowledgeMask=True, \
+            samples=test.TEST_FFT_SMALL_SAMPLES, useKnowledgeMask=True, \
             outputMode=EntangleOutputMode.BOTH, dtype=DEFAULT_DTYPE)
         subjectc = Entangle(inputSignals=signals, curveChannels=channels, \
-            samples=test.TEST_FFT_SAMPLES, useKnowledgeMask=True, \
+            samples=test.TEST_FFT_SMALL_SAMPLES, useKnowledgeMask=True, \
             outputMode=EntangleOutputMode.BOTH, dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Tensors for evaluation
-        x = torch.randn((batches, signals, channels, test.TEST_FFT_SAMPLES), dtype=DEFAULT_DTYPE)
-        xc = torch.randn((batches, signals, channels, test.TEST_FFT_SAMPLES), dtype=DEFAULT_COMPLEX_DTYPE)
+        x = torch.randn((batches, signals, channels, test.TEST_FFT_SMALL_SAMPLES), dtype=DEFAULT_DTYPE)
+        xc = torch.randn((batches, signals, channels, test.TEST_FFT_SMALL_SAMPLES), dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Push data through entanglers
         col, sup = subject.forward(x)
@@ -80,21 +80,21 @@ class EntangleTest(unittest.TestCase):
 
     def testValues(self):
         # Parameter initialization
-        batches = randint(1, 4)
-        signals = randint(1, 7)
-        channels = randint(1, 5)
+        batches:int = 2
+        signals:int = 2
+        channels:int = 2
 
         # Create the modules required to test the enclosed parameters for consistency
         subject = Entangle(inputSignals=signals, curveChannels=channels, \
-            samples=test.TEST_FFT_SAMPLES, useKnowledgeMask=True, \
+            samples=test.TEST_FFT_SMALL_SAMPLES, useKnowledgeMask=True, \
             outputMode=EntangleOutputMode.BOTH, dtype=DEFAULT_DTYPE)
         subjectc = Entangle(inputSignals=signals, curveChannels=channels, \
-            samples=test.TEST_FFT_SAMPLES, useKnowledgeMask=True, \
+            samples=test.TEST_FFT_SMALL_SAMPLES, useKnowledgeMask=True, \
             outputMode=EntangleOutputMode.BOTH, dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Tensors for evaluation
-        x = torch.zeros((batches, signals, channels, test.TEST_FFT_SAMPLES), dtype=DEFAULT_DTYPE)
-        xc = torch.zeros((batches, signals, channels, test.TEST_FFT_SAMPLES), dtype=DEFAULT_COMPLEX_DTYPE)
+        x = torch.zeros((batches, signals, channels, test.TEST_FFT_SMALL_SAMPLES), dtype=DEFAULT_DTYPE)
+        xc = torch.zeros((batches, signals, channels, test.TEST_FFT_SMALL_SAMPLES), dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Push data through entanglers
         col, sup = subject.forward(x)
@@ -115,8 +115,8 @@ class EntangleTest(unittest.TestCase):
         colrc, suprc = subject.forward(xc)
         colcr, supcr = subject.forward(x)
         colcc, supcc = subject.forward(xc)
-        colrc0, suprc0 = subject.forward(toComplex(x))
-        colcc0, supcc0 = subjectc.forward(toComplex(x))
+        _, suprc0 = subject.forward(toComplex(x))
+        _, supcc0 = subjectc.forward(toComplex(x))
 
         # Make sure the values that come through on the other side consistent with themselves
         self.assertTrue(torch.all(colrr == colcr))
@@ -125,25 +125,23 @@ class EntangleTest(unittest.TestCase):
         self.assertTrue(torch.all(suprc == supcc))
 
         # Cannot garuntee self similar collapse state across output types due to rfft vs fft
-        #self.assertTrue(torch.all(colrr - colrc0.real < 0.0001))
         self.assertTrue(torch.all(suprr.real - suprc0.real < 0.0001))
         self.assertTrue(torch.all(suprr.imag - suprc0.imag < 0.0001))
-        #self.assertTrue(torch.all(colcr - colcc0.real < 0.0001))
         self.assertTrue(torch.all(supcr.real - supcc0.real < 0.0001))
         self.assertTrue(torch.all(supcr.imag - supcc0.imag < 0.0001))
 
     def testDifference(self):
         # Parameter initialization
-        batches = randint(1, 4)
-        signals = randint(1, 7)
-        channels = randint(1, 5)
+        batches:int = 2
+        signals:int = 2
+        channels:int = 2
 
         # Create the modules required to test the enclosed parameters for inconsistency
         subject = Entangle(inputSignals=signals, curveChannels=channels, \
-            samples=test.TEST_FFT_SAMPLES, useKnowledgeMask=True, \
+            samples=test.TEST_FFT_SMALL_SAMPLES, useKnowledgeMask=True, \
             outputMode=EntangleOutputMode.BOTH, dtype=DEFAULT_DTYPE)
         subjectc = Entangle(inputSignals=signals, curveChannels=channels, \
-            samples=test.TEST_FFT_SAMPLES, useKnowledgeMask=True, \
+            samples=test.TEST_FFT_SMALL_SAMPLES, useKnowledgeMask=True, \
             outputMode=EntangleOutputMode.BOTH, dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Replace parameters to generate inconsistency
@@ -151,7 +149,7 @@ class EntangleTest(unittest.TestCase):
         subjectc.knowledgeMask = nn.Parameter(torch.randn_like(subjectc.knowledgeMask))
 
         # Tensors for evaluation
-        x = torch.randn((batches, signals, channels, test.TEST_FFT_SAMPLES), dtype=DEFAULT_DTYPE)
+        x = torch.randn((batches, signals, channels, test.TEST_FFT_SMALL_SAMPLES), dtype=DEFAULT_DTYPE)
         xc = torch.view_as_complex(torch.stack((x, x), dim=-1))
 
         # Push data through the entanglers
