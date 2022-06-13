@@ -4,7 +4,20 @@ from .math import *
 
 
 @ts
-def lissajous(x:t.Tensor, freqs:t.Tensor, phases:t.Tensor, oneD:bool = True):
+def lissajous(x:t.Tensor, freqs:t.Tensor, phases:t.Tensor, oneD:bool = True) -> t.Tensor:
+  """Create a lissajous curve sampled at position `x` with the associated frequencies
+  and phases.
+
+  Args:
+      x (t.Tensor): The sampling positions for the curve(s).
+      freqs (t.Tensor): The frequencies for the curve(s).
+      phases (t.Tensor): The phase offsets for the curve(s).
+      oneD (bool, optional): All sampling positions are considered independent for the frequencies
+      and phases provided. Defaults to True.
+
+  Returns:
+      t.Tensor: The sampled lissajous curve.
+  """
   assert freqs.size() == phases.size()
   
   if oneD:
@@ -145,6 +158,12 @@ class Ringing(nn.Module):
     unless specified not to.
   """
   def __init__(self, forks:int=DEFAULT_FFT_SAMPLES, dtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+    """Initialize the ringing module.
+
+    Args:
+        forks (int, optional): The amount of forks to ring in the module. Defaults to DEFAULT_FFT_SAMPLES.
+        dtype (t.dtype, optional): The default datatype for ringing parameters; supports complex values. Defaults to DEFAULT_COMPLEX_DTYPE.
+    """
     super(Ringing, self).__init__()
 
     # The positions and values of the enclosed forks
@@ -155,7 +174,7 @@ class Ringing(nn.Module):
     self.forkDecay = nn.Parameter(t.ones((forks), dtype=dtype) * DECAY_SEED)
     self.signalDecay = nn.Parameter(t.ones((1), dtype=dtype) * DECAY_SEED)
 
-  def __createOutputSignal(self, forks:t.Tensor, xfft:t.Tensor, posLow:t.Tensor, posHigh:t.Tensor, posMix:t.Tensor) -> t.Tensor:
+  def __createOutputSignal__(self, forks:t.Tensor, xfft:t.Tensor, posLow:t.Tensor, posHigh:t.Tensor, posMix:t.Tensor) -> t.Tensor:
     # Create tensor for constructing output
     yfft = t.zeros_like(xfft)
 
@@ -167,6 +186,11 @@ class Ringing(nn.Module):
     return yfft
   
   def dampen(self, stop:bool=False):
+    """Decay the ringing by one internal decay step. Optionally stop the ringing.
+
+    Args:
+        stop (bool, optional): If True, stop the previous ringing entirely. Defaults to False.
+    """
     # If stopping, fully decaying
     if stop:
       self.forkVals = self.forkVals * 0
@@ -176,6 +200,14 @@ class Ringing(nn.Module):
     
 
   def view(self, samples:int=DEFAULT_FFT_SAMPLES) -> t.Tensor:
+    """Get the current ringing signal.
+
+    Args:
+        samples (int, optional): The amount of samples to construct the signal with. Defaults to DEFAULT_FFT_SAMPLES.
+
+    Returns:
+        t.Tensor: The ringing signal.
+    """
     # Generate metadata needed to create the output signal
     assert samples >= 1
     positions = isigmoid(self.forkPos) * (samples - 1)
@@ -185,12 +217,22 @@ class Ringing(nn.Module):
     xfft = t.zeros((samples), dtype=self.forkVals.dtype)
 
     # Generate the output signal
-    yfft = self.__createOutputSignal(forks=self.forkVals, xfft=xfft, posLow=posLow, posHigh=posHigh, posMix=posMix)
+    yfft = self.__createOutputSignal__(forks=self.forkVals, xfft=xfft, posLow=posLow, posHigh=posHigh, posMix=posMix)
 
     # Generate the output signal in the time domain according to the sample size
     return ifft(yfft, n=samples, dim=-1)
 
   def forward(self, x:t.Tensor, stopTime:bool=False, regBatchInput:bool=True) -> t.Tensor:
+    """The default forward call for the ringing module.
+
+    Args:
+        x (t.Tensor): The signal deconstruct and add to the bank of forks.
+        stopTime (bool, optional): If False, store the signal decay. Defaults to False.
+        regBatchInput (bool, optional): If True, use a mean as the way to input the signal, False sums. Defaults to True.
+
+    Returns:
+        t.Tensor: The ringing signal from the input signal using the banked forks.
+    """
     # Gather parameters needed to have some light attention to the tunes coming in
     xfft = fft(x, dim=-1)
     xsamples = x.size()[-1]
@@ -227,7 +269,7 @@ class Ringing(nn.Module):
       self.forkVals = forkVals
     
     # Create the output signal
-    yfft = self.__createOutputSignal(forks=forkVals, xfft=xfft, posLow=posLow, posHigh=posHigh, posMix=posMix)
+    yfft = self.__createOutputSignal__(forks=forkVals, xfft=xfft, posLow=posLow, posHigh=posHigh, posMix=posMix)
 
     # Return constructed signal
     return ifft(yfft, n=xsamples, dim=-1)
