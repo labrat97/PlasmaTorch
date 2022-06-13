@@ -4,7 +4,7 @@ import torch.nn.functional as nnf
 import torch.fft as tfft
 from torch.jit import script as ts
 
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, Union
 
 # Ensure some level of default precision
 DEFAULT_DTYPE:t.dtype = t.float32

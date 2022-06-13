@@ -28,13 +28,13 @@ class Smear(nn.Module):
     return (xRange * self.__iter) + xLow
 
 @ts
-def nantonum(x:t.Tensor) -> t.Tensor:
+def nantonum(x:t.Tensor, nan:Union[float, None]=None, posinf:Union[float, None]=None, neginf:Union[float, None]=None) -> t.Tensor:
   # Already implemented
-  if not x.is_complex(): return t.nan_to_num(x)
+  if not x.is_complex(): return t.nan_to_num(x, nan=nan, posinf=posinf, neginf=neginf)
 
   # Do it on a per element basis
-  real = x.real.nan_to_num()
-  imag = x.imag.nan_to_num()
+  real = x.real.nan_to_num(nan=nan, posinf=posinf, neginf=neginf)
+  imag = x.imag.nan_to_num(nan=nan, posinf=posinf, neginf=neginf)
   
   # Create the stablized output and return
   return t.view_as_complex(t.stack((real, imag), dim=-1))
@@ -60,7 +60,10 @@ def strToTensor(x:str) -> t.Tensor:
   return rawstr
 
 @ts
-def tensorToStr(x:t.Tensor) -> List[str]:
+def tensorToStr(x:t.Tensor, dim:int=-1) -> List[str]:
+  # Put the string dimension in the appropriate place for conversion
+  wx = x.transpose(dim, -1)
+
   # Make sure it can be represented in python natively
   if len(x.size()) == 1:
     wx = x.unsqueeze(0)
