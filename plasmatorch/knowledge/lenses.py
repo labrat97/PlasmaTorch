@@ -3,7 +3,7 @@ from .routing import *
 
 from enum import Enum
 
-class PolarLensPosition(Enum):
+class PolarLensDirection(Enum):
     """Defines the discrete direction of observation through a lens that has only two
     directions to be observed through.
     """
@@ -32,15 +32,24 @@ class PolarLens(KnowledgeFilter):
         self.lensBasis:nn.Parameter = nn.Parameter(t.zeros((GREISS_SAMPLES), dtype=self.cdtype))
 
         # Store the direction of the lens evaluation, defined by the above enum
-        self.lensDir:nn.Parameter = nn.Parameter((2 * int(PolarLensPosition.NS)) - 1 + t.zeros((1), dtype=t.int8), requires_grad=False)
+        self.lensDir:nn.Parameter = nn.Parameter((2 * int(PolarLensDirection.NS)) - 1 + t.zeros((1), dtype=t.int8), requires_grad=False)
 
         # Store how much padding to add to the signal before the lensing, circularly
         self.signalPadding:nn.Parameter = nn.Parameter(abs(padding) + t.zeros((1), dtype=t.int64), requires_grad=False)
 
 
-    def setDirection(self, dir:PolarLensPosition) -> PolarLensPosition:
+    def setDirection(self, dir:PolarLensDirection) -> PolarLensDirection:
+        """Set the viewing direction of the lens. Viewing the lens opposite of the prior view
+        is roughly the reversal of the lensing.
+
+        Args:
+            dir (PolarLensDirection): The direction to set the lens to.
+
+        Returns:
+            PolarLensDirection: The old lens direction.
+        """
         # Save the old value just in case that is useful and return
-        oldValue:PolarLensPosition = PolarLensPosition((self.lensDir[0] + 1) / 2)
+        oldValue:PolarLensDirection = PolarLensDirection((self.lensDir[0] + 1) / 2)
 
         # Translate to what the tensor can understand in the equation
         self.lensDir[0] = (2 * int(dir)) - 1
@@ -49,9 +58,14 @@ class PolarLens(KnowledgeFilter):
         return oldValue
 
 
-    def getDirection(self) -> PolarLensPosition:
+    def getDirection(self) -> PolarLensDirection:
+        """Get the direction in an easy to interact with enum type.
+
+        Returns:
+            PolarLensDirection: The direction of the lens.
+        """
         # Translate from what the tensor can understand back into the python enum
-        return PolarLensPosition((self.lensDir[0] + 1) / 2)
+        return PolarLensDirection((self.lensDir[0] + 1) / 2)
 
 
     def __forward__(self, x:t.Tensor) -> t.Tensor:
@@ -64,7 +78,7 @@ class PolarLens(KnowledgeFilter):
 
 
 
-class InterferringLensPosition(Enum):
+class InterferringLensDirection(Enum):
     """Defines the discrete direction of observation through a lens that can be viewed
     in a discrete cartesean setting.
     """
@@ -91,7 +105,7 @@ class InterferringLens(KnowledgeCollider):
         self.weLens:PolarLens = PolarLens(samples=samples, padding=padding, keySamples=keySamples, cdtype=self.cdtype)
 
 
-    def setDirection(self, dir:InterferringLensPosition):
+    def setDirection(self, dir:InterferringLensDirection):
         # Split out the enum into its associated directions for PolarLenses
         nsDir:int = (int(dir) >> 0) & 0b1
         weDir:int = (int(dir) >> 1) & 0b1
@@ -101,13 +115,18 @@ class InterferringLens(KnowledgeCollider):
         self.weLens.setDirection(weDir)
 
 
-    def getDirection(self) -> InterferringLensPosition:
+    def getDirection(self) -> InterferringLensDirection:
+        """Get the direction of the lens in an easy to interact with enum type.
+
+        Returns:
+            InterferringLensDirection: The direction of the lens.
+        """
         # Get the individual directions
         nsDir:int = int(self.nsLens.getDirection())
         weDir:int = int(self.weLens.getDirection())
 
         # Bitwise or everything together
-        return InterferringLensPosition(int(nsDir | (weDir << 1)))
+        return InterferringLensDirection(int(nsDir | (weDir << 1)))
 
 
     def __forward__(self, a:t.Tensor, b:t.Tensor) -> t.Tensor:
