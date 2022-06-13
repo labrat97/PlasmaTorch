@@ -1,4 +1,5 @@
 from .defaults import *
+from .math import xbias
 
 
 # Turn a pointwise signal into a smearwise one
@@ -7,24 +8,28 @@ class Smear(nn.Module):
     upperScalar:float = 1./16, dtype:t.dtype = DEFAULT_DTYPE):
     super(Smear, self).__init__()
 
-    self.samples:int = samples
+    # Store the parameters of the system
     self.smearBias:nn.Parameter = nn.Parameter(t.zeros(1, dtype=dtype))
     self.smearWindow:nn.Parameter = nn.Parameter(t.tensor([-lowerScalar, upperScalar]).type(dtype))
 
-    self.__iter = t.Tensor(
-      [builder / (self.samples-1) for builder in range(self.samples)]
-    ).type(dtype).detach()
+    # Cache a bias generation for later modification
+    self.__iter = xbias(n=samples, bias=0)
   
   def forward(self, x:t.Tensor) -> t.Tensor:
+    # Bias the points smeared
     xBias:t.Tensor = x + self.smearBias
-    if self.samples <= 1:
+    if self.__iter.size(-1) <= 1:
       return xBias
 
+    # Pull the smear multipliers
     lowerSmear:t.Tensor = self.smearWindow[0]
     upperSmear:t.Tensor = self.smearWindow[1]
+  
+    # Calculate the iteration modifiers
     xRange:t.Tensor = (upperSmear - lowerSmear) * xBias
     xLow:t.Tensor = ((1 + lowerSmear) * xBias)
 
+    # Modify the built in iteration cache
     return (xRange * self.__iter) + xLow
 
 @ts
