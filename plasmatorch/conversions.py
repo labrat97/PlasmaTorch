@@ -23,8 +23,7 @@ class Smear(nn.Module):
         self.smearWindow:nn.Parameter = nn.Parameter(t.tensor([-lowerScalar, upperScalar]).type(dtype))
 
         # Cache a bias generation for later modification
-        # TODO: Make this a parameter with no gradient
-        self.__iter__ = xbias(n=samples, bias=0)
+        self.__iter__ = nn.Parameter(xbias(n=samples, bias=0), requires_grad=False)
     
     def forward(self, x:t.Tensor) -> t.Tensor:
         """The default forward call of the module.
