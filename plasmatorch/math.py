@@ -27,14 +27,6 @@ def asigphi() -> t.Tensor:
 
 
 @ts
-def xbias(n:int, bias:int=0):
-    composer = t.zeros((n)).add(bias)
-    for i in range(n):
-        composer[i].add_(i)
-    return composer
-
-
-@ts
 def latticeParams(dims:int, basisParam:t.Tensor=phi()) -> t.Tensor:
     powers = xbias(n=dims, bias=0)
     return basisParam ** (-powers)

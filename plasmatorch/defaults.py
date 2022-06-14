@@ -59,3 +59,10 @@ def isOneD(x:t.Tensor) -> bool:
 @ts
 def isSmearAll(x:t.Tensor) -> Tuple[bool, bool]:
     return isSmear(x), isOneD(x)
+
+@ts
+def xbias(n:int, bias:int=0):
+    composer = t.zeros((n)).add(bias)
+    for i in range(n):
+        composer[i].add_(i)
+    return composer

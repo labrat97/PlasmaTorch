@@ -1,5 +1,4 @@
 from .defaults import *
-from .math import xbias
 
 
 class Smear(nn.Module):
