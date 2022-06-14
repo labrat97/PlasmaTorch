@@ -14,10 +14,10 @@ class EntangleOutputMode(int, Flag):
     """
 
     # Output the superpositions between the signals (with knowledge graphs)
-    SUPERPOSITION:int = 1 << 0
+    SUPERPOSITION:int = 0b1 << 0
 
     # Output the collapsed, fully elaborated, signals at the end of the function
-    COLLAPSE:int = 1 << 1
+    COLLAPSE:int = 0b1 << 1
 
     # Output both of the contained modes in superposition collapse order respectively.
     BOTH:int = SUPERPOSITION | COLLAPSE
@@ -152,10 +152,10 @@ def collapse(x:t.Tensor, polarization:t.Tensor) -> t.Tensor:
     # Brief argument check
     assert x.size(-1) == x.size(-2)
     
-    # Get the sums of the matrix on each view according to transposition on the final
-    # dimensions (*..., n, n)
-    suma = t.sum(x, dim=-1)
-    sumb = t.sum(x, dim=-2)
+    # Get the means of the matrix on each view according to transposition on the final
+    #   dimensions (*..., n, n)
+    suma = t.mean(x, dim=-1)
+    sumb = t.mean(x, dim=-2)
 
     # Gets the eigenvalues of the matrix for the third and final phase of the collapse
     eigv = t.linalg.eigvals(x)
@@ -164,7 +164,7 @@ def collapse(x:t.Tensor, polarization:t.Tensor) -> t.Tensor:
     iter = 2. * pi() / 3.
 
     # The eigvals will be the one vals as they represent the solved roots of the
-    # input matrix
+    #   input matrix
     rote = eigv * isin(polarization)
     rota = suma * isin(polarization + iter)
     rotb = sumb * isin(polarization - iter)
@@ -174,9 +174,6 @@ def collapse(x:t.Tensor, polarization:t.Tensor) -> t.Tensor:
 
 @ts
 def superposition(a:t.Tensor, b:t.Tensor) -> t.Tensor:
-    # Brief argument check
-    assert a.size(-1) == b.size(-1)
-    
     # Do the matrix multiplication required 
     rawSuper:t.Tensor = a.unsqueeze(-1) @ b.unsqueeze(-2)
     return nsoftmax(x=rawSuper, dims=[-1, -2])

@@ -1,6 +1,8 @@
 from .defaults import *
-from .conversions import *
-from .math import *
+from .math import pi, phi
+from .conversions import toComplex
+
+
 
 @ts
 def irregularGauss(x:t.Tensor, mean:t.Tensor, lowStd:t.Tensor, highStd:t.Tensor, reg:bool=False) -> t.Tensor:
