@@ -149,6 +149,18 @@ class Entangle(nn.Module):
 
 @ts
 def collapse(x:t.Tensor, polarization:t.Tensor) -> t.Tensor:
+    """Collapse a signal vector according to how it ROUGHLY works in reality. A three phase signal
+    is constructed and summed together at the end of two transposed means and an eigenvalue computation.
+    This should fully transfer the information of the system to the collapsed signal assuming infinitely
+    sampled polarizations.
+
+    Args:
+        x (t.Tensor): The signal to collapse, sized (*, n, n).
+        polarization (t.Tensor): The polarization of the collapse for the signal.
+
+    Returns:
+        t.Tensor: The collapsed signal of size (*, n, n) (assuming pointwise or less polarization).
+    """
     # Brief argument check
     assert x.size(-1) == x.size(-2)
     
@@ -174,12 +186,33 @@ def collapse(x:t.Tensor, polarization:t.Tensor) -> t.Tensor:
 
 @ts
 def superposition(a:t.Tensor, b:t.Tensor) -> t.Tensor:
+    """Create a superposition of the two input signals with a complex softmax on the result from the matmul.
+
+    Args:
+        a (t.Tensor): The first tensor to create a superposition with.
+        b (t.Tensor): The second tensor to create a superposition with.
+
+    Returns:
+        t.Tensor: The superpositioned tensor.
+    """
     # Do the matrix multiplication required 
     rawSuper:t.Tensor = a.unsqueeze(-1) @ b.unsqueeze(-2)
     return nsoftmax(x=rawSuper, dims=[-1, -2])
 
 @ts
 def entangle(a:t.Tensor, b:t.Tensor, mask:t.Tensor, polarization:t.Tensor) -> t.Tensor:
+    """Create a superposition of signals `a` and `b` with a knowledge mask and polarization
+    to reduce the output signals to the same dimensionality as the input signals.
+
+    Args:
+        a (t.Tensor): The first tensor of size (*, n) to create an entanglement with.
+        b (t.Tensor): The second tensor of size (*, m) to create an entanglement with.
+        mask (t.Tensor): The mask of size (*, n, m) to apply knowledge through.
+        polarization (t.Tensor): The polarization of the signals.
+
+    Returns:
+        t.Tensor: The entangled signals.
+    """
     # Assert the arguments are size compatible with each other
     assert len(mask.size()) >= 2
     assert mask.size(-2) == a.size(-1)

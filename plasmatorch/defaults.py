@@ -49,19 +49,53 @@ AGGREGATE_LENSES:int = 7
 
 @ts
 def isSmear(x:t.Tensor) -> bool:
+    """Checks the dimensions of a t.Tensor to see if it can be represented as a smear.
+
+    Args:
+        x (t.Tensor): The tensor to test.
+
+    Returns:
+        bool: If the tensor is a smear.
+    """
     size:int = len(x.size())
     return (size >= 3) and (size <= 4)
 
 @ts
 def isOneD(x:t.Tensor) -> bool:
+    """Checks the dimensions of a t.Tensor to see if it is a one dimension signal.
+
+    Args:
+        x (t.Tensor): The tensor to test.
+
+    Returns:
+        bool: If the tensor is a one dimension signal.
+    """
     return len(x.size()) == 3
 
 @ts
 def isSmearAll(x:t.Tensor) -> Tuple[bool, bool]:
+    """Run both the `isSmear()` test and `isOneD()` test respectively.
+
+    Args:
+        x (t.Tensor): The tensor to test.
+
+    Returns:
+        Tuple[bool, bool]: (`isSmear()`, `isOneD()`)
+    """
     return isSmear(x), isOneD(x)
 
 @ts
-def xbias(n:int, bias:int=0):
+def xbias(n:int, bias:int=0) -> t.Tensor:
+    """Creates the torch equivalent of a `range()` call in python, n elements long
+    starting at `bias` as a value.
+
+    Args:
+        n (int): The number of samples to iterate and save for the function.
+        bias (int, optional): The number to start iterating at. Defaults to 0.
+
+    Returns:
+        t.Tensor: The unit stepping, summing, iterated tensor.
+    """
     composer = t.zeros((n)).add(bias)
     for i in range(n):
         composer[i].add_(i)
