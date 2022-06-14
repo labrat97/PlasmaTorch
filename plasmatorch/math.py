@@ -50,6 +50,15 @@ def phi(dtype:t.dtype=DEFAULT_DTYPE) -> t.Tensor:
 
 @ts
 def asigphi(dtype:t.dtype=DEFAULT_DTYPE) -> t.Tensor:
+    """Computes the inverse of a simoid activation on Phi so that the output of a sigmoid activation
+    can come out as the golden ratio.
+
+    Args:
+        dtype (t.dtype, optional): The datatype to perform the computation in. Defaults to DEFAULT_DTYPE.
+
+    Returns:
+        t.Tensor: The value of the inverse of a sigmoid of the golden ratio.
+    """
     return -t.log(phi(dtype=dtype) - 1)
 
 
