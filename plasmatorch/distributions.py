@@ -64,6 +64,14 @@ class LinearGauss(nn.Module):
         self.isComplex:bool = t.is_complex(self.mean)
 
     def forward(self, x: t.Tensor) -> t.Tensor:
+        """The default forward call of the module.
+
+        Args:
+            x (t.Tensor): The signal to evaluate.
+
+        Returns:
+            t.Tensor: The `irregularGauss()` sampled input signal.
+        """
         # Handle the evaluation of a complex number in a non-complex system`
         inputComplex:bool = t.is_complex(x)
 
