@@ -112,7 +112,7 @@ class ComplexQualiaTest(unittest.TestCase):
         self.assertTrue(torch.all(ipol - pi()/2 < 0.0001))
         self.assertTrue(torch.all(iroot2 - pi()/4 < 0.0001))
 
-class SoftmaxTest(unittest.TestCase):
+class SoftunitTest(unittest.TestCase):
     SIZE = (97, 11, 13, 128)
 
     def testSizing(self):
@@ -121,10 +121,10 @@ class SoftmaxTest(unittest.TestCase):
         xc = torch.randn(self.SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Calculate
-        y = isoftmax(x, dim=-1)
-        y0 = isoftmax(x, dim=0)
-        yc = isoftmax(xc, dim=-1)
-        yc0 = isoftmax(xc, dim=0)
+        y = softunit(x, dim=-1)
+        y0 = softunit(x, dim=0)
+        yc = softunit(xc, dim=-1)
+        yc0 = softunit(xc, dim=0)
 
         # Test the sizing through the function
         self.assertEqual(x.size(), y.size(), msg=f'{x.size()} != {y.size()}')
@@ -138,14 +138,14 @@ class SoftmaxTest(unittest.TestCase):
         xc = torch.randn(self.SIZE, dtype=DEFAULT_COMPLEX_DTYPE) * torch.randn(self.SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Calculate
-        y = isoftmax(x, dim=-1)
-        y0 = isoftmax(x, dim=0)
-        yc = isoftmax(xc, dim=-1)
-        yc0 = isoftmax(xc, dim=0)
+        y = softunit(x, dim=-1)
+        y0 = softunit(x, dim=0)
+        yc = softunit(xc, dim=-1)
+        yc0 = softunit(xc, dim=0)
 
-        # Test that the values are actually softmax'd at least normally
-        self.assertTrue(torch.all(y == torch.softmax(x, dim=-1)))
-        self.assertTrue(torch.all(y0 == torch.softmax(x, dim=0)))
+        # Test that the values are actually softunited'd at least normally in a real value operating mode
+        self.assertTrue(torch.all(y == x.sign() * torch.softmax(x.abs(), dim=-1)))
+        self.assertTrue(torch.all(y0 == x.sign() * torch.softmax(x.abs(), dim=0)))
 
         # Test to make sure that the magnitudes are softmax'd
         self.assertTrue(torch.all(torch.angle(xc) - torch.angle(yc) < 0.0001))

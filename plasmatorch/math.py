@@ -4,32 +4,70 @@ from .conversions import toComplex
 
 
 @ts
-def pi() -> t.Tensor:
-    return (t.ones((1)) * 3.14159265358979323846264338327950288419716939937510).detach()
+def pi(dtype:t.dtype=DEFAULT_DTYPE) -> t.Tensor:
+    """Gets the value of Pi in the requested datatype.
+
+    Args:
+        dtype (t.dtype, optional): The datatype to return Pi in. Defaults to DEFAULT_DTYPE.
+
+    Returns:
+        t.Tensor: The value of Pi as a tensor of size (1).
+    """
+    return t.tensor((3.14159265358979323846264338327950288419716939937510), dtype=dtype).detach()
+
 
 
 @ts
-def egamma() -> t.Tensor:
-    return (t.ones((1)) * 0.57721566490153286060651209008240243104215933593992).detach()
+def egamma(dtype:t.dtype=DEFAULT_DTYPE) -> t.Tensor:
+    """Gets the value of the Euler-Mascheroni constant in the requested datatype.
+
+    Args:
+        dtype (t.dtype, optional): The datatype to return the Euler-Mascheroni constant in. Defaults to DEFAULT_DTYPE.
+
+    Returns:
+        t.Tensor: The value of the Euler-Mascheroni constant as a tensor of size (1).
+    """
+    return t.tensor((0.57721566490153286060651209008240243104215933593992), dtype=dtype).detach()
+
 
 
 @ts
-def phi() -> t.Tensor:
-    one = t.ones((1)).detach()
+def phi(dtype:t.dtype=DEFAULT_DTYPE) -> t.Tensor:
+    """Calculates the value of Phi in/with the requested datatype.
+
+    Args:
+        dtype (t.dtype, optional): The datatype to perform the computation in. Defaults to DEFAULT_DTYPE.
+
+    Returns:
+        t.Tensor: The value of Phi as a tensor of size (1).
+    """
+    one = t.ones((1), dtype=dtype).detach()
     square = t.sqrt(one * 5)
 
     return ((one + square) / 2).detach()
 
 
+
 @ts
-def asigphi() -> t.Tensor:
-    return -t.log(phi() - 1)
+def asigphi(dtype:t.dtype=DEFAULT_DTYPE) -> t.Tensor:
+    """Computes the inverse of a simoid activation on Phi so that the output of a sigmoid activation
+    can come out as the golden ratio.
+
+    Args:
+        dtype (t.dtype, optional): The datatype to perform the computation in. Defaults to DEFAULT_DTYPE.
+
+    Returns:
+        t.Tensor: The value of the inverse of a sigmoid of the golden ratio.
+    """
+    return -t.log(phi(dtype=dtype) - 1)
+
 
 
 @ts
 def latticeParams(dims:int, basisParam:t.Tensor=phi()) -> t.Tensor:
     powers = xbias(n=dims, bias=0)
     return basisParam ** (-powers)
+
 
 
 @ts
@@ -39,11 +77,12 @@ def i() -> t.Tensor:
         dim=-1)).detach()
 
 
+
 @ts
-def isoftmax(x:t.Tensor, dim:int) -> t.Tensor:
-    # Normal softmax
+def softunit(x:t.Tensor, dim:int) -> t.Tensor:
+    # Normal magnitude based softmax
     if not x.is_complex(): 
-        return t.softmax(x, dim=dim)
+        return x.sign() * t.softmax(x.abs(), dim=dim)
 
     # Imaginary softmax
     angle:t.Tensor = x.angle()
@@ -58,8 +97,9 @@ def isoftmax(x:t.Tensor, dim:int) -> t.Tensor:
     return t.view_as_complex(t.stack((newReal, newImag), dim=-1))
 
 
+
 @ts
-def nsoftmax(x:t.Tensor, dims:List[int]) -> t.Tensor:
+def nsoftunit(x:t.Tensor, dims:List[int]) -> t.Tensor:
     # Because n^0 == 1, this should be an appropriate initializer
     result = t.ones_like(x)
 
@@ -68,10 +108,11 @@ def nsoftmax(x:t.Tensor, dims:List[int]) -> t.Tensor:
 
     # Multiplies each value in the result by the n-root of each isoftmax
     for dim in dims:
-        nroot = t.pow(isoftmax(x, dim=dim), exponent)
+        nroot = t.pow(softunit(x, dim=dim), exponent)
         result.mul_(nroot)
 
     return result
+
 
 
 @ts
@@ -103,6 +144,7 @@ def primishvals(n:int, base:t.Tensor=t.zeros(0, dtype=t.int64), gaussApprox:bool
         pitr  = int((itr - 3) / 2) + 1
 
     return result
+
 
 
 @ts
@@ -156,6 +198,7 @@ def realprimishdist(x:t.Tensor, relative:bool=True, gaussApprox:bool=False) -> t
     return result
 
 
+
 @ts
 def gaussianprimishdist(x:t.Tensor, relative:bool=True) -> t.Tensor:
     # Force complex type
@@ -186,11 +229,13 @@ def gaussianprimishdist(x:t.Tensor, relative:bool=True) -> t.Tensor:
     return magnitudePerc.min(other=gaussdist)
 
 
+
 @ts
 def iprimishdist(x:t.Tensor, relative:bool=True) -> t.Tensor:
     if not t.is_complex(x):
         return realprimishdist(x, relative=relative)
     return gaussianprimishdist(x, relative=relative)
+
 
 
 @ts
@@ -229,6 +274,7 @@ def presigmoid(x:t.Tensor) -> t.Tensor:
     return posVal + negVal + examVal
 
 
+
 @ts
 def isigmoid(x:t.Tensor) -> t.Tensor:
     # Normal sigmoid
@@ -254,6 +300,7 @@ def isigmoid(x:t.Tensor) -> t.Tensor:
     return preMag * sigmoidComplexVal
 
 
+
 @ts
 def pretanh(x:t.Tensor) -> t.Tensor:
     # Normal tanh
@@ -265,6 +312,7 @@ def pretanh(x:t.Tensor) -> t.Tensor:
     #   of (-1, 1) rather than (0, 1). This is effectively the same as a 
     #   standard tanh evaluation in terms of nn activiation.
     return (2. * presigmoid(x)) - 1.
+
 
 
 @ts
@@ -279,6 +327,7 @@ def itanh(x:t.Tensor) -> t.Tensor:
     return pretanh(x) * x.sgn()
 
 
+
 @ts
 def icos(x:t.Tensor) -> t.Tensor:
     # Normal cos
@@ -291,6 +340,7 @@ def icos(x:t.Tensor) -> t.Tensor:
     return t.cos(x.abs()) * t.exp(i() * 2. * x.angle())
 
 
+
 @ts
 def isin(x:t.Tensor) -> t.Tensor:
     # Normal sin
@@ -301,6 +351,7 @@ def isin(x:t.Tensor) -> t.Tensor:
     # The sin() function actually maps perfectly to the complex plane, no weird identities
     #   and fuckery are needed.
     return t.sin(x.abs()) * t.exp(i() * x.angle())
+
 
 
 @ts
@@ -323,6 +374,7 @@ def hmean(x:t.Tensor, dim:int=-1) -> t.Tensor:
     return vals / invx.sum(dim=dim)
 
 
+
 @ts
 def harmonicvals(n:int, nosum:bool=False, addzero:bool=False) -> t.Tensor:
     # Quick error checking
@@ -343,6 +395,7 @@ def harmonicvals(n:int, nosum:bool=False, addzero:bool=False) -> t.Tensor:
     return composition.transpose(-1, -2).sum(dim=-1)
 
 
+
 @ts
 def harmonicdist(x:t.Tensor) -> t.Tensor:
     # Gather constants for evaluation
@@ -360,6 +413,8 @@ def harmonicdist(x:t.Tensor) -> t.Tensor:
     closest = harmonics[finv].unflatten(0, inverse.size())
     return x - closest
 
+
+
 @ts
 def fft(x:t.Tensor, n:int=-1, dim:int=-1) -> t.Tensor:
     # Bounds checking for auto sample count
@@ -369,6 +424,8 @@ def fft(x:t.Tensor, n:int=-1, dim:int=-1) -> t.Tensor:
     # Pass values through to normal function, leave true 1/sqrt(n) definition
     return tfft.fft(x, n=n, dim=dim, norm='ortho')
 
+
+
 @ts
 def ifft(x:t.Tensor, n:int=-1, dim:int=-1) -> t.Tensor:
     # Bounds checking for auto sample count
@@ -377,6 +434,8 @@ def ifft(x:t.Tensor, n:int=-1, dim:int=-1) -> t.Tensor:
 
     # Pass values through to normal function, leave true 1/sqrt(n) definition
     return tfft.ifft(x, n=n, dim=dim, norm='ortho')
+
+
 
 @ts
 def realfold(x:t.Tensor, phase:t.Tensor=pi()) -> t.Tensor:

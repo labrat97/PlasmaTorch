@@ -119,9 +119,9 @@ class KnowledgeFilter(nn.Module, ABC):
             else:
                 # Use a grid resample with bilinear filtering, and centered, with UV coords
                 # Make input values bounded appropriately
-                actWeight:t.Tensor = isoftmax(self.resampleWeight, dim=-1)
+                actWeight:t.Tensor = softunit(self.resampleWeight, dim=-1)
                 # Turn the signal into a continuous signal (essentially a fully differentiable lens)
-                sampleWeight:t.Tensor = tfft.irfft(actWeight, n=actWeight.size(-1), dim=-1, norm='ortho')
+                sampleWeight:t.Tensor = realfold(ifft(actWeight, n=actWeight.size(-1), dim=-1))
                 # Apply the lens to the input values
                 wx:t.Tensor = lens(x, lens=sampleWeight, dim=-1)
         else:
@@ -284,12 +284,12 @@ class KnowledgeCollider(nn.Module, ABC):
             else:
                 # Use a grid resample with bilinear filtering and centered, UV coords
                 # Make input values bounded appropriately
-                actWeightA:t.Tensor = isoftmax(self.resampleWeight[0], dim=-1)
-                actWeightB:t.Tensor = isoftmax(self.resampleWeight[1], dim=-1)
+                actWeightA:t.Tensor = softunit(self.resampleWeight[0], dim=-1)
+                actWeightB:t.Tensor = softunit(self.resampleWeight[1], dim=-1)
 
                 # Turn the signal into a continuous signal (essentially a fully differentiable lens)
-                sampleWeightA:t.Tensor = tfft.irfft(actWeightA, n=actWeightA.size(-1), dim=-1, norm='ortho')
-                sampleWeightB:t.Tensor = tfft.irfft(actWeightB, n=actWeightB.size(-1), dim=-1, norm='ortho')
+                sampleWeightA:t.Tensor = realfold(ifft(actWeightA, n=actWeightA.size(-1), dim=-1))
+                sampleWeightB:t.Tensor = realfold(ifft(actWeightB, n=actWeightB.size(-1), dim=-1))
 
                 # Apply lens to the input values
                 wa:t.Tensor = lens(a, lens=sampleWeightA, dim=-1)
@@ -396,7 +396,7 @@ class KnowledgeRouter(KnowledgeCollider):
         bfft = tfft.fft(b, n=self.keySamples, dim=-1)
 
         # Entangle the signals with the `nsoftmax` function and a matmul, then sum out orthogonally
-        superposition:t.Tensor = (afft.unsqueeze(-1) @ bfft.unsqueeze(-1).transpose(-1,-2)) * nsoftmax(self.correlationMask, dims=[-1,-2])
+        superposition:t.Tensor = (afft.unsqueeze(-1) @ bfft.unsqueeze(-1).transpose(-1,-2)) * nsoftunit(self.correlationMask, dims=[-1,-2])
         afft = superposition.sum(dim=-1)
         bfft = superposition.sum(dim=-2)
 

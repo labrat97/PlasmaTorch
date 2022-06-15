@@ -104,8 +104,8 @@ class Turbulence(nn.Module):
 
         
         # Pay attention using spatial warping and basis vector compression
-        warpKnot:t.Tensor = nsoftmax(self.warpKnot.forward(superSum), dim=[-1,-2])
-        compressorKnot:t.Tensor = nsoftmax(self.compressorKnot.forward(superSum), dim=[-1,-2])
+        warpKnot:t.Tensor = nsoftunit(self.warpKnot.forward(superSum), dim=[-1,-2])
+        compressorKnot:t.Tensor = nsoftunit(self.compressorKnot.forward(superSum), dim=[-1,-2])
         compressorKnot.mul_(self.compressorGain)
 
         # Warping as if the state vector is 4D image data as seen here:
