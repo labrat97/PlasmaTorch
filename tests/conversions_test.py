@@ -34,8 +34,8 @@ class SmearTest(unittest.TestCase):
         
         UPPER_TEST_REAL = torch.all(sy[:, -1] == torch.ones_like(sy[:, -1], dtype=DEFAULT_DTYPE) * (1+(1/16)))
         UPPER_TEST_COMPL = torch.all(syc[:, -1] == torch.ones_like(syc[:, -1], dtype=DEFAULT_COMPLEX_DTYPE) * (1+(1/16)))
-        self.assertTrue(UPPER_TEST_REAL, msg=f'Upper bounds test (real: {sy[0, -1]})')
-        self.assertTrue(UPPER_TEST_COMPL, msg=f'Upper bounds test (imag: {syc[0, -1]})')
+        self.assertTrue(UPPER_TEST_REAL, msg=f'Upper bounds test (real: {sy[0, -1]} vs {1+(1/16)})')
+        self.assertTrue(UPPER_TEST_COMPL, msg=f'Upper bounds test (imag: {syc[0, -1]}) vs {1+(1/16)}')
 
 class SmearResampleTest(unittest.TestCase):
     def testEquivalence(self):
