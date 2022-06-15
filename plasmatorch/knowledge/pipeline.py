@@ -50,7 +50,7 @@ class PipelineFilter(KnowledgeCollider):
         
         # Take the correlation diagonal previously calculated and matmul it with the
         # stored knowledge mask.
-        target:t.Tensor = (corr @ nsoftmax(self.pipeMask[1], dims=[-1, -2])).conj()
+        target:t.Tensor = (corr @ nsoftunit(self.pipeMask[1], dims=[-1, -2])).conj()
 
         # Store the output of the modules
         result:t.Tensor = toComplex(t.zeros((flata.size(0), flata.size(-1), flatb.size(-1)), dtype=self.cdtype))
@@ -73,7 +73,7 @@ class PipelineFilter(KnowledgeCollider):
                 lattice.append(t.ones((1), dtype=self.scaleCoeff.dtype))
                 
                 # Check to see if this is the implicit signal that is being looked for
-                exitsuper:t.Tensor = nsoftmax(accum[-1], [-1, -2]) * nsoftmax(target, [-1, -2])
+                exitsuper:t.Tensor = nsoftunit(accum[-1], [-1, -2]) * nsoftunit(target, [-1, -2])
                 if not t.all((t.flatten(exitsuper).sum(-1)) < 0.5):
                     break
                 

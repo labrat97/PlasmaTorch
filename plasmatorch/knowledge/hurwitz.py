@@ -31,7 +31,7 @@ class HurwitzFilter(KnowledgeCollider):
         bfft = fft(b, n=self.inputSamples, dim=-1)
 
         # Remap the input vectors before the evaluation of the Hurwitz-Zeta function
-        softmap = nsoftmax(self.remap, dims=[-1, -2])
+        softmap = nsoftunit(self.remap, dims=[-1, -2])
         ar = afft @ softmap
         br = bfft @ softmap.transpose(-1, -2)
 

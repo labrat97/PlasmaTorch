@@ -79,10 +79,10 @@ def i() -> t.Tensor:
 
 
 @ts
-def isoftmax(x:t.Tensor, dim:int) -> t.Tensor:
-    # Normal softmax
+def softunit(x:t.Tensor, dim:int) -> t.Tensor:
+    # Normal magnitude based softmax
     if not x.is_complex(): 
-        return t.softmax(x, dim=dim)
+        return x.sign() * t.softmax(x.abs(), dim=dim)
 
     # Imaginary softmax
     angle:t.Tensor = x.angle()
@@ -99,7 +99,7 @@ def isoftmax(x:t.Tensor, dim:int) -> t.Tensor:
 
 
 @ts
-def nsoftmax(x:t.Tensor, dims:List[int]) -> t.Tensor:
+def nsoftunit(x:t.Tensor, dims:List[int]) -> t.Tensor:
     # Because n^0 == 1, this should be an appropriate initializer
     result = t.ones_like(x)
 
@@ -108,7 +108,7 @@ def nsoftmax(x:t.Tensor, dims:List[int]) -> t.Tensor:
 
     # Multiplies each value in the result by the n-root of each isoftmax
     for dim in dims:
-        nroot = t.pow(isoftmax(x, dim=dim), exponent)
+        nroot = t.pow(softunit(x, dim=dim), exponent)
         result.mul_(nroot)
 
     return result
