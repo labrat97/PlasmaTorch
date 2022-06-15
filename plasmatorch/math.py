@@ -128,18 +128,15 @@ def softunit(x:t.Tensor, dim:int) -> t.Tensor:
 
 @ts
 def nsoftunit(x:t.Tensor, dims:List[int]) -> t.Tensor:
-    # Because n^0 == 1, this should be an appropriate initializer
-    result = t.ones_like(x)
+    # Performing a mean at the end of the computation
+    result = t.zeros([len(dims)] + list(x.size()), dtype=x.dtype)
 
-    # Creates an n root
-    exponent:float = 1. / len(dims)
-
-    # Multiplies each value in the result by the n-root of each isoftmax
+    # Adds each softmax to the resultant accumulator
     for dim in dims:
-        nroot = t.pow(softunit(x, dim=dim), exponent)
-        result.mul_(nroot)
+        result[dim] = softunit(x, dim=dim)
 
-    return result
+    # Create a harmonic mean of the values at the constructed dimension
+    return t.mean(result, dim=0)
 
 
 
@@ -387,16 +384,16 @@ def hmean(x:t.Tensor, dim:int=-1) -> t.Tensor:
     """Calculates the harmonic mean according to the given dimension.
 
     Args:
-        x (t.Tensor): The tensor value to use as the base of calculation.
+        x (t.Tensor): The tensor to use as the base of calculation.
         dim (int, optional): The dimension to perform the calculation on. Defaults to -1.
 
     Returns:
-        t.Tensor: The harmonic mean of the input
+        t.Tensor: The harmonic mean of the input.
     """
     # Turn all the values to their -1 power
     invx:t.Tensor = 1. / x
     # Find the amount of values for the mean
-    vals = x.size()[dim]
+    vals = x.size(dim)
     
     # Calculate the harmonic mean
     return vals / invx.sum(dim=dim)
