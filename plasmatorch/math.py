@@ -80,9 +80,9 @@ def i() -> t.Tensor:
 
 @ts
 def isoftmax(x:t.Tensor, dim:int) -> t.Tensor:
-    # Normal softmax
+    # Normal magnitude based softmax
     if not x.is_complex(): 
-        return t.softmax(x, dim=dim)
+        return x.sign() * t.softmax(x.abs(), dim=dim)
 
     # Imaginary softmax
     angle:t.Tensor = x.angle()
