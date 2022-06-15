@@ -213,8 +213,8 @@ def skeeter(teacher:t.Tensor, student:t.Tensor, center:t.Tensor, teacherTemp:flo
         samples:int = ssize[dim]
     
     # Soften and sharpen the inputs as somewhat seen in the DINO loss from (what is likely now formerly known as) Facebook AI
-    softten:t.Tensor = isoftmax((tenure - center) / teacherTemp, dim=dim)
-    softstu:t.Tensor = isoftmax(student / studentTemp, dim=dim)
+    softten:t.Tensor = softunit((tenure - center) / teacherTemp, dim=dim)
+    softstu:t.Tensor = softunit(student / studentTemp, dim=dim)
 
     # Turning the signal from a frequency domain signal back to a time domain
     # signal can be temporarily ignored as hypercorrelation operates accross all

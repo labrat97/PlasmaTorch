@@ -111,7 +111,7 @@ class Entangle(nn.Module):
 
                 # Apply knowledge to the superposition of the subsignals if requested
                 if self.knowledgeMask is not None:
-                    superposition = superposition * nsoftmax(self.knowledgeMask[jdx], dims=[-1,-2])
+                    superposition = superposition * nsoftunit(self.knowledgeMask[jdx], dims=[-1,-2])
 
                 # Save superposition for output if needed
                 if (int(self.outputMode) & int(EntangleOutputMode.SUPERPOSITION)) != 0:
@@ -186,7 +186,7 @@ def collapse(x:t.Tensor, polarization:t.Tensor) -> t.Tensor:
 
 @ts
 def superposition(a:t.Tensor, b:t.Tensor) -> t.Tensor:
-    """Create a superposition of the two input signals with a complex softmax on the result from the matmul.
+    """Create a superposition of the two input signals with a complex softunit on the result from the matmul.
 
     Args:
         a (t.Tensor): The first tensor to create a superposition with.
@@ -197,7 +197,7 @@ def superposition(a:t.Tensor, b:t.Tensor) -> t.Tensor:
     """
     # Do the matrix multiplication required 
     rawSuper:t.Tensor = a.unsqueeze(-1) @ b.unsqueeze(-2)
-    return nsoftmax(x=rawSuper, dims=[-1, -2])
+    return nsoftunit(x=rawSuper, dims=[-1, -2])
 
 @ts
 def entangle(a:t.Tensor, b:t.Tensor, mask:t.Tensor, polarization:t.Tensor) -> t.Tensor:
@@ -220,7 +220,7 @@ def entangle(a:t.Tensor, b:t.Tensor, mask:t.Tensor, polarization:t.Tensor) -> t.
 
     # Create superposition and cover in a mask
     super:t.Tensor = superposition(a, b)
-    entSuper:t.Tensor = super * nsoftmax(mask, dims=[-1, -2])
+    entSuper:t.Tensor = super * nsoftunit(mask, dims=[-1, -2])
 
     # Collapse the masked superposition using polarization in the collapse() method
     return collapse(entSuper, polarization)
