@@ -4,6 +4,19 @@ from .conversions import toComplex
 
 
 @ts
+def i() -> t.Tensor:
+    """Constructs the imaginary number.
+
+    Returns:
+        t.Tensor: The imaginary number as a tensor of size (1).
+    """
+    return t.view_as_complex(t.stack(
+        (t.zeros(1), t.ones(1)), \
+        dim=-1)).detach()
+
+
+
+@ts
 def pi(dtype:t.dtype=DEFAULT_DTYPE) -> t.Tensor:
     """Gets the value of Pi in the requested datatype.
 
@@ -64,22 +77,37 @@ def asigphi(dtype:t.dtype=DEFAULT_DTYPE) -> t.Tensor:
 
 
 @ts
-def latticeParams(dims:int, basisParam:t.Tensor=phi()) -> t.Tensor:
-    powers = xbias(n=dims, bias=0)
+def latticeParams(n:int, basisParam:t.Tensor=phi()) -> t.Tensor:
+    """Creates a set of parameters that decrease their power of the `basisParam` argument
+    from 0 to `1-n`. The default value of Phi for the basis parameter makes the lattice parameters
+    have a weight that decays with the golden ratio.
+
+    Args:
+        n (int): The amount of units to decay (including the zero decay unit).
+        basisParam (t.Tensor, optional): The parameter to be put through a series of power. Defaults to phi().
+
+    Returns:
+        t.Tensor: The requested, decaying, parameters.
+    """
+    powers = xbias(n=n, bias=0)
     return basisParam ** (-powers)
 
 
 
 @ts
-def i() -> t.Tensor:
-    return t.view_as_complex(t.stack(
-        (t.zeros(1), t.ones(1)), \
-        dim=-1)).detach()
-
-
-
-@ts
 def softunit(x:t.Tensor, dim:int) -> t.Tensor:
+    """Performs a softmax on the magnitude of `x`. This allows a system to have an
+    equivalent of the signalling functionality of the softmax function, even if it
+    uses complex numbers. After computing, the tensor will have no magnitudes over 1,
+    but the sign will be preserved.
+
+    Args:
+        x (t.Tensor): The tensor to soften the magnitude of.
+        dim (int): The dimension to soften and use for averaging.
+
+    Returns:
+        t.Tensor: The input tensor with a magnitude no larger than 1.
+    """
     # Normal magnitude based softmax
     if not x.is_complex(): 
         return x.sign() * t.softmax(x.abs(), dim=dim)
