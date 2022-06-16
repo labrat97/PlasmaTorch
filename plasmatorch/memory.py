@@ -1,4 +1,5 @@
 import os
+import gc
 import torch as t
 
 
@@ -23,3 +24,20 @@ def getCudaMemory(cudaIdx:int=0) -> int:
         # Comes back as (free GPU memory, total GPU memory)
         return t.cuda.mem_get_info(device=cudaIdx)[1]
     return 0
+
+
+
+def collect():
+    """Run various garbage collection systems in Python and other libraries (if needed
+    and available) while hiding the output from the terminal as this is meant to be
+    called potentially quite frequently.
+    """
+    # Set up the lack of printing
+    debug = gc.get_debug()
+    gc.set_debug(0)
+
+    # Collection code
+    gc.collect(generation=2)
+
+    # Return the garbage collector to the original state
+    gc.set_debug(debug)
