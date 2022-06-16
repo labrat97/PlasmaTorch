@@ -2,9 +2,13 @@ import torch as t
 import torch.nn as nn
 import torch.nn.functional as nnf
 import torch.fft as tfft
+import torch.cuda as tc
 from torch.jit import script as ts
 
 from typing import Tuple, List, Dict, Union
+from .memory import *
+
+
 
 # Ensure some level of default precision
 DEFAULT_DTYPE:t.dtype = t.float32
@@ -45,6 +49,11 @@ DEFAULT_SIGNAL_LENS_SAMPLES:int = DEFAULT_FFT_SAMPLES
 
 # The normal amount of lenses used in a signal aggregation system
 AGGREGATE_LENSES:int = 7
+
+# Figure out the most effective devices to use by default
+DEFAULT_FAST_DEV:str = 'cuda' if tc.is_available() else 'cpu'
+DEFAULT_MEM_DEV:str = 'cuda' if getCudaMemory() > getSystemMemory() else 'cpu'
+
 
 
 @ts
