@@ -444,20 +444,24 @@ def harmonicvals(n:int, noSum:bool=False, useZero:bool=False) -> t.Tensor:
     assert n >= 1
 
     # Find all of the 1/n values to be summed
-    zeroint = int(useZero)
-    factors:t.Tensor = (1. / xbias(n=n, bias=1-zeroint))
+    zeroint = int(useZero) # 0 false, 1 true
+    factors:t.Tensor = (1. / xbias(n=n-zeroint, bias=1))
+    if useZero:
+        factors = t.cat([t.zeros((1)), factors], dim=-1)
 
     # Break early if skipping the final summation
     if noSum:
         return factors
-    else:
-        factors.unsqueeze_(0)
 
-    # Turn the values into a big triangle
-    composition:t.Tensor = t.triu(t.ones((n, 1)) @ factors, diagonal=0)
+    # Avoid squaring the memory requirement by sequencing accelerated summations
+    accum:t.Tensor = t.zeros_like(factors) + factors
 
-    # Sum the triangle together so that the harmonic values come out
-    return composition.transpose(-1, -2).sum(dim=-1)
+    # Slide the factors over the accumulator, summing up the results
+    for idx in range(1, n):
+        accum[...,idx:].add_(factors[...,:-idx])
+
+    # Return the accumulated factors
+    return accum
 
 
 
