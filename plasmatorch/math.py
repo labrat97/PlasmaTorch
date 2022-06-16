@@ -201,6 +201,17 @@ def primishvals(n:int, base:Union[t.Tensor, None]=None, gaussApprox:bool=False) 
 
 @ts
 def realprimishdist(x:t.Tensor, relative:bool=True, gaussApprox:bool=False) -> t.Tensor:
+    """Gets the distance from the nearest prime approximation, optionally binding the
+    result to a relative positional value between the primes [0, 1].
+
+    Args:
+        x (t.Tensor): The tensor to be evaluated unit-wise.
+        relative (bool, optional): If False, the absolute position is returned. Defaults to True.
+        gaussApprox (bool, optional): If True, uses 4k+-1 rather than 6k+-1. Defaults to False.
+
+    Returns:
+        t.Tensor: The distances to the prime approximations.
+    """
     assert not t.is_complex(x)
 
     # Collect inverse values
