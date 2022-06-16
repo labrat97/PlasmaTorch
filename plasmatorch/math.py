@@ -413,23 +413,41 @@ def harmonicdist(x:t.Tensor) -> t.Tensor:
 
 
 @ts
-def fft(x:t.Tensor, n:int=-1, dim:int=-1) -> t.Tensor:
+def fft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1) -> t.Tensor:
     # Bounds checking for auto sample count
     if n < 0:
         n = x.size(dim)
-    
-    # Pass values through to normal function, leave true 1/sqrt(n) definition
+
+    # Pass values through to a normal function, leave true 1/sqrt(n) definition
+    # Optionally do an n dimensional fft if the dim is a Tuple
+    if (n is Tuple[int]) or (dim is Tuple[int]):
+        assert n is Tuple[int]
+        assert dim is Tuple[int]
+        assert len(n) == len(dim)
+
+        return tfft.fftn(x, s=n, dim=dim, norm='ortho')
+
+    # Normal signle dimension fft
     return tfft.fft(x, n=n, dim=dim, norm='ortho')
 
 
 
 @ts
-def ifft(x:t.Tensor, n:int=-1, dim:int=-1) -> t.Tensor:
+def ifft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1) -> t.Tensor:
     # Bounds checking for auto sample count
     if n < 0:
         n = x.size(dim)
 
     # Pass values through to normal function, leave true 1/sqrt(n) definition
+    # Optionally do an n dimensional inverse fft if the dim is a Tuple
+    if (n is Tuple[int]) or (dim is Tuple[int]):
+        assert n is Tuple[int]
+        assert dim is Tuple[int]
+        assert len(n) == len(dim)
+
+        return tfft.ifftn(x, s=n, dim=dim, norm='ortho')
+        
+    # Normal single dimension inverse fft
     return tfft.ifft(x, n=n, dim=dim, norm='ortho')
 
 
