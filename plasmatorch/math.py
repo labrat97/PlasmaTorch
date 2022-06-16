@@ -4,6 +4,19 @@ from .conversions import toComplex
 
 
 @ts
+def i() -> t.Tensor:
+    """Constructs the imaginary number.
+
+    Returns:
+        t.Tensor: The imaginary number as a tensor of size (1).
+    """
+    return t.view_as_complex(t.stack(
+        (t.zeros(1), t.ones(1)), \
+        dim=-1)).detach()
+
+
+
+@ts
 def pi(dtype:t.dtype=DEFAULT_DTYPE) -> t.Tensor:
     """Gets the value of Pi in the requested datatype.
 
@@ -64,22 +77,37 @@ def asigphi(dtype:t.dtype=DEFAULT_DTYPE) -> t.Tensor:
 
 
 @ts
-def latticeParams(dims:int, basisParam:t.Tensor=phi()) -> t.Tensor:
-    powers = xbias(n=dims, bias=0)
+def latticeParams(n:int, basisParam:t.Tensor=phi()) -> t.Tensor:
+    """Creates a set of parameters that decrease their power of the `basisParam` argument
+    from 0 to `1-n`. The default value of Phi for the basis parameter makes the lattice parameters
+    have a weight that decays with the golden ratio.
+
+    Args:
+        n (int): The amount of units to decay (including the zero decay unit).
+        basisParam (t.Tensor, optional): The parameter to be put through a series of power. Defaults to phi().
+
+    Returns:
+        t.Tensor: The requested, decaying, parameters.
+    """
+    powers = xbias(n=n, bias=0)
     return basisParam ** (-powers)
 
 
 
 @ts
-def i() -> t.Tensor:
-    return t.view_as_complex(t.stack(
-        (t.zeros(1), t.ones(1)), \
-        dim=-1)).detach()
-
-
-
-@ts
 def softunit(x:t.Tensor, dim:int) -> t.Tensor:
+    """Performs a softmax on the magnitude of `x`. This allows a system to have an
+    equivalent of the signalling functionality of the softmax function, even if it
+    uses complex numbers. After computing, the tensor will have no magnitudes over 1,
+    but the sign will be preserved.
+
+    Args:
+        x (t.Tensor): The tensor to soften the magnitude of.
+        dim (int): The dimension to soften and use for averaging.
+
+    Returns:
+        t.Tensor: The input tensor with a magnitude no larger than 1.
+    """
     # Normal magnitude based softmax
     if not x.is_complex(): 
         return x.sign() * t.softmax(x.abs(), dim=dim)
@@ -100,6 +128,16 @@ def softunit(x:t.Tensor, dim:int) -> t.Tensor:
 
 @ts
 def nsoftunit(x:t.Tensor, dims:List[int]) -> t.Tensor:
+    """Stacks a `softunit()` call onto multiple dimensions (provided in argument
+    `dims`) using an arethmetic mean.
+
+    Args:
+        x (t.Tensor): The tensor to soften the magnitude of.
+        dims (List[int]): The dimensions to use for softening and averaging.
+
+    Returns:
+        t.Tensor: The input tensor with a magnitude no larger than 1.
+    """
     # Performing a mean at the end of the computation
     result = t.zeros([len(dims)] + list(x.size()), dtype=x.dtype)
 
@@ -113,21 +151,38 @@ def nsoftunit(x:t.Tensor, dims:List[int]) -> t.Tensor:
 
 
 @ts
-def primishvals(n:int, base:t.Tensor=t.zeros(0, dtype=t.int64), gaussApprox:bool=False) -> t.Tensor:
+def primishvals(n:int, base:Union[t.Tensor, None]=None, gaussApprox:bool=False) -> t.Tensor:
+    """Gets a set of `n` values of primish numbers (6k+-1) or Gaussian primish numbers
+    (4k+-1) optionally using a base of primish values to build off of. The first three prime numbers,
+    ([1, 2, 3]) are given as uncalculated constants.
+
+    Args:
+        n (int): The amount of primish values to calculate.
+        base (Union[t.Tensor, None], optional): If provided, primish values will build after this sequence at
+        the appropriate index. Defaults to None.
+        gaussApprox (bool, optional): If True, 4k+-1 prime approximation is used instead of 6k+-1. Defaults to False.
+
+    Returns:
+        t.Tensor: The primish numbers of sequence length `n`.
+    """
     # Not in the 6x -+ 1 domain, or starting domain
-    if base.size()[-1] < 3:
-        base = t.ones(3, dtype=base.dtype)
-        base[1] += base[0]
-        base[2] += base[1]
-    if n <= base.size()[-1]:
+    # Initialize the base of the primish values tensor
+    if base is None:
+        base = t.tensor([1, 2, 3])
+    # Invalid base, rebuild
+    elif base.size(-1) < 3:
+        base = t.tensor([1, 2, 3], dtype=base.dtype)
+
+    # No need to calculate if the amount of samples is below 
+    if n <= base.size(-1):
         return base[:n]
     
     # Construct the output values
     result:t.Tensor = t.zeros((n), dtype=t.int64).detach()
-    result[:base.size()[-1]] = base
+    result[:base.size(-1)] = base
     
     # Compute every needed 6x -+ 1 value
-    itr:int = base.size()[-1]
+    itr:int = base.size(-1)
     pitr:int = int((itr - 3) / 2) + 1
     while itr < n:
         if itr & 0x1 != 0:
@@ -373,14 +428,16 @@ def hmean(x:t.Tensor, dim:int=-1) -> t.Tensor:
 
 
 @ts
-def harmonicvals(n:int, nosum:bool=False, addzero:bool=False) -> t.Tensor:
+def harmonicvals(n:int, noSum:bool=False, useZero:bool=False) -> t.Tensor:
     # Quick error checking
     assert n >= 1
 
     # Find all of the 1/n values to be summed
-    zeroint = int(addzero)
-    factors:t.Tensor = (1. / xbias(n=n+zeroint, bias=1-zeroint))
-    if nosum:
+    zeroint = int(useZero)
+    factors:t.Tensor = (1. / xbias(n=n, bias=1-zeroint))
+
+    # Break early if skipping the final summation
+    if noSum:
         return factors
     else:
         factors.unsqueeze_(0)
@@ -404,7 +461,7 @@ def harmonicdist(x:t.Tensor) -> t.Tensor:
 
     # Find the needed harmonics for producing the final value
     maxn:t.Tensor = finv.max()[0]
-    harmonics:t.Tensor = harmonicvals(n=maxn, addzero=True)
+    harmonics:t.Tensor = harmonicvals(n=maxn, useZero=True)
     
     # Find the closest harmonic value, refold the shape, then calculate the result
     closest = harmonics[finv].unflatten(0, inverse.size())
