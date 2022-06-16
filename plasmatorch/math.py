@@ -413,25 +413,52 @@ def harmonicdist(x:t.Tensor) -> t.Tensor:
 
 
 @ts
-def fft(x:t.Tensor, n:int=-1, dim:int=-1) -> t.Tensor:
-    # Bounds checking for auto sample count
-    if n < 0:
-        n = x.size(dim)
-    
-    # Pass values through to normal function, leave true 1/sqrt(n) definition
-    return tfft.fft(x, n=n, dim=dim, norm='ortho')
+def fft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1) -> t.Tensor:
+    # Pass values through to a normal function, leave true 1/sqrt(n) definition
+    # Optionally do an n dimensional fft if the dim is a Tuple
+    if isinstance(n, Tuple[int]) and isinstance(dim, Tuple[int]):
+        # Make sure that the length of the iterated arguments are the same
+        if len(n) != len(dim):
+            raise ValueError('n and dim are of unequal length')
+        
+        return tfft.fftn(x, s=n, dim=dim, norm='ortho')
+
+    # Normal single dimension fft
+    elif isinstance(n, int) and isinstance(dim, int):
+        # Bounds checking for auto sample count
+        # Not filtering 0 value as that has handling in the `tfft.ifft()` method
+        if n < 0:
+            n = x.size(dim)
+        
+        return tfft.fft(x, n=n, dim=dim, norm='ortho')
+
+    # Invalid arguments were provided
+    raise ValueError('n and dim must have the same type and be either ints or tuples of ints')
 
 
 
 @ts
-def ifft(x:t.Tensor, n:int=-1, dim:int=-1) -> t.Tensor:
-    # Bounds checking for auto sample count
-    if n < 0:
-        n = x.size(dim)
-
+def ifft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1) -> t.Tensor:  
     # Pass values through to normal function, leave true 1/sqrt(n) definition
-    return tfft.ifft(x, n=n, dim=dim, norm='ortho')
+    # Optionally do an n dimensional inverse fft if the dim is a Tuple
+    if isinstance(n, Tuple[int]) and isinstance(dim, Tuple[int]):
+        # Make sure that the length of the iterated arguments are the same
+        if len(n) != len(dim):
+            raise ValueError('n and dim are of unequal length')
 
+        return tfft.ifftn(x, s=n, dim=dim, norm='ortho')
+
+    # Normal single dimension inverse fft
+    elif isinstance(n, int) and isinstance(dim, int):
+        # Bounds checking for auto sample count
+        # Not filtering 0 value as that has handling in the `tfft.ifft()` method
+        if n < 0:
+            n = x.size(dim)
+
+        return tfft.ifft(x, n=n, dim=dim, norm='ortho')
+
+    # Invalid arguments were provided
+    raise ValueError('n and dim must have the same type and be either ints or tuples of ints')
 
 
 @ts
