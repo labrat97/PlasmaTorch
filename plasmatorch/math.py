@@ -412,6 +412,7 @@ def harmonicdist(x:t.Tensor) -> t.Tensor:
 
 
 
+# TODO: test
 @ts
 def fft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1) -> t.Tensor:
     # Pass values through to a normal function, leave true 1/sqrt(n) definition
@@ -437,6 +438,7 @@ def fft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1) 
 
 
 
+# TODO: test
 @ts
 def ifft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1) -> t.Tensor:  
     # Pass values through to normal function, leave true 1/sqrt(n) definition
