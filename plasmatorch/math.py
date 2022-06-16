@@ -428,14 +428,16 @@ def hmean(x:t.Tensor, dim:int=-1) -> t.Tensor:
 
 
 @ts
-def harmonicvals(n:int, nosum:bool=False, addzero:bool=False) -> t.Tensor:
+def harmonicvals(n:int, noSum:bool=False, useZero:bool=False) -> t.Tensor:
     # Quick error checking
     assert n >= 1
 
     # Find all of the 1/n values to be summed
-    zeroint = int(addzero)
-    factors:t.Tensor = (1. / xbias(n=n+zeroint, bias=1-zeroint))
-    if nosum:
+    zeroint = int(useZero)
+    factors:t.Tensor = (1. / xbias(n=n, bias=1-zeroint))
+
+    # Break early if skipping the final summation
+    if noSum:
         return factors
     else:
         factors.unsqueeze_(0)
@@ -459,7 +461,7 @@ def harmonicdist(x:t.Tensor) -> t.Tensor:
 
     # Find the needed harmonics for producing the final value
     maxn:t.Tensor = finv.max()[0]
-    harmonics:t.Tensor = harmonicvals(n=maxn, addzero=True)
+    harmonics:t.Tensor = harmonicvals(n=maxn, useZero=True)
     
     # Find the closest harmonic value, refold the shape, then calculate the result
     closest = harmonics[finv].unflatten(0, inverse.size())
