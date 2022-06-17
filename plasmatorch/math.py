@@ -180,20 +180,29 @@ def primishvals(n:int, base:Union[t.Tensor, None]=None, gaussApprox:bool=False) 
     # Construct the output values
     result:t.Tensor = t.zeros((n), dtype=t.int64).detach()
     result[:base.size(-1)] = base
-    
-    # Compute every needed 6x -+ 1 value
+
+    # Set up main calculation iterators
     itr:int = base.size(-1)
     pitr:int = int((itr - 3) / 2) + 1
+
+    # Compute the requested primish values
     while itr < n:
-        if itr & 0x1 != 0:
+        # Add either the iterator's specific definition of a calculation to the system,
+        #   or just add 2 to the previous value due to 4k+-1 and 6k+-1 having a maximum
+        #   error swing from the scalar multiple applied to the index of only 2.
+        if itr & 0b1 != 0: # The iterator is odd
             if gaussApprox:
                 result[itr] = (4 * pitr) + 1
             else:
                 result[itr] = (6 * pitr) - 1
-        else:
+        else: # The iterator is even
             result[itr] = result[itr - 1] + 2
+        
+        # Increase the iterators accordingly
         itr += 1
-        pitr  = int((itr - 3) / 2) + 1
+
+        # There are two primes around every power of the scalar
+        pitr = int((itr - 3) / 2) + 1
 
     return result
 
@@ -206,7 +215,7 @@ def realprimishdist(x:t.Tensor, relative:bool=True, gaussApprox:bool=False) -> t
 
     Args:
         x (t.Tensor): The tensor to be evaluated unit-wise.
-        relative (bool, optional): If False, the absolute position is returned. Defaults to True.
+        relative (bool, optional): If False, the absolute distance is returned. Defaults to True.
         gaussApprox (bool, optional): If True, uses 4k+-1 rather than 6k+-1. Defaults to False.
 
     Returns:
@@ -264,6 +273,16 @@ def realprimishdist(x:t.Tensor, relative:bool=True, gaussApprox:bool=False) -> t
 
 @ts
 def gaussianprimishdist(x:t.Tensor, relative:bool=True) -> t.Tensor:
+    """Gets the distance from the nearest complex prime approximation, optionally binding
+    the result to a relative positional value between the primes [0, 1].
+
+    Args:
+        x (t.Tensor): The tensor to be evaluated unit-wise.
+        relative (bool, optional): If False, the absolute distance is returned. Defaults to True.
+
+    Returns:
+        t.Tensor: The distances (of real value) to the prime approximation.
+    """
     # Force complex type
     if not t.is_complex(x):
         x = toComplex(x)
@@ -279,11 +298,14 @@ def gaussianprimishdist(x:t.Tensor, relative:bool=True) -> t.Tensor:
     # Calculate the other distances
     rdgauss = realprimishdist(real, gaussApprox=True)
     idgauss = realprimishdist(imag, gaussApprox=True)
+    
     # 4k +- 3 leaves only a space of 2 between normal values
     # To normalize, divide by the size of the space (which is 2)
     rdgaussi = imag.abs() / 2
     idgaussi = real.abs() / 2
+
     # Raw distance function
+    # Using multiply calls due to higher potential accuracy and speed in hardware
     rdcomposite = t.sqrt((rdgauss * rdgauss) + (rdgaussi * rdgaussi))
     idcomposite = t.sqrt((idgauss * idgauss) + (idgaussi * idgaussi))
 
@@ -294,9 +316,23 @@ def gaussianprimishdist(x:t.Tensor, relative:bool=True) -> t.Tensor:
 
 
 @ts
-def iprimishdist(x:t.Tensor, relative:bool=True) -> t.Tensor:
+def iprimishdist(x:t.Tensor, relative:bool=True, forceGauss:bool=False) -> t.Tensor:
+    """Checks the distance betwwen the input tensor `x` and the nearest primish value
+    according to if the type of `x` is complex. If `x` is not complex, the `forceGauss`
+    option can be used to ensure 4k+-1 prime value approximation. This function can
+    also passthrough both `realprimishdist()` and `gaussianprimishdist()`'s relative
+    distance arguments.
+
+    Args:
+        x (t.Tensor): The tensor to be evaluated unit-wise.
+        relative (bool, optional): If False, the absolute distance is returned. Defaults to True.
+        forceGauss (bool, optional): If True, and `x` is a real valued tensor, do 4k+-1 approximation. Defaults to False.
+
+    Returns:
+        t.Tensor: The distances to the prime approximations.
+    """
     if not t.is_complex(x):
-        return realprimishdist(x, relative=relative)
+        return realprimishdist(x, relative=relative, gaussApprox=forceGauss)
     return gaussianprimishdist(x, relative=relative)
 
 
@@ -398,7 +434,7 @@ def icos(x:t.Tensor) -> t.Tensor:
         return t.cos(x)
 
     # Main computation.
-    # A multiplier of 2. is needed on the angling system due to the fact that cos()
+    # A multiplier of 2 is needed on the angling system due to the fact that cos()
     #   is secretly actually just sin() squared.
     return t.cos(x.abs()) * t.exp(i() * 2. * x.angle())
 
