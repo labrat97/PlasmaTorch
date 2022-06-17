@@ -338,6 +338,25 @@ def iprimishdist(x:t.Tensor, relative:bool=True, forceGauss:bool=False) -> t.Ten
 
 
 @ts
+def quadcheck(x:t.Tensor) -> t.Tensor:
+    # Simple error checking
+    assert x.is_complex()
+
+    # Cache local Pi tensor
+    PI:t.Tensor = pi()
+
+    # Gather the angle of the complex numbers unit-wise
+    xang:t.Tensor = x.angle()
+
+    # If the angle is negative, rotate it around a circle once, else rotate none
+    angOffset:t.Tensor = 2. * PI * (xang < 0).type(PI.dtype)
+
+    # Make all the angles positively bound, then label the quadrant from 0 to 3
+    return ((xang + angOffset) * 2. / PI).type(t.uint8)
+
+
+
+@ts
 def csigmoid(x:t.Tensor) -> t.Tensor:
     """Calculate the magnitude of a complex number run through a complex sigmoid
     function. This function works like a normal sigmoid in the similarly signed quadrants
@@ -426,6 +445,11 @@ def ctanh(x:t.Tensor) -> t.Tensor:
     # Normal tanh
     if not x.is_complex():
         return t.tanh(x)
+
+    # Extract/calculate required basic parameters
+    PI2 = pi() / 2
+    ang = x.angle()
+    xabs = x.abs()
 
     # This is not a real function, it kinda does tanh things over the complex plane.
     # The way this actually works is by bounding the isigmoid function into the range
