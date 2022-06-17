@@ -338,7 +338,18 @@ def iprimishdist(x:t.Tensor, relative:bool=True, forceGauss:bool=False) -> t.Ten
 
 
 @ts
-def presigmoid(x:t.Tensor) -> t.Tensor:
+def csigmoid(x:t.Tensor) -> t.Tensor:
+    """Calculate the magnitude of a complex number run through a complex sigmoid
+    function. This function works like a normal sigmoid in the similarly signed quadrants
+    of the complex plane. Outside of these quadrants, interpolation is performed
+    with a bounded and scaled sin function.
+
+    Args:
+        x (t.Tensor): The tensor to calculate the complex sigmoid magnitude of unit-wise.
+
+    Returns:
+        t.Tensor: The complex sigmoid magnitude of `x`.
+    """
     # Normal sigmoid
     if not x.is_complex():
         return t.sigmoid(x)
@@ -376,12 +387,22 @@ def presigmoid(x:t.Tensor) -> t.Tensor:
 
 @ts
 def isigmoid(x:t.Tensor) -> t.Tensor:
+    """Calculate the complex number equivalent of a sigmoid function. This function
+    internally calls the `csigmoid()` function to get the magnitude of the result, then
+    multiplies it by the unit signal unit-wise from `x`.
+
+    Args:
+        x (t.Tensor): The tensor to perform the computation on unit-wise.
+
+    Returns:
+        t.Tensor: The complex sigmoid of `x`.
+    """
     # Normal sigmoid
     if not x.is_complex():
         return t.sigmoid(x)
 
     # Get the prefixing magnitude from the presigmoid() equation defined above
-    preMag:t.Tensor = presigmoid(x)
+    preMag:t.Tensor = csigmoid(x)
 
     # Create the complex value alignment to finally push the signal through. As a note,
     # I really don't like the fact that there are hard non-differentiable absolute
@@ -401,7 +422,7 @@ def isigmoid(x:t.Tensor) -> t.Tensor:
 
 
 @ts
-def pretanh(x:t.Tensor) -> t.Tensor:
+def ctanh(x:t.Tensor) -> t.Tensor:
     # Normal tanh
     if not x.is_complex():
         return t.tanh(x)
@@ -410,7 +431,7 @@ def pretanh(x:t.Tensor) -> t.Tensor:
     # The way this actually works is by bounding the isigmoid function into the range
     #   of (-1, 1) rather than (0, 1). This is effectively the same as a 
     #   standard tanh evaluation in terms of nn activiation.
-    return (2. * presigmoid(x)) - 1.
+    return (2. * csigmoid(x)) - 1.
 
 
 
@@ -423,7 +444,7 @@ def itanh(x:t.Tensor) -> t.Tensor:
     # Add the complex signal to the magnitude calculation defined in the above
     #   pretanh() method. This can only be done here due to the 0.+0.j base value
     #   of the function.
-    return pretanh(x) * x.sgn()
+    return ctanh(x) * x.sgn()
 
 
 
