@@ -495,7 +495,7 @@ def itanh(x:t.Tensor) -> t.Tensor:
     # Add the complex signal to the magnitude calculation defined in the above
     #   pretanh() method. This can only be done here due to the 0.+0.j base value
     #   of the function.
-    return ctanh(x) * toComplex(x).sgn()
+    return ctanh(x).abs() * toComplex(x).sgn()
 
 
 
