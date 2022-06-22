@@ -434,18 +434,15 @@ def isigmoid(x:t.Tensor) -> t.Tensor:
     Returns:
         t.Tensor: The complex sigmoid of `x`.
     """
-    # Normal sigmoid
-    if not x.is_complex():
-        return t.sigmoid(x)
-
     # Get the prefixing magnitude from the presigmoid() equation defined above
     preMag:t.Tensor = csigmoid(x)
 
     # Create the complex value alignment to finally push the signal through. As a note,
     # I really don't like the fact that there are hard non-differentiable absolute
     # values in this evaluation, but I would not like to lose the current sigmoid properties
-    xabs_e:t.Tensor = t.view_as_complex(t.stack((x.real.abs(), x.imag.abs()), dim=-1))
-    sigmoidComplexVal:t.Tensor = xabs_e / x.abs()
+    wx = toComplex(x)
+    xabs_e:t.Tensor = t.view_as_complex(t.stack((wx.real.abs(), wx.imag.abs()), dim=-1))
+    sigmoidComplexVal:t.Tensor = xabs_e / wx.abs()
 
     # NaN binding for zero cases. This is being used over the default sgn() call
     #   due to the non-zero value that occurs at the complex origin in the isigmoid() function.
@@ -502,14 +499,10 @@ def ctanh(x:t.Tensor) -> t.Tensor:
 
 @ts
 def itanh(x:t.Tensor) -> t.Tensor:
-    # Normal tanh
-    if not x.is_complex():
-        return t.tanh(x)
-
     # Add the complex signal to the magnitude calculation defined in the above
     #   pretanh() method. This can only be done here due to the 0.+0.j base value
     #   of the function.
-    return ctanh(x) * x.sgn()
+    return ctanh(x) * toComplex(x).sgn()
 
 
 
