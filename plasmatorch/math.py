@@ -338,22 +338,38 @@ def iprimishdist(x:t.Tensor, relative:bool=True, forceGauss:bool=False) -> t.Ten
 
 
 @ts
-def quadcheck(x:t.Tensor) -> t.Tensor:
-    # Simple error checking
-    assert x.is_complex()
+def quadcheck(x:t.Tensor, boolChannel:bool=False) -> t.Tensor:
+    """Figures out the quadrant that each unit of the provided tensor is in, returning as an int.
 
+    Args:
+        x (t.Tensor): The tensor to evaluate unit-wise into the occupied quadrants.
+        boolChannel (bool): If True, output the quadrants into a channel wise output (adding a dimension). Defaults to False.
+
+    Returns:
+        t.Tensor: The occupied quadrants in t.uint8 datatype.
+    """
     # Cache local Pi tensor
     PI:t.Tensor = pi()
 
     # Gather the angle of the complex numbers unit-wise
-    xang:t.Tensor = x.angle()
+    xang:t.Tensor = toComplex(x).angle()
 
     # If the angle is negative, rotate it around a circle once, else rotate none
     angOffset:t.Tensor = 2. * PI * (xang < 0).type(PI.dtype)
 
     # Make all the angles positively bound, then label the quadrant from 0 to 3
-    return ((xang + angOffset) * 2. / PI).type(t.uint8)
+    quadint:t.Tensor = ((xang + angOffset) * 2. / PI).type(t.uint8)
 
+    # No need to create channel-wise output
+    if not boolChannel:
+        return quadint
+    
+    # Turn into channel-wise output
+    result:t.Tensor = t.empty(x.size() + [4], dtype=t.uint8)
+    for idx in range(4):
+        result[..., idx] = (quadint == idx).type(t.uint8)
+
+    return result
 
 
 @ts
@@ -380,10 +396,11 @@ def csigmoid(x:t.Tensor) -> t.Tensor:
     
     # Do a sigmoid in the unanimous sign'd quadrants and find the connecting point
     # between the sigmoids if not in the unanimous quadrants.
-    posQuad:t.Tensor = t.logical_and(x.real >= 0, x.imag >= 0).type(t.uint8)
-    negQuad:t.Tensor = t.logical_and(x.real < 0, x.imag < 0).type(t.uint8)
-    examineQuadRight:t.Tensor = t.logical_and(x.real >= 0, x.imag < 0)
-    examineQuadLeft:t.Tensor = t.logical_and(x.imag >= 0, x.real < 0)
+    quadresult:t.Tensor = quadcheck(x)
+    posQuad:t.Tensor = (quadresult == 0).type(t.uint8)
+    examineQuadLeft:t.Tensor = (quadresult == 1).type(t.uint8)
+    negQuad:t.Tensor = (quadresult == 2).type(t.uint8)
+    examineQuadRight:t.Tensor = (quadresult == 3).type(t.uint8)
     examineQuad:t.Tensor = t.logical_and(examineQuadLeft, examineQuadRight).type(t.uint8)
 
     # The positive and negative quadrants are just the magnitude of the absolute value piped into
