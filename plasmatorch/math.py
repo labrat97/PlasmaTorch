@@ -1,3 +1,4 @@
+from torch import neg
 from .defaults import *
 from .conversions import toComplex
 
@@ -180,20 +181,29 @@ def primishvals(n:int, base:Union[t.Tensor, None]=None, gaussApprox:bool=False) 
     # Construct the output values
     result:t.Tensor = t.zeros((n), dtype=t.int64).detach()
     result[:base.size(-1)] = base
-    
-    # Compute every needed 6x -+ 1 value
+
+    # Set up main calculation iterators
     itr:int = base.size(-1)
     pitr:int = int((itr - 3) / 2) + 1
+
+    # Compute the requested primish values
     while itr < n:
-        if itr & 0x1 != 0:
+        # Add either the iterator's specific definition of a calculation to the system,
+        #   or just add 2 to the previous value due to 4k+-1 and 6k+-1 having a maximum
+        #   error swing from the scalar multiple applied to the index of only 2.
+        if itr & 0b1 != 0: # The iterator is odd
             if gaussApprox:
                 result[itr] = (4 * pitr) + 1
             else:
                 result[itr] = (6 * pitr) - 1
-        else:
+        else: # The iterator is even
             result[itr] = result[itr - 1] + 2
+        
+        # Increase the iterators accordingly
         itr += 1
-        pitr  = int((itr - 3) / 2) + 1
+
+        # There are two primes around every power of the scalar
+        pitr = int((itr - 3) / 2) + 1
 
     return result
 
@@ -206,7 +216,7 @@ def realprimishdist(x:t.Tensor, relative:bool=True, gaussApprox:bool=False) -> t
 
     Args:
         x (t.Tensor): The tensor to be evaluated unit-wise.
-        relative (bool, optional): If False, the absolute position is returned. Defaults to True.
+        relative (bool, optional): If False, the absolute distance is returned. Defaults to True.
         gaussApprox (bool, optional): If True, uses 4k+-1 rather than 6k+-1. Defaults to False.
 
     Returns:
@@ -264,6 +274,16 @@ def realprimishdist(x:t.Tensor, relative:bool=True, gaussApprox:bool=False) -> t
 
 @ts
 def gaussianprimishdist(x:t.Tensor, relative:bool=True) -> t.Tensor:
+    """Gets the distance from the nearest complex prime approximation, optionally binding
+    the result to a relative positional value between the primes [0, 1].
+
+    Args:
+        x (t.Tensor): The tensor to be evaluated unit-wise.
+        relative (bool, optional): If False, the absolute distance is returned. Defaults to True.
+
+    Returns:
+        t.Tensor: The distances (of real value) to the prime approximation.
+    """
     # Force complex type
     if not t.is_complex(x):
         x = toComplex(x)
@@ -279,11 +299,14 @@ def gaussianprimishdist(x:t.Tensor, relative:bool=True) -> t.Tensor:
     # Calculate the other distances
     rdgauss = realprimishdist(real, gaussApprox=True)
     idgauss = realprimishdist(imag, gaussApprox=True)
+    
     # 4k +- 3 leaves only a space of 2 between normal values
     # To normalize, divide by the size of the space (which is 2)
     rdgaussi = imag.abs() / 2
     idgaussi = real.abs() / 2
+
     # Raw distance function
+    # Using multiply calls due to higher potential accuracy and speed in hardware
     rdcomposite = t.sqrt((rdgauss * rdgauss) + (rdgaussi * rdgaussi))
     idcomposite = t.sqrt((idgauss * idgauss) + (idgaussi * idgaussi))
 
@@ -294,15 +317,75 @@ def gaussianprimishdist(x:t.Tensor, relative:bool=True) -> t.Tensor:
 
 
 @ts
-def iprimishdist(x:t.Tensor, relative:bool=True) -> t.Tensor:
+def iprimishdist(x:t.Tensor, relative:bool=True, forceGauss:bool=False) -> t.Tensor:
+    """Checks the distance betwwen the input tensor `x` and the nearest primish value
+    according to if the type of `x` is complex. If `x` is not complex, the `forceGauss`
+    option can be used to ensure 4k+-1 prime value approximation. This function can
+    also passthrough both `realprimishdist()` and `gaussianprimishdist()`'s relative
+    distance arguments.
+
+    Args:
+        x (t.Tensor): The tensor to be evaluated unit-wise.
+        relative (bool, optional): If False, the absolute distance is returned. Defaults to True.
+        forceGauss (bool, optional): If True, and `x` is a real valued tensor, do 4k+-1 approximation. Defaults to False.
+
+    Returns:
+        t.Tensor: The distances to the prime approximations.
+    """
     if not t.is_complex(x):
-        return realprimishdist(x, relative=relative)
+        return realprimishdist(x, relative=relative, gaussApprox=forceGauss)
     return gaussianprimishdist(x, relative=relative)
 
 
 
 @ts
-def presigmoid(x:t.Tensor) -> t.Tensor:
+def quadcheck(x:t.Tensor, boolChannel:bool=False) -> t.Tensor:
+    """Figures out the quadrant that each unit of the provided tensor is in, returning as an int.
+
+    Args:
+        x (t.Tensor): The tensor to evaluate unit-wise into the occupied quadrants.
+        boolChannel (bool): If True, output the quadrants into a channel wise output (adding a dimension). Defaults to False.
+
+    Returns:
+        t.Tensor: The occupied quadrants in t.uint8 datatype.
+    """
+    # Cache local Pi tensor
+    PI:t.Tensor = pi()
+
+    # Gather the angle of the complex numbers unit-wise
+    xang:t.Tensor = toComplex(x).angle()
+
+    # If the angle is negative, rotate it around a circle once, else rotate none
+    angOffset:t.Tensor = 2. * PI * (xang < 0).type(PI.dtype)
+
+    # Make all the angles positively bound, then label the quadrant from 0 to 3
+    quadint:t.Tensor = ((xang + angOffset) * 2. / PI).type(t.uint8)
+
+    # No need to create channel-wise output
+    if not boolChannel:
+        return quadint
+    
+    # Turn into channel-wise output
+    result:t.Tensor = t.empty(x.size() + [4], dtype=t.uint8)
+    for idx in range(4):
+        result[..., idx] = (quadint == idx).type(t.uint8)
+
+    return result
+
+
+@ts
+def csigmoid(x:t.Tensor) -> t.Tensor:
+    """Calculate the magnitude of a complex number run through a complex sigmoid
+    function. This function works like a normal sigmoid in the similarly signed quadrants
+    of the complex plane. Outside of these quadrants, interpolation is performed
+    with a bounded and scaled sin function.
+
+    Args:
+        x (t.Tensor): The tensor to calculate the complex sigmoid magnitude of unit-wise.
+
+    Returns:
+        t.Tensor: The complex sigmoid magnitude of `x`.
+    """
     # Normal sigmoid
     if not x.is_complex():
         return t.sigmoid(x)
@@ -314,23 +397,24 @@ def presigmoid(x:t.Tensor) -> t.Tensor:
     
     # Do a sigmoid in the unanimous sign'd quadrants and find the connecting point
     # between the sigmoids if not in the unanimous quadrants.
-    posQuad:t.Tensor = t.logical_and(x.real >= 0, x.imag >= 0).type(t.uint8)
-    negQuad:t.Tensor = t.logical_and(x.real < 0, x.imag < 0).type(t.uint8)
-    examineQuadRight:t.Tensor = t.logical_and(x.real >= 0, x.imag < 0)
-    examineQuadLeft:t.Tensor = t.logical_and(x.imag >= 0, x.real < 0)
-    examineQuad:t.Tensor = t.logical_and(examineQuadLeft, examineQuadRight).type(t.uint8)
+    quadresult:t.Tensor = quadcheck(x, boolChannel=True)
+    posQuad = quadresult[..., 0]
+    examineQuadLeft = quadresult[..., 1]
+    negQuad = quadresult[..., 2]
+    examineQuadRight = quadresult[..., 3]
+    examineQuad:t.Tensor = t.logical_or(examineQuadLeft, examineQuadRight).type(t.uint8)
 
     # The positive and negative quadrants are just the magnitude of the absolute value piped into
-    # the evaluation of a normal sigmoid, then bound to the appropriate side of the sign
+    #   the evaluation of a normal sigmoid, then bound to the appropriate side of the sign
     posVal:t.Tensor = posQuad * t.sigmoid(xabs)
     negVal:t.Tensor = negQuad * t.sigmoid(-xabs)
 
     # The "examine" quadrants will use a cosine activation to toggle between the signs compounded in the
-    # magnitude evaluation for the sigmoid.
-    rotScalar:t.Tensor = (t.cos(
-        (examineQuadLeft.type(t.uint8) * (ang - (PI2))*2) \
-            + (examineQuadRight.type(t.uint8) * (ang + (PI2))*2)
-    ))
+    #   magnitude evaluation for the sigmoid.
+    rotScalar:t.Tensor = t.cos(
+        (examineQuadLeft * (ang - (PI2)) * 2) \
+            + (examineQuadRight * (ang + (PI2)) * 2)
+    )
     examVal:t.Tensor = examineQuad * t.sigmoid(rotScalar * xabs)
 
     # Add everything together according to the previously applied boolean based scalars
@@ -340,18 +424,25 @@ def presigmoid(x:t.Tensor) -> t.Tensor:
 
 @ts
 def isigmoid(x:t.Tensor) -> t.Tensor:
-    # Normal sigmoid
-    if not x.is_complex():
-        return t.sigmoid(x)
+    """Calculate the complex number equivalent of a sigmoid function. This function
+    internally calls the `csigmoid()` function to get the magnitude of the result, then
+    multiplies it by the unit signal unit-wise from `x`.
 
+    Args:
+        x (t.Tensor): The tensor to perform the computation on unit-wise.
+
+    Returns:
+        t.Tensor: The complex sigmoid of `x`.
+    """
     # Get the prefixing magnitude from the presigmoid() equation defined above
-    preMag:t.Tensor = presigmoid(x)
+    preMag:t.Tensor = csigmoid(x)
 
     # Create the complex value alignment to finally push the signal through. As a note,
     # I really don't like the fact that there are hard non-differentiable absolute
     # values in this evaluation, but I would not like to lose the current sigmoid properties
-    xabs_e:t.Tensor = t.view_as_complex(t.stack((x.real.abs(), x.imag.abs()), dim=-1))
-    sigmoidComplexVal:t.Tensor = xabs_e / x.abs()
+    wx = toComplex(x)
+    xabs_e:t.Tensor = t.view_as_complex(t.stack((wx.real.abs(), wx.imag.abs()), dim=-1))
+    sigmoidComplexVal:t.Tensor = xabs_e / wx.abs()
 
     # NaN binding for zero cases. This is being used over the default sgn() call
     #   due to the non-zero value that occurs at the complex origin in the isigmoid() function.
@@ -365,29 +456,53 @@ def isigmoid(x:t.Tensor) -> t.Tensor:
 
 
 @ts
-def pretanh(x:t.Tensor) -> t.Tensor:
+def ctanh(x:t.Tensor) -> t.Tensor:
     # Normal tanh
     if not x.is_complex():
         return t.tanh(x)
 
-    # This is not a real function, it kinda does tanh things over the complex plane.
-    # The way this actually works is by bounding the isigmoid function into the range
-    #   of (-1, 1) rather than (0, 1). This is effectively the same as a 
-    #   standard tanh evaluation in terms of nn activiation.
-    return (2. * presigmoid(x)) - 1.
+    # Extract/calculate required basic parameters
+    PI2 = pi() / 2
+    ang = x.angle()
+    xabs = x.abs()
+
+    # Check the quadrant that the elements of the provided tensor lie in, output channel-wise rather
+    #   than as a basic int
+    quadresult:t.Tensor = quadcheck(x, boolChannel=True)
+    posQuad = quadresult[..., 0]
+    examineQuadLeft = quadresult[..., 1]
+    negQuad = quadresult[..., 2]
+    examineQuadRight = quadresult[..., 3]
+    examineQuad:t.Tensor = t.logical_or(examineQuadLeft, examineQuadRight).type(t.uint8)
+
+    # Get the values that are at each quadrant, zeroing out the quadrants that
+    #   should not be in the output of the system. This works because of the return
+    #   addition
+    posVal:t.Tensor = posQuad * t.tanh(xabs)
+    negVal:t.Tensor = negQuad * t.tanh(-xabs)
+
+    # Calculate a scalar value between [-1.0, 1.0] that interpolates the output of the function
+    #   over half of the curvature of a cosine function.
+    rotScalar:t.Tensor = t.cos(
+        (examineQuadLeft * (ang - (PI2)) * 2) \
+            + (examineQuadRight * (ang + (PI2)) * 2)
+    )
+
+    # Get the values that don't lie at the mutually positive or negative quadrants (1 or 3)
+    #   and zero out if not in this quadrant
+    examVal:t.Tensor = examineQuad * t.tanh(rotScalar * xabs)
+
+    # Calculate the summation of all of the results and return
+    return posVal + negVal + examVal
 
 
 
 @ts
 def itanh(x:t.Tensor) -> t.Tensor:
-    # Normal tanh
-    if not x.is_complex():
-        return t.tanh(x)
-
     # Add the complex signal to the magnitude calculation defined in the above
     #   pretanh() method. This can only be done here due to the 0.+0.j base value
     #   of the function.
-    return pretanh(x) * x.sgn()
+    return ctanh(x) * toComplex(x).sgn()
 
 
 
@@ -398,7 +513,7 @@ def icos(x:t.Tensor) -> t.Tensor:
         return t.cos(x)
 
     # Main computation.
-    # A multiplier of 2. is needed on the angling system due to the fact that cos()
+    # A multiplier of 2 is needed on the angling system due to the fact that cos()
     #   is secretly actually just sin() squared.
     return t.cos(x.abs()) * t.exp(i() * 2. * x.angle())
 
