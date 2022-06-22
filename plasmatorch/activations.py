@@ -210,7 +210,7 @@ class Ringing(nn.Module):
         """
         # Generate metadata needed to create the output signal
         assert samples >= 1
-        positions = isigmoid(self.forkPos) * (samples - 1)
+        positions = csigmoid(self.forkPos) * (samples - 1)
         posLow = positions.type(t.int64)
         posHigh = (posLow + 1).clamp_max(samples - 1)
         posMix = positions - posLow

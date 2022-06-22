@@ -434,29 +434,22 @@ def isigmoid(x:t.Tensor) -> t.Tensor:
     Returns:
         t.Tensor: The complex sigmoid of `x`.
     """
-    # Get the prefixing magnitude from the presigmoid() equation defined above
-    preMag:t.Tensor = csigmoid(x)
-
-    # Create the complex value alignment to finally push the signal through. As a note,
-    # I really don't like the fact that there are hard non-differentiable absolute
-    # values in this evaluation, but I would not like to lose the current sigmoid properties
-    wx = toComplex(x)
-    xabs_e:t.Tensor = t.view_as_complex(t.stack((wx.real.abs(), wx.imag.abs()), dim=-1))
-    sigmoidComplexVal:t.Tensor = xabs_e / wx.abs()
-
-    # NaN binding for zero cases. This is being used over the default sgn() call
-    #   due to the non-zero value that occurs at the complex origin in the isigmoid() function.
-    sigmoidComplexVal = t.view_as_complex(t.stack(
-        (t.nan_to_num(sigmoidComplexVal.real, nan=1.), t.nan_to_num(sigmoidComplexVal.imag, nan=0.)),
-        dim=-1))
-
-    # Calculate and return
-    return preMag * sigmoidComplexVal
+    return csigmoid(x) * toComplex(x).sgn()
 
 
 
 @ts
 def ctanh(x:t.Tensor) -> t.Tensor:
+    """Calculate the magnitude of a complex number run through a tanh function only
+    on the magnitude. This function works like a normal tanh call on a real value for the
+    magnitude in the similarly signed quadrants. If the quadrants are negative, the output of the 
+
+    Args:
+        x (t.Tensor): _description_
+
+    Returns:
+        t.Tensor: _description_
+    """
     # Normal tanh
     if not x.is_complex():
         return t.tanh(x)
@@ -599,6 +592,7 @@ def harmonicdist(x:t.Tensor) -> t.Tensor:
 
 
 
+# TODO: test
 @ts
 def fft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1) -> t.Tensor:
     # Pass values through to a normal function, leave true 1/sqrt(n) definition
@@ -624,6 +618,7 @@ def fft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1) 
 
 
 
+# TODO: test
 @ts
 def ifft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1) -> t.Tensor:  
     # Pass values through to normal function, leave true 1/sqrt(n) definition
