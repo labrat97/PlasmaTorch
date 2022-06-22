@@ -1,3 +1,4 @@
+from torch import neg
 from .defaults import *
 from .conversions import toComplex
 
@@ -404,16 +405,16 @@ def csigmoid(x:t.Tensor) -> t.Tensor:
     examineQuad:t.Tensor = examineQuadLeft * examineQuadRight
 
     # The positive and negative quadrants are just the magnitude of the absolute value piped into
-    # the evaluation of a normal sigmoid, then bound to the appropriate side of the sign
+    #   the evaluation of a normal sigmoid, then bound to the appropriate side of the sign
     posVal:t.Tensor = posQuad * t.sigmoid(xabs)
     negVal:t.Tensor = negQuad * t.sigmoid(-xabs)
 
     # The "examine" quadrants will use a cosine activation to toggle between the signs compounded in the
-    # magnitude evaluation for the sigmoid.
-    rotScalar:t.Tensor = (t.cos(
+    #   magnitude evaluation for the sigmoid.
+    rotScalar:t.Tensor = t.cos(
         (examineQuadLeft * (ang - (PI2)) * 2) \
             + (examineQuadRight * (ang + (PI2)) * 2)
-    ))
+    )
     examVal:t.Tensor = examineQuad * t.sigmoid(rotScalar * xabs)
 
     # Add everything together according to the previously applied boolean based scalars
@@ -468,11 +469,34 @@ def ctanh(x:t.Tensor) -> t.Tensor:
     ang = x.angle()
     xabs = x.abs()
 
-    # This is not a real function, it kinda does tanh things over the complex plane.
-    # The way this actually works is by bounding the isigmoid function into the range
-    #   of (-1, 1) rather than (0, 1). This is effectively the same as a 
-    #   standard tanh evaluation in terms of nn activiation.
-    return (2. * csigmoid(x)) - 1.
+    # Check the quadrant that the elements of the provided tensor lie in, output channel-wise rather
+    #   than as a basic int
+    quadresult:t.Tensor = quadcheck(x, boolChannel=True)
+    posQuad = quadresult[..., 0]
+    examineQuadLeft = quadresult[..., 1]
+    negQuad = quadresult[..., 2]
+    examineQuadRight = quadresult[..., 3]
+    examineQuad:t.Tensor = examineQuadLeft * examineQuadRight
+
+    # Get the values that are at each quadrant, zeroing out the quadrants that
+    #   should not be in the output of the system. This works because of the return
+    #   addition
+    posVal:t.Tensor = posQuad * t.tanh(xabs)
+    negVal:t.Tensor = negQuad * t.tanh(-xabs)
+
+    # Calculate a scalar value between [-1.0, 1.0] that interpolates the output of the function
+    #   over half of the curvature of a cosine function.
+    rotScalar:t.Tensor = t.cos(
+        (examineQuadLeft * (ang - (PI2)) * 2) \
+            + (examineQuadRight * (ang + (PI2)) * 2)
+    )
+
+    # Get the values that don't lie at the mutually positive or negative quadrants (1 or 3)
+    #   and zero out if not in this quadrant
+    examVal:t.Tensor = examineQuad * t.tanh(rotScalar * xabs)
+
+    # Calculate the summation of all of the results and return
+    return posVal + negVal + examVal
 
 
 
