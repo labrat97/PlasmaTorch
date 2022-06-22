@@ -396,12 +396,12 @@ def csigmoid(x:t.Tensor) -> t.Tensor:
     
     # Do a sigmoid in the unanimous sign'd quadrants and find the connecting point
     # between the sigmoids if not in the unanimous quadrants.
-    quadresult:t.Tensor = quadcheck(x)
-    posQuad:t.Tensor = (quadresult == 0).type(t.uint8)
-    examineQuadLeft:t.Tensor = (quadresult == 1).type(t.uint8)
-    negQuad:t.Tensor = (quadresult == 2).type(t.uint8)
-    examineQuadRight:t.Tensor = (quadresult == 3).type(t.uint8)
-    examineQuad:t.Tensor = t.logical_and(examineQuadLeft, examineQuadRight).type(t.uint8)
+    quadresult:t.Tensor = quadcheck(x, boolChannel=True)
+    posQuad = quadresult[..., 0]
+    examineQuadLeft = quadresult[..., 1]
+    negQuad = quadresult[..., 2]
+    examineQuadRight = quadresult[..., 3]
+    examineQuad:t.Tensor = examineQuadLeft * examineQuadRight
 
     # The positive and negative quadrants are just the magnitude of the absolute value piped into
     # the evaluation of a normal sigmoid, then bound to the appropriate side of the sign
@@ -411,8 +411,8 @@ def csigmoid(x:t.Tensor) -> t.Tensor:
     # The "examine" quadrants will use a cosine activation to toggle between the signs compounded in the
     # magnitude evaluation for the sigmoid.
     rotScalar:t.Tensor = (t.cos(
-        (examineQuadLeft.type(t.uint8) * (ang - (PI2))*2) \
-            + (examineQuadRight.type(t.uint8) * (ang + (PI2))*2)
+        (examineQuadLeft * (ang - (PI2)) * 2) \
+            + (examineQuadRight * (ang + (PI2)) * 2)
     ))
     examVal:t.Tensor = examineQuad * t.sigmoid(rotScalar * xabs)
 
