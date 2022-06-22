@@ -1,3 +1,4 @@
+from torch import neg
 from .defaults import *
 from .conversions import toComplex
 
@@ -338,6 +339,41 @@ def iprimishdist(x:t.Tensor, relative:bool=True, forceGauss:bool=False) -> t.Ten
 
 
 @ts
+def quadcheck(x:t.Tensor, boolChannel:bool=False) -> t.Tensor:
+    """Figures out the quadrant that each unit of the provided tensor is in, returning as an int.
+
+    Args:
+        x (t.Tensor): The tensor to evaluate unit-wise into the occupied quadrants.
+        boolChannel (bool): If True, output the quadrants into a channel wise output (adding a dimension). Defaults to False.
+
+    Returns:
+        t.Tensor: The occupied quadrants in t.uint8 datatype.
+    """
+    # Cache local Pi tensor
+    PI:t.Tensor = pi()
+
+    # Gather the angle of the complex numbers unit-wise
+    xang:t.Tensor = toComplex(x).angle()
+
+    # If the angle is negative, rotate it around a circle once, else rotate none
+    angOffset:t.Tensor = 2. * PI * (xang < 0).type(PI.dtype)
+
+    # Make all the angles positively bound, then label the quadrant from 0 to 3
+    quadint:t.Tensor = ((xang + angOffset) * 2. / PI).type(t.uint8)
+
+    # No need to create channel-wise output
+    if not boolChannel:
+        return quadint
+    
+    # Turn into channel-wise output
+    result:t.Tensor = t.empty(x.size() + [4], dtype=t.uint8)
+    for idx in range(4):
+        result[..., idx] = (quadint == idx).type(t.uint8)
+
+    return result
+
+
+@ts
 def csigmoid(x:t.Tensor) -> t.Tensor:
     """Calculate the magnitude of a complex number run through a complex sigmoid
     function. This function works like a normal sigmoid in the similarly signed quadrants
@@ -361,23 +397,24 @@ def csigmoid(x:t.Tensor) -> t.Tensor:
     
     # Do a sigmoid in the unanimous sign'd quadrants and find the connecting point
     # between the sigmoids if not in the unanimous quadrants.
-    posQuad:t.Tensor = t.logical_and(x.real >= 0, x.imag >= 0).type(t.uint8)
-    negQuad:t.Tensor = t.logical_and(x.real < 0, x.imag < 0).type(t.uint8)
-    examineQuadRight:t.Tensor = t.logical_and(x.real >= 0, x.imag < 0)
-    examineQuadLeft:t.Tensor = t.logical_and(x.imag >= 0, x.real < 0)
-    examineQuad:t.Tensor = t.logical_and(examineQuadLeft, examineQuadRight).type(t.uint8)
+    quadresult:t.Tensor = quadcheck(x, boolChannel=True)
+    posQuad = quadresult[..., 0]
+    examineQuadLeft = quadresult[..., 1]
+    negQuad = quadresult[..., 2]
+    examineQuadRight = quadresult[..., 3]
+    examineQuad:t.Tensor = t.logical_or(examineQuadLeft, examineQuadRight).type(t.uint8)
 
     # The positive and negative quadrants are just the magnitude of the absolute value piped into
-    # the evaluation of a normal sigmoid, then bound to the appropriate side of the sign
+    #   the evaluation of a normal sigmoid, then bound to the appropriate side of the sign
     posVal:t.Tensor = posQuad * t.sigmoid(xabs)
     negVal:t.Tensor = negQuad * t.sigmoid(-xabs)
 
     # The "examine" quadrants will use a cosine activation to toggle between the signs compounded in the
-    # magnitude evaluation for the sigmoid.
-    rotScalar:t.Tensor = (t.cos(
-        (examineQuadLeft.type(t.uint8) * (ang - (PI2))*2) \
-            + (examineQuadRight.type(t.uint8) * (ang + (PI2))*2)
-    ))
+    #   magnitude evaluation for the sigmoid.
+    rotScalar:t.Tensor = t.cos(
+        (examineQuadLeft * (ang - (PI2)) * 2) \
+            + (examineQuadRight * (ang + (PI2)) * 2)
+    )
     examVal:t.Tensor = examineQuad * t.sigmoid(rotScalar * xabs)
 
     # Add everything together according to the previously applied boolean based scalars
@@ -397,18 +434,15 @@ def isigmoid(x:t.Tensor) -> t.Tensor:
     Returns:
         t.Tensor: The complex sigmoid of `x`.
     """
-    # Normal sigmoid
-    if not x.is_complex():
-        return t.sigmoid(x)
-
     # Get the prefixing magnitude from the presigmoid() equation defined above
     preMag:t.Tensor = csigmoid(x)
 
     # Create the complex value alignment to finally push the signal through. As a note,
     # I really don't like the fact that there are hard non-differentiable absolute
     # values in this evaluation, but I would not like to lose the current sigmoid properties
-    xabs_e:t.Tensor = t.view_as_complex(t.stack((x.real.abs(), x.imag.abs()), dim=-1))
-    sigmoidComplexVal:t.Tensor = xabs_e / x.abs()
+    wx = toComplex(x)
+    xabs_e:t.Tensor = t.view_as_complex(t.stack((wx.real.abs(), wx.imag.abs()), dim=-1))
+    sigmoidComplexVal:t.Tensor = xabs_e / wx.abs()
 
     # NaN binding for zero cases. This is being used over the default sgn() call
     #   due to the non-zero value that occurs at the complex origin in the isigmoid() function.
@@ -427,24 +461,48 @@ def ctanh(x:t.Tensor) -> t.Tensor:
     if not x.is_complex():
         return t.tanh(x)
 
-    # This is not a real function, it kinda does tanh things over the complex plane.
-    # The way this actually works is by bounding the isigmoid function into the range
-    #   of (-1, 1) rather than (0, 1). This is effectively the same as a 
-    #   standard tanh evaluation in terms of nn activiation.
-    return (2. * csigmoid(x)) - 1.
+    # Extract/calculate required basic parameters
+    PI2 = pi() / 2
+    ang = x.angle()
+    xabs = x.abs()
+
+    # Check the quadrant that the elements of the provided tensor lie in, output channel-wise rather
+    #   than as a basic int
+    quadresult:t.Tensor = quadcheck(x, boolChannel=True)
+    posQuad = quadresult[..., 0]
+    examineQuadLeft = quadresult[..., 1]
+    negQuad = quadresult[..., 2]
+    examineQuadRight = quadresult[..., 3]
+    examineQuad:t.Tensor = t.logical_or(examineQuadLeft, examineQuadRight).type(t.uint8)
+
+    # Get the values that are at each quadrant, zeroing out the quadrants that
+    #   should not be in the output of the system. This works because of the return
+    #   addition
+    posVal:t.Tensor = posQuad * t.tanh(xabs)
+    negVal:t.Tensor = negQuad * t.tanh(-xabs)
+
+    # Calculate a scalar value between [-1.0, 1.0] that interpolates the output of the function
+    #   over half of the curvature of a cosine function.
+    rotScalar:t.Tensor = t.cos(
+        (examineQuadLeft * (ang - (PI2)) * 2) \
+            + (examineQuadRight * (ang + (PI2)) * 2)
+    )
+
+    # Get the values that don't lie at the mutually positive or negative quadrants (1 or 3)
+    #   and zero out if not in this quadrant
+    examVal:t.Tensor = examineQuad * t.tanh(rotScalar * xabs)
+
+    # Calculate the summation of all of the results and return
+    return posVal + negVal + examVal
 
 
 
 @ts
 def itanh(x:t.Tensor) -> t.Tensor:
-    # Normal tanh
-    if not x.is_complex():
-        return t.tanh(x)
-
     # Add the complex signal to the magnitude calculation defined in the above
     #   pretanh() method. This can only be done here due to the 0.+0.j base value
     #   of the function.
-    return ctanh(x) * x.sgn()
+    return ctanh(x) * toComplex(x).sgn()
 
 
 
