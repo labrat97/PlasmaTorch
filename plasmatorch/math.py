@@ -492,15 +492,36 @@ def ctanh(x:t.Tensor) -> t.Tensor:
 
 @ts
 def itanh(x:t.Tensor) -> t.Tensor:
-    # Add the complex signal to the magnitude calculation defined in the above
-    #   pretanh() method. This can only be done here due to the 0.+0.j base value
-    #   of the function.
+    """Calculate the complex number equivalent of the `ctanh()` function defined above.
+    The result of this method ends up as a complex number with the magnitude defined by the
+    return of the `ctanh()` function called with the passed tensor. The result ends up
+    being the absolute value of `ctanh()` due to the negative properties of the `tanh()`
+    function, then is multiplied unit-wise to the signal of the passed tensor.
+
+    Args:
+        x (t.Tensor): The tensor to run the calculation on unit-wise.
+
+    Returns:
+        t.Tensor: The tanh magnitud'd number.
+    """
     return ctanh(x).abs() * toComplex(x).sgn()
 
 
 
 @ts
 def icos(x:t.Tensor) -> t.Tensor:
+    """Calculate a direct real cosine equivalent in the complex plane. This is done
+    by using the magnitude of the complex tensor provided in a unit-wise fashion, the
+    result is the cosine and the winding of the complex number on the cosine doubled.
+    The winding must be doubled (the complex angle) in order to keep the differentiability
+    of the function.
+
+    Args:
+        x (t.Tensor): The tensor to run through the cosine unit-wise.
+
+    Returns:
+        t.Tensor: `x` evaluated unit-wise through a complex cosine function.
+    """
     # Normal cos
     if not x.is_complex():
         return t.cos(x)
@@ -514,6 +535,18 @@ def icos(x:t.Tensor) -> t.Tensor:
 
 @ts
 def isin(x:t.Tensor) -> t.Tensor:
+    """Calculate a direct real sine equivalent in the complex plane. This is done
+    by using the magnitude of the complex tensor provided in a unit-wise fashion, the
+    result is the sine function and the signal of the complex number getting carried through.
+    The winding of the signal is not doubled here as continuity is reachable due to the
+    shape of the sine function.
+
+    Args:
+        x (t.Tensor): The tensor to run through the sine unit-wise.
+
+    Returns:
+        t.Tensor: `x` evaluated unit-wise through a complex sine function.
+    """
     # Normal sin
     if not x.is_complex():
         return t.sin(x)
@@ -538,6 +571,7 @@ def hmean(x:t.Tensor, dim:int=-1) -> t.Tensor:
     """
     # Turn all the values to their -1 power
     invx:t.Tensor = 1. / x
+    
     # Find the amount of values for the mean
     vals = x.size(dim)
     
