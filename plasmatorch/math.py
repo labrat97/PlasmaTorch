@@ -402,7 +402,7 @@ def csigmoid(x:t.Tensor) -> t.Tensor:
     examineQuadLeft = quadresult[..., 1]
     negQuad = quadresult[..., 2]
     examineQuadRight = quadresult[..., 3]
-    examineQuad:t.Tensor = examineQuadLeft * examineQuadRight
+    examineQuad:t.Tensor = t.logical_or(examineQuadLeft, examineQuadRight).type(t.uint8)
 
     # The positive and negative quadrants are just the magnitude of the absolute value piped into
     #   the evaluation of a normal sigmoid, then bound to the appropriate side of the sign
@@ -473,7 +473,7 @@ def ctanh(x:t.Tensor) -> t.Tensor:
     examineQuadLeft = quadresult[..., 1]
     negQuad = quadresult[..., 2]
     examineQuadRight = quadresult[..., 3]
-    examineQuad:t.Tensor = examineQuadLeft * examineQuadRight
+    examineQuad:t.Tensor = t.logical_or(examineQuadLeft, examineQuadRight).type(t.uint8)
 
     # Get the values that are at each quadrant, zeroing out the quadrants that
     #   should not be in the output of the system. This works because of the return
