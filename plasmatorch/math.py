@@ -582,6 +582,18 @@ def hmean(x:t.Tensor, dim:int=-1) -> t.Tensor:
 
 @ts
 def harmonicvals(n:int, noSum:bool=False, useZero:bool=False) -> t.Tensor:
+    """Calculates `n` values of the harmonic series optionally not summing the result of the system.
+    If not summing (`nosum` is True) the values will come out in ascending order (to match the order of the summed
+    values).
+
+    Args:
+        n (int): The amount of hamonic values to generate.
+        noSum (bool, optional): If True, turn off the summation that actually builds the harmonic values and reverse the unsummed factors. Defaults to False.
+        useZero (bool, optional): If True, zero is added as the first value. Defaults to False.
+
+    Returns:
+        t.Tensor: The set of `n` harmonic series values with a size of `n`.
+    """
     # Quick error checking
     assert n >= 1
 
@@ -593,6 +605,8 @@ def harmonicvals(n:int, noSum:bool=False, useZero:bool=False) -> t.Tensor:
 
     # Break early if skipping the final summation
     if noSum:
+        # Flip around order of values to keep ascending ordering
+        factors[zeroint:] = factors[zeroint:][::-1]
         return factors
 
     # Avoid squaring the memory requirement by sequencing accelerated summations
@@ -609,6 +623,15 @@ def harmonicvals(n:int, noSum:bool=False, useZero:bool=False) -> t.Tensor:
 
 @ts
 def harmonicdist(x:t.Tensor) -> t.Tensor:
+    """Get the distance of each value from its nearest harmonic series value using
+    the Euler-Mascheroni constant.
+
+    Args:
+        x (t.Tensor): The tensor to evaluate the distance of.
+
+    Returns:
+        t.Tensor: The raw distance of each value from its nearest harmonic series value.
+    """
     # Gather constants for evaluation
     em:t.Tensor = egamma()
 
@@ -623,6 +646,25 @@ def harmonicdist(x:t.Tensor) -> t.Tensor:
     # Find the closest harmonic value, refold the shape, then calculate the result
     closest = harmonics[finv].unflatten(0, inverse.size())
     return x - closest
+
+
+
+@ts
+def realfold(x:t.Tensor, phase:t.Tensor=pi()) -> t.Tensor:
+    """Fold the imaginary values of a complex tensor into the real values that are
+    also represented by it. Folding, in this case, means rotating the magnitude of
+    the imaginary value with a cosine function, and summing it into the real value.
+
+    Args:
+        x (t.Tensor): The complex tensor to fold into itself.
+        phase (t.Tensor, optional): Rotates the imaginary values through an `icos()` function, so pi() results in a value of -1. Defaults to pi().
+
+    Returns:
+        t.Tensor: The folded values from the input tensor `x`.
+    """
+    if x.is_complex():
+        return x.real + (icos(phase) * x.imag)
+    return x
 
 
 
@@ -675,10 +717,3 @@ def ifft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1)
 
     # Invalid arguments were provided
     raise ValueError('n and dim must have the same type and be either ints or tuples of ints')
-
-
-@ts
-def realfold(x:t.Tensor, phase:t.Tensor=pi()) -> t.Tensor:
-    if x.is_complex():
-        return x.real + (icos(phase) * x.imag)
-    return x
