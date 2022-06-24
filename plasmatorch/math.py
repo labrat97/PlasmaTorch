@@ -492,15 +492,36 @@ def ctanh(x:t.Tensor) -> t.Tensor:
 
 @ts
 def itanh(x:t.Tensor) -> t.Tensor:
-    # Add the complex signal to the magnitude calculation defined in the above
-    #   pretanh() method. This can only be done here due to the 0.+0.j base value
-    #   of the function.
-    return ctanh(x) * toComplex(x).sgn()
+    """Calculate the complex number equivalent of the `ctanh()` function defined above.
+    The result of this method ends up as a complex number with the magnitude defined by the
+    return of the `ctanh()` function called with the passed tensor. The result ends up
+    being the absolute value of `ctanh()` due to the negative properties of the `tanh()`
+    function, then is multiplied unit-wise to the signal of the passed tensor.
+
+    Args:
+        x (t.Tensor): The tensor to run the calculation on unit-wise.
+
+    Returns:
+        t.Tensor: The tanh magnitud'd number.
+    """
+    return ctanh(x).abs() * toComplex(x).sgn()
 
 
 
 @ts
 def icos(x:t.Tensor) -> t.Tensor:
+    """Calculate a direct real cosine equivalent in the complex plane. This is done
+    by using the magnitude of the complex tensor provided in a unit-wise fashion, the
+    result is the cosine and the winding of the complex number on the cosine doubled.
+    The winding must be doubled (the complex angle) in order to keep the differentiability
+    of the function.
+
+    Args:
+        x (t.Tensor): The tensor to run through the cosine unit-wise.
+
+    Returns:
+        t.Tensor: `x` evaluated unit-wise through a complex cosine function.
+    """
     # Normal cos
     if not x.is_complex():
         return t.cos(x)
@@ -514,6 +535,18 @@ def icos(x:t.Tensor) -> t.Tensor:
 
 @ts
 def isin(x:t.Tensor) -> t.Tensor:
+    """Calculate a direct real sine equivalent in the complex plane. This is done
+    by using the magnitude of the complex tensor provided in a unit-wise fashion, the
+    result is the sine function and the signal of the complex number getting carried through.
+    The winding of the signal is not doubled here as continuity is reachable due to the
+    shape of the sine function.
+
+    Args:
+        x (t.Tensor): The tensor to run through the sine unit-wise.
+
+    Returns:
+        t.Tensor: `x` evaluated unit-wise through a complex sine function.
+    """
     # Normal sin
     if not x.is_complex():
         return t.sin(x)
@@ -538,6 +571,7 @@ def hmean(x:t.Tensor, dim:int=-1) -> t.Tensor:
     """
     # Turn all the values to their -1 power
     invx:t.Tensor = 1. / x
+    
     # Find the amount of values for the mean
     vals = x.size(dim)
     
@@ -548,6 +582,18 @@ def hmean(x:t.Tensor, dim:int=-1) -> t.Tensor:
 
 @ts
 def harmonicvals(n:int, noSum:bool=False, useZero:bool=False) -> t.Tensor:
+    """Calculates `n` values of the harmonic series optionally not summing the result of the system.
+    If not summing (`nosum` is True) the values will come out in ascending order (to match the order of the summed
+    values).
+
+    Args:
+        n (int): The amount of hamonic values to generate.
+        noSum (bool, optional): If True, turn off the summation that actually builds the harmonic values and reverse the unsummed factors. Defaults to False.
+        useZero (bool, optional): If True, zero is added as the first value. Defaults to False.
+
+    Returns:
+        t.Tensor: The set of `n` harmonic series values with a size of `n`.
+    """
     # Quick error checking
     assert n >= 1
 
@@ -559,6 +605,8 @@ def harmonicvals(n:int, noSum:bool=False, useZero:bool=False) -> t.Tensor:
 
     # Break early if skipping the final summation
     if noSum:
+        # Flip around order of values to keep ascending ordering
+        factors[zeroint:] = factors[zeroint:][::-1]
         return factors
 
     # Avoid squaring the memory requirement by sequencing accelerated summations
@@ -575,6 +623,15 @@ def harmonicvals(n:int, noSum:bool=False, useZero:bool=False) -> t.Tensor:
 
 @ts
 def harmonicdist(x:t.Tensor) -> t.Tensor:
+    """Get the distance of each value from its nearest harmonic series value using
+    the Euler-Mascheroni constant.
+
+    Args:
+        x (t.Tensor): The tensor to evaluate the distance of.
+
+    Returns:
+        t.Tensor: The raw distance of each value from its nearest harmonic series value.
+    """
     # Gather constants for evaluation
     em:t.Tensor = egamma()
 
@@ -592,9 +649,45 @@ def harmonicdist(x:t.Tensor) -> t.Tensor:
 
 
 
+@ts
+def realfold(x:t.Tensor, phase:t.Tensor=pi()) -> t.Tensor:
+    """Fold the imaginary values of a complex tensor into the real values that are
+    also represented by it. Folding, in this case, means rotating the magnitude of
+    the imaginary value with a cosine function, and summing it into the real value.
+
+    Args:
+        x (t.Tensor): The complex tensor to fold into itself.
+        phase (t.Tensor, optional): Rotates the imaginary values through an `icos()` function, so pi() results in a value of -1. Defaults to pi().
+
+    Returns:
+        t.Tensor: The folded values from the input tensor `x`.
+    """
+    if x.is_complex():
+        return x.real + (icos(phase) * x.imag)
+    return x
+
+
+
 # TODO: test
 @ts
 def fft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1) -> t.Tensor:
+    """Performs an orthonormal fast fourier transform on `x`, optionally handling
+    multiple dimensions.
+
+    Args:
+        x (t.Tensor): The tensor to perform the fft on.
+        n (Union[int, Tuple[int]], optional): The amount of samples to use for gathering the
+        basis frequencies. Using -1 takes the dim's size from the tensor. If the sample count
+        provided is higher than the amount of samples in the dimension, the samples are zero padded. Defaults to -1.
+        dim (Union[int, Tuple[int]], optional): The dimension(s) to perform the FFT on. Defaults to -1.
+
+    Raises:
+        ValueError: `n` and `dim` are of unequal length.
+        ValueError: `n` and `dim` must have the same type.
+
+    Returns:
+        t.Tensor: The fast fourier transformed `x` tensor.
+    """
     # Pass values through to a normal function, leave true 1/sqrt(n) definition
     # Optionally do an n dimensional fft if the dim is a Tuple
     if isinstance(n, Tuple[int]) and isinstance(dim, Tuple[int]):
@@ -614,13 +707,32 @@ def fft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1) 
         return tfft.fft(x, n=n, dim=dim, norm='ortho')
 
     # Invalid arguments were provided
-    raise ValueError('n and dim must have the same type and be either ints or tuples of ints')
+    else:
+        raise ValueError('n and dim must have the same type and be either ints or tuples of ints')
 
 
 
 # TODO: test
 @ts
 def ifft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1) -> t.Tensor:  
+    """Performs an orthonormal inverse fast fourier transform on `x`, optionally handling multiple
+    dimensions.
+
+    Args:
+        x (t.Tensor): The tensor to perform the ifft on.
+        n (Union[int, Tuple[int]], optional): The amount of samples to generate from the
+        basis frequencies. Using -1 takes the dim's size from the tensor. If the sample count
+        provided is higher than the amount of samples in the dimension, the basis frequencies 
+        are zero padded. Defaults to -1.
+        dim (Union[int, Tuple[int]], optional): The dimension(s) to perform the FFT on. Defaults to -1.
+
+    Raises:
+        ValueError: 'n' and 'dim' are of unequal length.
+        ValueError: 'n' and 'dim' must have the same type.
+
+    Returns:
+        t.Tensor: The inverse fast fourier transformed `x` tensor.
+    """
     # Pass values through to normal function, leave true 1/sqrt(n) definition
     # Optionally do an n dimensional inverse fft if the dim is a Tuple
     if isinstance(n, Tuple[int]) and isinstance(dim, Tuple[int]):
@@ -640,11 +752,5 @@ def ifft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1)
         return tfft.ifft(x, n=n, dim=dim, norm='ortho')
 
     # Invalid arguments were provided
-    raise ValueError('n and dim must have the same type and be either ints or tuples of ints')
-
-
-@ts
-def realfold(x:t.Tensor, phase:t.Tensor=pi()) -> t.Tensor:
-    if x.is_complex():
-        return x.real + (icos(phase) * x.imag)
-    return x
+    else:
+        raise ValueError('n and dim must have the same type and be either ints or tuples of ints')
