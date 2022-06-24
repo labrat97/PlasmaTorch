@@ -671,6 +671,23 @@ def realfold(x:t.Tensor, phase:t.Tensor=pi()) -> t.Tensor:
 # TODO: test
 @ts
 def fft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1) -> t.Tensor:
+    """Performs an orthonormal fast fourier transform on `x`, optionally handling
+    multiple dimensions.
+
+    Args:
+        x (t.Tensor): The tensor to perform the fft on.
+        n (Union[int, Tuple[int]], optional): The amount of samples to use for gathering the
+        basis frequencies. Using -1 takes the dim's size from the tensor. If the sample count
+        provided is higher than the amount of samples in the dimension, the samples are zero padded. Defaults to -1.
+        dim (Union[int, Tuple[int]], optional): The dimension(s) to perform the FFT on. Defaults to -1.
+
+    Raises:
+        ValueError: `n` and `dim` are of unequal length.
+        ValueError: `n` and `dim` must have the same type.
+
+    Returns:
+        t.Tensor: The fast fourier transformed `x` tensor.
+    """
     # Pass values through to a normal function, leave true 1/sqrt(n) definition
     # Optionally do an n dimensional fft if the dim is a Tuple
     if isinstance(n, Tuple[int]) and isinstance(dim, Tuple[int]):
@@ -690,13 +707,32 @@ def fft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1) 
         return tfft.fft(x, n=n, dim=dim, norm='ortho')
 
     # Invalid arguments were provided
-    raise ValueError('n and dim must have the same type and be either ints or tuples of ints')
+    else:
+        raise ValueError('n and dim must have the same type and be either ints or tuples of ints')
 
 
 
 # TODO: test
 @ts
 def ifft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1) -> t.Tensor:  
+    """Performs an orthonormal inverse fast fourier transform on `x`, optionally handling multiple
+    dimensions.
+
+    Args:
+        x (t.Tensor): The tensor to perform the ifft on.
+        n (Union[int, Tuple[int]], optional): The amount of samples to generate from the
+        basis frequencies. Using -1 takes the dim's size from the tensor. If the sample count
+        provided is higher than the amount of samples in the dimension, the basis frequencies 
+        are zero padded. Defaults to -1.
+        dim (Union[int, Tuple[int]], optional): The dimension(s) to perform the FFT on. Defaults to -1.
+
+    Raises:
+        ValueError: 'n' and 'dim' are of unequal length.
+        ValueError: 'n' and 'dim' must have the same type.
+
+    Returns:
+        t.Tensor: The inverse fast fourier transformed `x` tensor.
+    """
     # Pass values through to normal function, leave true 1/sqrt(n) definition
     # Optionally do an n dimensional inverse fft if the dim is a Tuple
     if isinstance(n, Tuple[int]) and isinstance(dim, Tuple[int]):
@@ -716,4 +752,5 @@ def ifft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1)
         return tfft.ifft(x, n=n, dim=dim, norm='ortho')
 
     # Invalid arguments were provided
-    raise ValueError('n and dim must have the same type and be either ints or tuples of ints')
+    else:
+        raise ValueError('n and dim must have the same type and be either ints or tuples of ints')
