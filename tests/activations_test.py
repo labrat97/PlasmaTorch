@@ -593,7 +593,7 @@ class RingingTest(unittest.TestCase):
 
             normalDiff = (results[idx, :] - (phi() * (controlTensors[idx]))).abs()
             normalResult = torch.all(normalDiff.abs() <= torch.max(phi() * sControl.abs()) + 1e-4)
-            regularDiff = (results[idx, :] - (phi() * (controlTensors[idx]))).abs()
+            regularDiff = (resultsReg[idx, :] - (phi() * (controlTensors[idx]))).abs()
             regularResult = torch.all(regularDiff.abs() <= torch.max(phi() * mControl.abs()) + 1e-4)
             self.assertTrue(normalResult, \
                 msg=f'[idx:{idx}] A value higher than a non-regularized value added to the forks has appeared.\n|{normalDiff}| <= {phi() * sControl.abs() + 1e-4}')
