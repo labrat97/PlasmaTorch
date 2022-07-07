@@ -7,6 +7,10 @@ from plasmatorch import *
 
 from random import randint
 
+
+
+# TODO: Verify all things are tested
+
 class ConstantsTest(unittest.TestCase):
     def testPhi(self):
         self.assertTrue(torch.all((phi() - 1.61803398875).abs() < 1e-4))

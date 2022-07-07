@@ -8,6 +8,10 @@ import torch.nn.functional as nnf
 from plasmatorch import *
 from random import randint
 
+
+
+# TODO: Verify all things are tested
+
 class LissajousTest(unittest.TestCase):
     def testSizing(self):
         # Default conversions and logits

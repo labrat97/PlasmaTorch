@@ -4,6 +4,10 @@ import test
 import torch
 from plasmatorch import *
 
+
+
+# TODO: Verify all things are tested
+
 class SmearTest(unittest.TestCase):
     def testSizing(self):
         sx, _ = test.getsmear(DEFAULT_DTYPE)
