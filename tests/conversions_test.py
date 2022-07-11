@@ -1,3 +1,4 @@
+from random import random
 import unittest
 import test
 
@@ -5,8 +6,6 @@ import torch
 from plasmatorch import *
 
 
-
-# TODO: Verify all things are tested
 
 class SmearTest(unittest.TestCase):
     def testSizing(self):
@@ -41,7 +40,8 @@ class SmearTest(unittest.TestCase):
         self.assertTrue(UPPER_TEST_REAL, msg=f'Upper bounds test (real: {sy[0, -1]} vs {1+(1/16)})')
         self.assertTrue(UPPER_TEST_COMPL, msg=f'Upper bounds test (imag: {syc[0, -1]}) vs {1+(1/16)}')
 
-class SmearResampleTest(unittest.TestCase):
+
+class ResignalTest(unittest.TestCase):
     def testEquivalence(self):
         EPSILON = 1e-4
         
@@ -80,6 +80,7 @@ class SmearResampleTest(unittest.TestCase):
         self.assertTrue(FORWARD_BACK_FORWARD_REAL, msg='Forward back forward test (real)')
         self.assertTrue(FORWARD_BACK_FORWARD_COMPL, msg='Forward back forward test (imag)')
 
+
 class ToComplexTest(unittest.TestCase):
     def testSmallToComplex(self):
         x = torch.ones((1), dtype=DEFAULT_DTYPE)
@@ -109,6 +110,7 @@ class ToComplexTest(unittest.TestCase):
         self.assertEqual(x.size(), convertX.size())
         self.assertEqual(xc.size(), convertXC.size())
 
+
 class RealObserverTest(unittest.TestCase):
     def testSmallExample(self):
         x = torch.ones((1), dtype=DEFAULT_COMPLEX_DTYPE)
@@ -129,6 +131,8 @@ class RealObserverTest(unittest.TestCase):
         self.assertTrue(not torch.is_complex(observeX), msg='Observed value is real')
         self.assertTrue(torch.all(observeX == x.real), msg='Expected real initialization')
         self.assertTrue(torch.all(torch.zeros_like(observeX) == x.imag), msg='Expected imag initialization')
+
+
 class ComplexObserverTest(unittest.TestCase):
     def testSmallExample(self):
         x = torch.ones((1), dtype=DEFAULT_DTYPE)
@@ -149,3 +153,48 @@ class ComplexObserverTest(unittest.TestCase):
         self.assertTrue(torch.is_complex(observeX), msg='Observed value is complex')
         self.assertTrue(torch.all(observeX.real == x), msg='Expected real initialization')
         self.assertTrue(torch.all(observeX.imag == torch.zeros_like(x)), msg='Expected imag initialization')
+
+
+class NantonumTest(unittest.TestCase):
+    def testWithoutArgs(self):
+        # Set up the testing tensors
+        builder = [-t.inf, -phi(), -1, 0, 1, phi(), t.inf, t.nan]
+        x = t.tensor(builder)
+        cxc = t.tensor(builder[::-1])
+        xc = t.view_as_complex(t.stack([x, cxc], dim=-1))
+
+        # Calculate the default results to test against first
+        y = nantonum(x)
+        control = t.nan_to_num(x)
+        yc = nantonum(xc)
+        ccontrol = t.view_as_complex(t.stack([control, t.nan_to_num(cxc)], dim=-1))
+
+        # Perform the tests
+        self.assertTrue(t.all(y == control), msg='Non-complex no arg test.')
+        self.assertTrue(t.all(yc == ccontrol), msg='Complex no arg test.')
+    
+    def testWithArgs(self):
+        # Set up the testing tensors
+        builder = [-t.inf, -phi(), -1, 0, 1, phi(), t.inf, t.nan]
+        x = t.tensor(builder)
+        cxc = t.tensor(builder[::-1])
+        xc = t.view_as_complex(t.stack([x, cxc], dim=-1))
+
+        # Set up the control values to replace things with
+        neginf:float = random()
+        posinf:float = random()
+        nan:float = random()
+
+        # Calculate the results to test against
+        y = nantonum(x, nan=nan, posinf=posinf, neginf=neginf)
+        control = t.nan_to_num(x, nan=nan, posinf=posinf, neginf=neginf)
+        yc = nantonum(xc, nan=nan, posinf=posinf, neginf=neginf)
+        cxcontrol = t.nan_to_num(cxc, nan=nan, posinf=posinf, neginf=neginf)
+        ccontrol = t.view_as_complex(t.stack([control, cxcontrol], dim=-1))
+
+        # Perform the tests
+        self.assertTrue(t.all(y == control), msg='Non-complex arg test.')
+        self.assertTrue(t.all(yc == ccontrol), msg='Complex arg test.')
+
+
+# TODO: strToTensor-2-tensorToStr
