@@ -77,6 +77,7 @@ def asigphi(dtype:t.dtype=DEFAULT_DTYPE) -> t.Tensor:
 
 
 
+# TODO: Test
 @ts
 def latticeParams(n:int, basisParam:t.Tensor=phi()) -> t.Tensor:
     """Creates a set of parameters that decrease their power of the `basisParam` argument
@@ -114,6 +115,7 @@ def softunit(x:t.Tensor, dim:int) -> t.Tensor:
 
 
 
+# TODO: Test
 @ts
 def nsoftunit(x:t.Tensor, dims:List[int]) -> t.Tensor:
     """Stacks a `softunit()` call onto multiple dimensions (provided in argument
@@ -321,6 +323,10 @@ def iprimishdist(x:t.Tensor, relative:bool=True, forceGauss:bool=False) -> t.Ten
     if not t.is_complex(x):
         return realprimishdist(x, relative=relative, gaussApprox=forceGauss)
     return gaussianprimishdist(x, relative=relative)
+
+
+
+# TODO: Bulk testing starts here
 
 
 
@@ -658,7 +664,6 @@ def realfold(x:t.Tensor, phase:t.Tensor=pi()) -> t.Tensor:
 
 
 
-# TODO: test
 @ts
 def fft(x:t.Tensor, n:Union[int, List[int], None]=-1, dim:Union[int, List[int], None]=-1) -> t.Tensor:
     """Performs an orthonormal fast fourier transform on `x`, optionally handling
@@ -680,9 +685,11 @@ def fft(x:t.Tensor, n:Union[int, List[int], None]=-1, dim:Union[int, List[int], 
     """
     # Pass values through to a normal function, leave true 1/sqrt(n) definition
     # Optionally do an n dimensional fft if the dim is a List
-    if isinstance(n, List[int]) and isinstance(dim, List[int]):
+    if isinstance(dim, List[int]):
         # Make sure that the length of the iterated arguments are the same
-        if len(n) != len(dim):
+        if isinstance(n, int):
+            return tfft.fftn(x, s=[n]*len(dim), dim=dim, norm='ortho')
+        elif isinstance(n, List[int]) and (len(n) != len(dim)):
             raise ValueError('n and dim are of unequal length')
         
         return tfft.fftn(x, s=n, dim=dim, norm='ortho')
@@ -702,7 +709,6 @@ def fft(x:t.Tensor, n:Union[int, List[int], None]=-1, dim:Union[int, List[int], 
 
 
 
-# TODO: test
 @ts
 def ifft(x:t.Tensor, n:Union[int, List[int], None]=-1, dim:Union[int, List[int], None]=-1) -> t.Tensor:  
     """Performs an orthonormal inverse fast fourier transform on `x`, optionally handling multiple
@@ -725,9 +731,11 @@ def ifft(x:t.Tensor, n:Union[int, List[int], None]=-1, dim:Union[int, List[int],
     """
     # Pass values through to normal function, leave true 1/sqrt(n) definition
     # Optionally do an n dimensional inverse fft if the dim is a Tuple
-    if isinstance(n, List[int]) and isinstance(dim, List[int]):
+    if isinstance(dim, List[int]):
         # Make sure that the length of the iterated arguments are the same
-        if len(n) != len(dim):
+        if isinstance(n, int):
+            return tfft.ifftn(x, s=[n]*len(dim), dim=dim, norm='ortho')
+        elif isinstance(n, List[int]) and (len(n) != len(dim)):
             raise ValueError('n and dim are of unequal length')
 
         return tfft.ifftn(x, s=n, dim=dim, norm='ortho')

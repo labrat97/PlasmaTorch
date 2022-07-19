@@ -46,6 +46,9 @@ class ConstantsTest(unittest.TestCase):
         self.assertTrue(torch.all(built.real - homebrew.real < 0.0001))
         self.assertTrue(torch.all(built.imag - homebrew.imag < 0.0001))
 
+    def testEulerMascheroni(self):
+        self.assertTrue((egamma() - 0.57721566490153286060651209008240243104215933593992).abs() < 1e-8)
+
 
 
 class SoftunitTest(unittest.TestCase):
