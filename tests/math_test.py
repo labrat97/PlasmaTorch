@@ -46,75 +46,7 @@ class ConstantsTest(unittest.TestCase):
         self.assertTrue(torch.all(built.real - homebrew.real < 0.0001))
         self.assertTrue(torch.all(built.imag - homebrew.imag < 0.0001))
 
-class ComplexQualiaTest(unittest.TestCase):
-    SIZE = (97, 23, 256)
 
-    def testSizing(self):
-        # Seeding tensors
-        x = torch.randn(self.SIZE, dtype=DEFAULT_DTYPE)
-        xc = torch.randn(self.SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
-
-        # Calculate results
-        mag = torch.abs(x)
-        magc = torch.abs(xc)
-        pol = torch.angle(x)
-        polc = torch.angle(xc)
-
-        # Test that the values have the same size
-        self.assertEqual(x.size(), mag.size(), msg=f'{x.size()} != {mag.size()}')
-        self.assertEqual(xc.size(), magc.size(), msg=f'{xc.size()} != {magc.size()}')
-        self.assertEqual(x.size(), pol.size(), msg=f'{x.size()} != {pol.size()}')
-        self.assertEqual(xc.size(), polc.size(), msg=f'{x.size()} != {polc.size()}')
-    
-    def testMagnitude(self):
-        # Seeding tensors
-        zeros = torch.zeros(self.SIZE, dtype=DEFAULT_DTYPE)
-        zerosc = torch.zeros(self.SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
-        ones = zeros + 1
-        onesc = zerosc + 1
-        imag = torch.view_as_complex(torch.stack((zeros, ones), dim=-1))
-        root2 = torch.view_as_complex(torch.stack((ones, ones), dim=-1))
-
-        # Run the calculations
-        zmag = torch.abs(zeros)
-        zmagc = torch.abs(zerosc)
-        omag = torch.abs(ones)
-        omagc = torch.abs(onesc)
-        imagc = torch.abs(imag)
-        rmag = torch.abs(root2)
-
-        # Check the values
-        self.assertTrue(torch.all(zmag == 0))
-        self.assertTrue(torch.all(zmagc == 0))
-        self.assertTrue(torch.all(omag == 1))
-        self.assertTrue(torch.all(omagc == 1))
-        self.assertTrue(torch.all(imagc == 1))
-        self.assertTrue(torch.all(rmag == torch.sqrt(ones * 2)))
-
-    def testPolarization(self):
-        # Seeding tensors
-        zeros = torch.zeros(self.SIZE, dtype=DEFAULT_DTYPE)
-        zerosc = torch.zeros(self.SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
-        ones = zeros + 1
-        onesc = zerosc + 1
-        imag = torch.view_as_complex(torch.stack((zeros, ones), dim=-1))
-        root2 = torch.view_as_complex(torch.stack((ones, ones), dim=-1))
-
-        # Run the calculations
-        zpol = torch.angle(zeros)
-        zpolc = torch.angle(zerosc)
-        opol = torch.angle(ones)
-        opolc = torch.angle(onesc)
-        ipol = torch.angle(imag)
-        iroot2 = torch.angle(root2)
-
-        # Check the values
-        self.assertTrue(torch.all(zpol == zeros))
-        self.assertTrue(torch.all(zpolc == zeros))
-        self.assertTrue(torch.all(opol == zeros))
-        self.assertTrue(torch.all(opolc == zeros))
-        self.assertTrue(torch.all(ipol - pi()/2 < 0.0001))
-        self.assertTrue(torch.all(iroot2 - pi()/4 < 0.0001))
 
 class SoftunitTest(unittest.TestCase):
     SIZE = (97, 11, 13, 128)
@@ -156,6 +88,8 @@ class SoftunitTest(unittest.TestCase):
         self.assertTrue(torch.all(torch.angle(xc) - torch.angle(yc0) < 0.0001))
         self.assertTrue(torch.all(torch.softmax(torch.abs(xc), dim=-1) - torch.abs(yc) < 0.0001))
         self.assertTrue(torch.all(torch.softmax(torch.abs(xc), dim=0) - torch.abs(yc0) < 0.0001))
+
+
 
 class TrigTest(unittest.TestCase):
     SIZE = (11, 23, 1024, 3)
@@ -216,6 +150,8 @@ class TrigTest(unittest.TestCase):
 
         # Double check by asserting that the real value of the function is 0
         self.assertTrue(torch.all(isin(torch.zeros_like(xc)).abs() < 1e-4))
+
+
 
 class PrimishDistTest(unittest.TestCase):
     def testSizing(self):
@@ -325,6 +261,8 @@ class PrimishDistTest(unittest.TestCase):
         self.assertTrue(torch.all((tpres - pres).abs() < 1e-4), msg=f'{tpres} != {pres}')
         self.assertTrue(torch.all((tgres - gres).abs() < 1e-4), msg=f'{tgres} != {gres}')
         self.assertTrue(torch.all((trgres - rgres).abs() < 1e-4), msg=f'{trgres} != {rgres}')
+
+
 
 class PrimishValsTest(unittest.TestCase):
     def testSizing(self):
