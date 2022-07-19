@@ -109,28 +109,15 @@ def softunit(x:t.Tensor, dim:int) -> t.Tensor:
     Returns:
         t.Tensor: The input tensor with a magnitude no larger than 1.
     """
-    # Normal magnitude based softmax
-    if not x.is_complex(): 
-        return x.sign() * t.softmax(x.abs(), dim=dim)
-
-    # Imaginary softmax
-    angle:t.Tensor = x.angle()
-    magnitude:t.Tensor = x.abs()
-    softMagnitude:t.Tensor = t.softmax(magnitude, dim=dim)
-    
-    # Convert back to imaginary
-    newReal:t.Tensor = softMagnitude * t.cos(angle)
-    newImag:t.Tensor = softMagnitude * t.sin(angle)
-    
-    # Return in proper datatype
-    return t.view_as_complex(t.stack((newReal, newImag), dim=-1))
+    # Normal magnitude based softmax, keep signal
+    return t.softmax(x.abs(), dim=dim) * x.sgn()
 
 
 
 @ts
 def nsoftunit(x:t.Tensor, dims:List[int]) -> t.Tensor:
     """Stacks a `softunit()` call onto multiple dimensions (provided in argument
-    `dims`) using an arethmetic mean.
+    `dims`) using a complex arethmetic mean.
 
     Args:
         x (t.Tensor): The tensor to soften the magnitude of.
@@ -140,15 +127,14 @@ def nsoftunit(x:t.Tensor, dims:List[int]) -> t.Tensor:
         t.Tensor: The input tensor with a magnitude no larger than 1.
     """
     # Performing a mean at the end of the computation
-    result = t.zeros([len(dims)] + list(x.size()), dtype=x.dtype)
+    result = t.ones_like(x)
 
-    # Adds each softmax to the resultant accumulator
+    # Multiplies each softmax to the resultant accumulator, performing a complex arethmetic mean
     for dim in dims:
-        result[dim] = softunit(x, dim=dim)
-
-    # Create a harmonic mean of the values at the constructed dimension
-    return t.mean(result, dim=0)
-
+        result.mul_(t.softmax(x.abs(), dim=dim))
+    
+    # Return the complex arethmetic mean (all angles should be preserved through the softunit function)
+    return t.pow(result, 1 / len(dims)) * x.sgn()
 
 
 @ts
@@ -434,7 +420,9 @@ def isigmoid(x:t.Tensor) -> t.Tensor:
     Returns:
         t.Tensor: The complex sigmoid of `x`.
     """
-    return csigmoid(x) * toComplex(x).sgn()
+    if x.is_complex():
+        return csigmoid(x) * x.sgn()
+    return csigmoid(x)
 
 
 
@@ -504,7 +492,9 @@ def itanh(x:t.Tensor) -> t.Tensor:
     Returns:
         t.Tensor: The tanh magnitud'd number.
     """
-    return ctanh(x).abs() * toComplex(x).sgn()
+    if x.is_complex():
+        return ctanh(x).abs() * x.sgn()
+    return ctanh(x)
 
 
 
@@ -670,16 +660,16 @@ def realfold(x:t.Tensor, phase:t.Tensor=pi()) -> t.Tensor:
 
 # TODO: test
 @ts
-def fft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1) -> t.Tensor:
+def fft(x:t.Tensor, n:Union[int, List[int], None]=-1, dim:Union[int, List[int], None]=-1) -> t.Tensor:
     """Performs an orthonormal fast fourier transform on `x`, optionally handling
     multiple dimensions.
 
     Args:
         x (t.Tensor): The tensor to perform the fft on.
-        n (Union[int, Tuple[int]], optional): The amount of samples to use for gathering the
+        n (Union[int, List[int], None], optional): The amount of samples to use for gathering the
         basis frequencies. Using -1 takes the dim's size from the tensor. If the sample count
         provided is higher than the amount of samples in the dimension, the samples are zero padded. Defaults to -1.
-        dim (Union[int, Tuple[int]], optional): The dimension(s) to perform the FFT on. Defaults to -1.
+        dim (Union[int, List[int], None], optional): The dimension(s) to perform the FFT on. Defaults to -1.
 
     Raises:
         ValueError: `n` and `dim` are of unequal length.
@@ -689,8 +679,8 @@ def fft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1) 
         t.Tensor: The fast fourier transformed `x` tensor.
     """
     # Pass values through to a normal function, leave true 1/sqrt(n) definition
-    # Optionally do an n dimensional fft if the dim is a Tuple
-    if isinstance(n, Tuple[int]) and isinstance(dim, Tuple[int]):
+    # Optionally do an n dimensional fft if the dim is a List
+    if isinstance(n, List[int]) and isinstance(dim, List[int]):
         # Make sure that the length of the iterated arguments are the same
         if len(n) != len(dim):
             raise ValueError('n and dim are of unequal length')
@@ -708,23 +698,23 @@ def fft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1) 
 
     # Invalid arguments were provided
     else:
-        raise ValueError('n and dim must have the same type and be either ints or tuples of ints')
+        raise ValueError('n and dim must have the same type and be either ints or lists of ints')
 
 
 
 # TODO: test
 @ts
-def ifft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1) -> t.Tensor:  
+def ifft(x:t.Tensor, n:Union[int, List[int], None]=-1, dim:Union[int, List[int], None]=-1) -> t.Tensor:  
     """Performs an orthonormal inverse fast fourier transform on `x`, optionally handling multiple
     dimensions.
 
     Args:
         x (t.Tensor): The tensor to perform the ifft on.
-        n (Union[int, Tuple[int]], optional): The amount of samples to generate from the
+        n (Union[int, List[int], None], optional): The amount of samples to generate from the
         basis frequencies. Using -1 takes the dim's size from the tensor. If the sample count
         provided is higher than the amount of samples in the dimension, the basis frequencies 
         are zero padded. Defaults to -1.
-        dim (Union[int, Tuple[int]], optional): The dimension(s) to perform the FFT on. Defaults to -1.
+        dim (Union[int, List[int], None], optional): The dimension(s) to perform the FFT on. Defaults to -1.
 
     Raises:
         ValueError: 'n' and 'dim' are of unequal length.
@@ -735,7 +725,7 @@ def ifft(x:t.Tensor, n:Union[int, Tuple[int]]=-1, dim:Union[int, Tuple[int]]=-1)
     """
     # Pass values through to normal function, leave true 1/sqrt(n) definition
     # Optionally do an n dimensional inverse fft if the dim is a Tuple
-    if isinstance(n, Tuple[int]) and isinstance(dim, Tuple[int]):
+    if isinstance(n, List[int]) and isinstance(dim, List[int]):
         # Make sure that the length of the iterated arguments are the same
         if len(n) != len(dim):
             raise ValueError('n and dim are of unequal length')

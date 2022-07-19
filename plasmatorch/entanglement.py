@@ -8,6 +8,7 @@ from .losses import *
 from enum import Flag
 
 
+
 class EntangleOutputMode(int, Flag):
     """
     The output mode used in the Entangle() function.
@@ -21,6 +22,7 @@ class EntangleOutputMode(int, Flag):
 
     # Output both of the contained modes in superposition collapse order respectively.
     BOTH:int = SUPERPOSITION | COLLAPSE
+
 
 
 class Entangle(nn.Module):
@@ -50,7 +52,7 @@ class Entangle(nn.Module):
         self.entangleActivation:nn.ModuleList = nn.ModuleList([LinearGauss(1, dtype=dtype) for _ in range(inputSignals)])
         self.entanglePolarization:nn.Parameter = nn.Parameter(toComplex(t.zeros(
             (inputSignals), dtype=dtype
-        )).real)
+        )))
 
         # If requested, use a knowledge mask at the end of the forward() call
         self.knowledgeMask:nn.Parameter = None
@@ -78,6 +80,7 @@ class Entangle(nn.Module):
         SAMPLE_POS:int = -1
         CURVE_POS:int = -2
         COUNT_POS:int = -3
+        MASK_POS:List[int] = [-1, -2]
 
         # Check to make sure that x is of compatible shape
         inputSize:t.Size = x.size()
@@ -91,7 +94,7 @@ class Entangle(nn.Module):
         isComplex:bool = t.is_complex(x)
 
         # Find out what the signals are made of
-        signals:t.Tensor = t.fft.fft(x, n=self.samples, dim=SAMPLE_POS)
+        signals:t.Tensor = fft(x, n=self.samples, dim=SAMPLE_POS)
 
         # Store where the signals are going
         y:t.Tensor = t.zeros_like(x)
@@ -107,15 +110,15 @@ class Entangle(nn.Module):
                 corr:t.Tensor = correlation(x=signal, y=subsig, dim=SAMPLE_POS, isbasis=True).mean(dim=SAMPLE_POS)
 
                 # Create a superposition through a tensor product
-                superposition:t.Tensor = signal.unsqueeze(-1) @ t.transpose(subsig.unsqueeze(-1), -2, -1)
+                superpos:t.Tensor = superposition(a=signal, b=subsig)
 
                 # Apply knowledge to the superposition of the subsignals if requested
                 if self.knowledgeMask is not None:
-                    superposition = superposition * nsoftunit(self.knowledgeMask[jdx], dims=[-1,-2])
+                    superpos = superpos * nsoftunit(self.knowledgeMask[jdx], dims=MASK_POS)
 
                 # Save superposition for output if needed
                 if (int(self.outputMode) & int(EntangleOutputMode.SUPERPOSITION)) != 0:
-                    s[:,idx].add_(superposition)
+                    s[:,idx].add_(ifft(superpos, n=2*[self.samples], dim=MASK_POS))
 
                 # No need to collapse
                 if (int(self.outputMode) & int(EntangleOutputMode.COLLAPSE)) == 0:
@@ -126,10 +129,10 @@ class Entangle(nn.Module):
                 classicalMix:t.Tensor = 1 - entangleMix
 
                 # Collapse
-                collapseSignal:t.Tensor = collapse(superposition, polarization)
-                collapseSmear:t.Tensor = t.fft.ifft(collapseSignal, n=self.samples, dim=SAMPLE_POS)
+                collapseSignal:t.Tensor = collapse(superpos, polarization.abs())
+                collapseSmear:t.Tensor = ifft(collapseSignal, n=self.samples, dim=SAMPLE_POS)
                 if not isComplex:
-                    collapseSmear:t.Tensor = collapseSmear.real
+                    collapseSmear:t.Tensor = realfold(collapseSmear, phase=polarization.angle())
 
                 # Put into output for signals
                 y[:,idx] = y[:,idx] + ((entangleMix * collapseSmear) + (classicalMix * x[:,idx]))
@@ -146,6 +149,8 @@ class Entangle(nn.Module):
         if self.outputMode == EntangleOutputMode.SUPERPOSITION:
             return None, s
         return y, s
+
+
 
 @ts
 def collapse(x:t.Tensor, polarization:t.Tensor) -> t.Tensor:
@@ -184,6 +189,7 @@ def collapse(x:t.Tensor, polarization:t.Tensor) -> t.Tensor:
     # Combine the three phases and return
     return rote + rota + rotb
 
+
 @ts
 def superposition(a:t.Tensor, b:t.Tensor) -> t.Tensor:
     """Create a superposition of the two input signals with a complex softunit on the result from the matmul.
@@ -197,7 +203,8 @@ def superposition(a:t.Tensor, b:t.Tensor) -> t.Tensor:
     """
     # Do the matrix multiplication required 
     rawSuper:t.Tensor = a.unsqueeze(-1) @ b.unsqueeze(-2)
-    return nsoftunit(x=rawSuper, dims=[-1, -2])
+    return nsoftunit(x=rawSuper, dims=[-1,-2])
+
 
 @ts
 def entangle(a:t.Tensor, b:t.Tensor, mask:t.Tensor, polarization:t.Tensor) -> t.Tensor:

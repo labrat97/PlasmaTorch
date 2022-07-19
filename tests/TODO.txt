@@ -1,5 +1,7 @@
 1. 
 Go through all things marked for verification
+1.1.
+`entanglement_test.py`
 
 2.
 Make tests for:

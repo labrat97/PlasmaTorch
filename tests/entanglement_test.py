@@ -9,7 +9,7 @@ from random import randint
 
 
 
-# TODO: Verify all things are tested
+# TODO: Verify all things are tested... working actively
 
 class EntangleTest(unittest.TestCase):
     def testParameters(self):
@@ -117,8 +117,8 @@ class EntangleTest(unittest.TestCase):
         # Push data through the entanglers
         colrr, suprr = subject.forward(x)
         colrc, suprc = subject.forward(xc)
-        colcr, supcr = subject.forward(x)
-        colcc, supcc = subject.forward(xc)
+        colcr, supcr = subjectc.forward(x)
+        colcc, supcc = subjectc.forward(xc)
         _, suprc0 = subject.forward(toComplex(x))
         _, supcc0 = subjectc.forward(toComplex(x))
 
@@ -128,11 +128,11 @@ class EntangleTest(unittest.TestCase):
         self.assertTrue(torch.all(colrc == colcc))
         self.assertTrue(torch.all(suprc == supcc))
 
-        # Cannot garuntee self similar collapse state across output types due to rfft vs fft
-        self.assertTrue(torch.all(suprr.real - suprc0.real < 0.0001))
-        self.assertTrue(torch.all(suprr.imag - suprc0.imag < 0.0001))
-        self.assertTrue(torch.all(supcr.real - supcc0.real < 0.0001))
-        self.assertTrue(torch.all(supcr.imag - supcc0.imag < 0.0001))
+        # Test for self similarity
+        self.assertTrue(torch.all(suprr.real - suprc0.real < 1e-5), msg=f'{t.max(suprr.real - suprc0.real)}')
+        self.assertTrue(torch.all(suprr.imag - suprc0.imag < 1e-5))
+        self.assertTrue(torch.all(supcr.real - supcc0.real < 1e-5))
+        self.assertTrue(torch.all(supcr.imag - supcc0.imag < 1e-5))
 
     def testDifference(self):
         # Parameter initialization
@@ -154,13 +154,13 @@ class EntangleTest(unittest.TestCase):
 
         # Tensors for evaluation
         x = torch.randn((batches, signals, channels, test.TEST_FFT_SMALL_SAMPLES), dtype=DEFAULT_DTYPE)
-        xc = torch.view_as_complex(torch.stack((x, x), dim=-1))
+        xc = torch.view_as_complex(torch.stack((x, torch.randn_like(x)), dim=-1))
 
         # Push data through the entanglers
         colrr, suprr = subject.forward(x)
         colrc, suprc = subject.forward(xc)
-        colcr, supcr = subject.forward(x)
-        colcc, supcc = subject.forward(xc)
+        colcr, supcr = subjectc.forward(x)
+        colcc, supcc = subjectc.forward(xc)
 
         # All of these should not be the same
         self.assertTrue(torch.all(colrr != colrc))
