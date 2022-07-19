@@ -1,3 +1,4 @@
+from imghdr import tests
 from random import random
 import unittest
 import test
@@ -198,3 +199,61 @@ class NantonumTest(unittest.TestCase):
 
 
 # TODO: strToTensor-2-tensorToStr
+class StringConversionTest(unittest.TestCase):
+    def __randomString() -> str:
+        import random
+        import string
+
+        size:int = random.randint(0, 2048)
+        letters:str = string.ascii_letters + '0123456789[]{}:;\"\''
+        return ''.join(random.choice(letters) for _ in range(size)).encode('utf-8')
+
+    def __randomTensor() -> t.Tensor:
+        import random
+        import string
+        letters:str = string.ascii_letters + '0123456789[]{}:;\"\''
+        return t.tensor([ord(random.choice(letters)) for _ in range(random.randint(0, 2048))])
+
+    def testStrToTensorToStr(self):
+        # Generate a starting data
+        testStr:str = StringConversionTest.__randomString()
+
+        # Convert to pytorch and back
+        tensorStr:t.Tensor = conversions.strToTensor(testStr)
+        convertedStr:str = conversions.tensorToStr(tensorStr)[0]
+
+        # Test results
+        self.assertTrue(testStr == convertedStr, msg=f'Conversion error {testStr}!={convertedStr}\n[mid step:\t{tensorStr}]')
+
+    def testTensorToStrToTensor(self):
+        # Generate starting data
+        testTensor:t.Tensor = StringConversionTest.__randomTensor()
+
+        # Convert to a string and back
+        strTensor:str = conversions.tensorToStr(testTensor)[0]
+        convertedTensor:t.Tensor = conversions.strToTensor(strTensor)
+
+        # Test results
+        self.assertTrue(t.all(testTensor[:len(strTensor)] == convertedTensor), msg=f'Conversion error [mid step:\t{strTensor}]')
+    
+    def testTensorToStr(self):
+        # Generate starting data
+        testTensor:t.Tensor = StringConversionTest.__randomTensor()
+        convertedStr:str = conversions.tensorToStr(testTensor)[0]
+
+        # Test each value of the converted string
+        for idx in range(len(convertedStr)):
+            self.assertTrue(testTensor[idx].cpu().numpy() == convertedStr[idx], msg=f'idx:{idx}\t{testTensor.cpu().numpy()}!={convertedStr}')
+    
+    def testStrToTensor(self):
+        # Generate starting data
+        testStr:str = StringConversionTest.__randomString()
+        convertedTensor:t.Tensor = conversions.strToTensor(testStr)
+
+        # Test the sizing of the output tensor
+        self.assertTrue(len(testStr) == convertedTensor.size(-1))
+        self.assertTrue(len(testStr) == convertedTensor.numel())
+
+        # Test the results of the conversion value by value
+        for idx in range(len(testStr)):
+            self.assertTrue(testStr[idx] == convertedTensor.cpu().numpy()[idx], msg=f'idx:{idx}\t{testStr}!={convertedTensor.cpu().numpy()}')
