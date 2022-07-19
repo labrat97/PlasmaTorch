@@ -1,0 +1,11 @@
+1. 
+Go through all things marked for verification
+
+2.
+Make tests for:
+lens
+losses
+sizing
+toroidallin
+knowledge.*
+attention
