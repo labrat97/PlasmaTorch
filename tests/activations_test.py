@@ -56,6 +56,7 @@ class LissajousTest(unittest.TestCase):
         self.assertTrue(lsc.size() == (1, test.TBATCH, test.TBATCH, sc.size()[-1]), msg=f'size: {lsc.size()}')
         self.assertTrue(lscl.size() == (1, test.TBATCH, sc.size()[-1]), msg=f'size: {lscl.size()}')
 
+
     def testValues(self):
         x = torch.randn((test.TBATCH, DEFAULT_SPACE_PRIME, test.TEST_FFT_SMALL_SAMPLES), dtype=DEFAULT_DTYPE)
         xc = torch.randn((test.TBATCH, DEFAULT_SPACE_PRIME, test.TEST_FFT_SMALL_SAMPLES), dtype=DEFAULT_COMPLEX_DTYPE)
@@ -128,6 +129,7 @@ class LissajousTest(unittest.TestCase):
             msg="Composite values don't check out for complex values.")
 
 
+
 class KnotTest(unittest.TestCase):
     def testSizing(self):
         # Generate all testing datatypes
@@ -181,6 +183,7 @@ class KnotTest(unittest.TestCase):
         self.assertTrue(kxcls.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, DEFAULT_SPACE_PRIME, xclSmear.size()[-1]), msg=f'size: {kxcls.size()}')
         kxclsl = knotc.forward(xclSmear, oneD=False)
         self.assertTrue(kxclsl.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, xclSmear.size()[-1]), msg=f'size: {kxlsl.size()}')
+
 
     def testValues(self):
         # Generate all testing datatypes
@@ -248,6 +251,7 @@ class KnotTest(unittest.TestCase):
         self.assertTrue(torch.all(kxcls == dc))
         kxclsl = knotc.forward(xclSmear, oneD=False)
         self.assertTrue(torch.all(kxclsl == dc))
+
 
     def testHarmonicPhaseStacking(self):
         # Generate all testing datatypes
@@ -327,6 +331,7 @@ class KnotTest(unittest.TestCase):
             else:
                 self.assertTrue(torch.all(cout[idx] - stackedVal < 0.0001))
 
+
     def testHarmonicFrequencyStacking(self):
         # Generate all testing datatypes
         x = torch.ones((test.TBATCH, 1), dtype=DEFAULT_DTYPE)
@@ -391,6 +396,7 @@ class KnotTest(unittest.TestCase):
                 self.assertTrue(torch.all(cout[idx] - stackedVal < 0.0001))
 
 
+
 class RingingTest(unittest.TestCase):
     def testForwardSizing(self):
         # Generate random sizing
@@ -419,6 +425,7 @@ class RingingTest(unittest.TestCase):
         self.assertEqual(x.size(), sxr.size())
         self.assertEqual(x.size(), sxc.size())
 
+
     def testViewSizing(self):
         # Generate random sizing
         SAMPLES = randint(10, 1024)
@@ -440,7 +447,8 @@ class RingingTest(unittest.TestCase):
         # Make sure that all of the lengths that come out have the appropriate samples and dims
         self.assertTrue(vr.size() == vc.size())
         self.assertEqual(len(vc.size()), 1)
-    
+
+
     def testSmallSizing(self):
         # Are these next tests useful to output? Not really from what I can see, however
         # they are quite good for stability reasons
@@ -466,6 +474,7 @@ class RingingTest(unittest.TestCase):
         self.assertTrue(xr.size() == xc.size() == vr.size() == vc.size())
         self.assertTrue(x.size() == xr.size())
     
+
     def testViewValues(self):
         # Generate random sizing
         SIZELEN:int = randint(1, 5)
@@ -510,6 +519,7 @@ class RingingTest(unittest.TestCase):
             msg=f'decay degredation: vr3/vr2 ({(vr3/vr2).abs()}) != 1/phi ({1/phi()})')
         self.assertTrue(torch.all((vc3 - (vc2 * (1/phi()))).abs() < 1e-4), \
             msg=f'decay degredation: vc3/vc2 ({(vc3/vc2).abs()}) != 1/phi ({1/phi()})')
+
 
     def testForwardValues(self):
         # Generate random sizing

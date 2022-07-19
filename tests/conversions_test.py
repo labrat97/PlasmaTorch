@@ -16,6 +16,7 @@ class SmearTest(unittest.TestCase):
         self.assertEqual(sx.size(), torch.Size((test.TBATCH, test.TEST_FFT_SMALL_SAMPLES)), msg='Sizing test (real)')
         self.assertEqual(sxc.size(), torch.Size((test.TBATCH, test.TEST_FFT_SMALL_SAMPLES)), msg='Sizing test (imag)')
 
+
     def testValues(self):
         sx, smear = test.getsmear(DEFAULT_DTYPE)
         sxc, smearc = test.getsmear(DEFAULT_COMPLEX_DTYPE)
@@ -40,6 +41,7 @@ class SmearTest(unittest.TestCase):
         UPPER_TEST_COMPL = torch.all(syc[:, -1] == torch.ones_like(syc[:, -1], dtype=DEFAULT_COMPLEX_DTYPE) * (1+(1/16)))
         self.assertTrue(UPPER_TEST_REAL, msg=f'Upper bounds test (real: {sy[0, -1]} vs {1+(1/16)})')
         self.assertTrue(UPPER_TEST_COMPL, msg=f'Upper bounds test (imag: {syc[0, -1]}) vs {1+(1/16)}')
+
 
 
 class ResignalTest(unittest.TestCase):
@@ -82,6 +84,7 @@ class ResignalTest(unittest.TestCase):
         self.assertTrue(FORWARD_BACK_FORWARD_COMPL, msg='Forward back forward test (imag)')
 
 
+
 class ToComplexTest(unittest.TestCase):
     def testSmallToComplex(self):
         x = torch.ones((1), dtype=DEFAULT_DTYPE)
@@ -96,6 +99,7 @@ class ToComplexTest(unittest.TestCase):
         self.assertTrue(torch.all(xc == convertXC), msg='Already complex (\'xc\')')
         self.assertEqual(x.size(), convertX.size())
         self.assertEqual(xc.size(), convertXC.size())
+
 
     def testLargeToComplex(self):
         x = torch.ones((8, 8, 8, 8, 8), dtype=DEFAULT_DTYPE)
@@ -112,6 +116,7 @@ class ToComplexTest(unittest.TestCase):
         self.assertEqual(xc.size(), convertXC.size())
 
 
+
 class RealObserverTest(unittest.TestCase):
     def testSmallExample(self):
         x = torch.ones((1), dtype=DEFAULT_COMPLEX_DTYPE)
@@ -123,6 +128,7 @@ class RealObserverTest(unittest.TestCase):
         self.assertTrue(torch.all(observeX == x.real), msg='Expected real initialization')
         self.assertTrue(torch.all(torch.zeros_like(observeX) == x.imag), msg='Expected imag initialization')
 
+
     def testLargeExample(self):
         x = torch.ones((8, 8, 8, 8, 8), dtype=DEFAULT_COMPLEX_DTYPE)
         
@@ -132,6 +138,7 @@ class RealObserverTest(unittest.TestCase):
         self.assertTrue(not torch.is_complex(observeX), msg='Observed value is real')
         self.assertTrue(torch.all(observeX == x.real), msg='Expected real initialization')
         self.assertTrue(torch.all(torch.zeros_like(observeX) == x.imag), msg='Expected imag initialization')
+
 
 
 class ComplexObserverTest(unittest.TestCase):
@@ -145,6 +152,7 @@ class ComplexObserverTest(unittest.TestCase):
         self.assertTrue(torch.all(observeX.real == x), msg='Expected real initialization')
         self.assertTrue(torch.all(observeX.imag == torch.zeros_like(x)), msg='Expected imag initialization')
 
+
     def testLargeExample(self):
         x = torch.ones((8, 8, 8, 8, 8), dtype=DEFAULT_DTYPE)
         
@@ -154,6 +162,7 @@ class ComplexObserverTest(unittest.TestCase):
         self.assertTrue(torch.is_complex(observeX), msg='Observed value is complex')
         self.assertTrue(torch.all(observeX.real == x), msg='Expected real initialization')
         self.assertTrue(torch.all(observeX.imag == torch.zeros_like(x)), msg='Expected imag initialization')
+
 
 
 class NantonumTest(unittest.TestCase):
@@ -174,6 +183,7 @@ class NantonumTest(unittest.TestCase):
         self.assertTrue(t.all(y == control), msg='Non-complex no arg test.')
         self.assertTrue(t.all(yc == ccontrol), msg='Complex no arg test.')
     
+
     def testWithArgs(self):
         # Set up the testing tensors
         builder = [-t.inf, -phi(), -1, 0, 1, phi(), t.inf, t.nan]
@@ -198,7 +208,7 @@ class NantonumTest(unittest.TestCase):
         self.assertTrue(t.all(yc == ccontrol), msg='Complex arg test.')
 
 
-# TODO: strToTensor-2-tensorToStr
+
 class StringConversionTest(unittest.TestCase):
     def __randomString() -> str:
         import random
@@ -208,11 +218,13 @@ class StringConversionTest(unittest.TestCase):
         letters:str = string.ascii_letters + '0123456789[]{}:;\"\''
         return ''.join(random.choice(letters) for _ in range(size)).encode('utf-8')
 
+
     def __randomTensor() -> t.Tensor:
         import random
         import string
         letters:str = string.ascii_letters + '0123456789[]{}:;\"\''
         return t.tensor([ord(random.choice(letters)) for _ in range(random.randint(0, 2048))])
+
 
     def testStrToTensorToStr(self):
         # Generate a starting data
@@ -225,6 +237,7 @@ class StringConversionTest(unittest.TestCase):
         # Test results
         self.assertTrue(testStr == convertedStr, msg=f'Conversion error {testStr}!={convertedStr}\n[mid step:\t{tensorStr}]')
 
+
     def testTensorToStrToTensor(self):
         # Generate starting data
         testTensor:t.Tensor = StringConversionTest.__randomTensor()
@@ -235,7 +248,8 @@ class StringConversionTest(unittest.TestCase):
 
         # Test results
         self.assertTrue(t.all(testTensor[:len(strTensor)] == convertedTensor), msg=f'Conversion error [mid step:\t{strTensor}]')
-    
+
+
     def testTensorToStr(self):
         # Generate starting data
         testTensor:t.Tensor = StringConversionTest.__randomTensor()
@@ -244,6 +258,7 @@ class StringConversionTest(unittest.TestCase):
         # Test each value of the converted string
         for idx in range(len(convertedStr)):
             self.assertTrue(testTensor[idx].cpu().numpy() == convertedStr[idx], msg=f'idx:{idx}\t{testTensor.cpu().numpy()}!={convertedStr}')
+
     
     def testStrToTensor(self):
         # Generate starting data

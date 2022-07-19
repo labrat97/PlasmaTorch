@@ -62,6 +62,8 @@ class IrregularGaussTest(unittest.TestCase):
             torch.logical_or(torch.logical_not(xtop), (gaussreg - (reghigh * refhigh) < 1e-4))
         ), msg=f'Upper curve off by approx: {torch.mean(gaussreg-(reghigh*refhigh))}')
 
+
+
 class LinearGaussTest(unittest.TestCase):
     SIZE = (128, 11, 13, 97)
 
