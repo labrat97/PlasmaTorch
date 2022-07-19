@@ -164,7 +164,7 @@ def collapse(x:t.Tensor, polarization:t.Tensor) -> t.Tensor:
         polarization (t.Tensor): The polarization of the collapse for the signal.
 
     Returns:
-        t.Tensor: The collapsed signal of size (*, n, n) (assuming pointwise or less polarization).
+        t.Tensor: The collapsed signal of size (*, n) (assuming pointwise or less polarization).
     """
     # Brief argument check
     assert x.size(-1) == x.size(-2)
