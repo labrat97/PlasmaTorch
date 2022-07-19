@@ -307,7 +307,6 @@ class PrimishDistTest(unittest.TestCase):
         self.assertTrue(torch.all((rgres - rgces).abs() < 1e-4), msg=f'{rgres} != {rgces}')
         self.assertTrue(torch.all((rgces - rgies).abs() < 1e-4), msg=f'{rgces} != {rgies}')
         self.assertTrue(torch.all((rgces - rgcesi).abs() < 1e-4), msg=f'{rgces} != {rgcesi}')
-        self.assertTrue(torch.all((agres - rgres).abs() < 1e-4), msg=f'{agres} != {rgres}')
 
     def testValuesGauss(self):
         # Generate the control tensors
