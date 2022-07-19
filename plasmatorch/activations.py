@@ -3,6 +3,7 @@ from .conversions import *
 from .math import *
 
 
+
 @ts
 def lissajous(x:t.Tensor, freqs:t.Tensor, phases:t.Tensor, oneD:bool = True) -> t.Tensor:
     """Create a lissajous curve sampled at position `x` with the associated frequencies
@@ -150,6 +151,7 @@ class Knot(nn.Module):
         
         # Swap the position of the curve and the sample (so the samples are on the rear)
         return result
+
 
 class Ringing(nn.Module):
     """

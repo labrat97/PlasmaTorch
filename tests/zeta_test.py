@@ -5,6 +5,10 @@ from plasmatorch import *
 from plasmatorch.zeta import *
 from random import randint
 
+
+
+# TODO: Verify all things are tested
+
 class HurwitzZetaTest(unittest.TestCase):
     def testSizing(self):
         # Generate random sizing parameters
