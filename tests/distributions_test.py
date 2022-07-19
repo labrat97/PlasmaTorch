@@ -6,8 +6,6 @@ from plasmatorch import *
 
 
 
-# TODO: Verify all things are tested
-
 class IrregularGaussTest(unittest.TestCase):
     SIZE = (11, 11, 13, 128)
 
