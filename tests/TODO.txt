@@ -1,7 +1,9 @@
 1. 
 Go through all things marked for verification
-1.1.
-`entanglement_test.py`
+XXX 1.1.
+XXX `entanglement_test.py`
+1.2.
+`math_test.py`
 
 2.
 Make tests for:
