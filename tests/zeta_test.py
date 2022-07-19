@@ -7,8 +7,6 @@ from random import randint
 
 
 
-# TODO: Verify all things are tested
-
 class HurwitzZetaTest(unittest.TestCase):
     def testSizing(self):
         # Generate random sizing parameters
@@ -43,6 +41,7 @@ class HurwitzZetaTest(unittest.TestCase):
         self.assertEqual(hxff.size(), hxbfft.size())
         self.assertEqual(hxbfft.size(), hxbf.size())
     
+
     def testValues(self):
         # Generate random sizing parameters
         SIZELEN = randint(1, 3)
@@ -84,6 +83,8 @@ class HurwitzZetaTest(unittest.TestCase):
         fftdiff = hxfft - fftmirror
         self.assertTrue(torch.all(fftdiff.abs() < 1e-4), msg=f'fftdiff: {fftdiff}')
 
+
+
 class LerchZetaTest(unittest.TestCase):
     def testSizing(self):
         # Generate random sizing parameters
@@ -118,6 +119,7 @@ class LerchZetaTest(unittest.TestCase):
         self.assertEqual(lxffft.size(), lxff.size())
         self.assertEqual(lxff.size(), lxbfft.size())
         self.assertEqual(lxbfft.size(), lxbf.size())
+
 
     def testValues(self):
         # Generate random sizing parameters
