@@ -10,11 +10,9 @@ from random import randint
 class HurwitzZetaTest(unittest.TestCase):
     def testSizing(self):
         # Generate random sizing parameters
-        SIZELEN = randint(1, 5)
-        SIZESCALAR = randint(5, 10)
-        SIZE = torch.Size((torch.randn((SIZELEN)) * SIZESCALAR).type(torch.int64).abs() + 1)
-        BLANKS = randint(0, 512)
-        SAMPLES = randint(10, 100)
+        SIZE = SUPERSINGULAR_PRIMES_HL[0] * SUPERSINGULAR_PRIMES_HL[1]
+        BLANKS = randint(0, 3)
+        SAMPLES = randint(SUPERSINGULAR_PRIMES_LH[3], SUPERSINGULAR_PRIMES_LH[4])
 
         # Generate the control tensors for later testing
         x = torch.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
@@ -44,11 +42,9 @@ class HurwitzZetaTest(unittest.TestCase):
 
     def testValues(self):
         # Generate random sizing parameters
-        SIZELEN = randint(1, 3)
-        SIZESCALAR = 10
-        SIZE = torch.Size((torch.randn((SIZELEN)) * SIZESCALAR).type(torch.int64).abs() + 1)
-        BLANKS = randint(0, 512) + 10240
-        SAMPLES = 1024
+        SIZE = SUPERSINGULAR_PRIMES_HL[0] * SUPERSINGULAR_PRIMES_HL[1]
+        BLANKS = randint(0, 512) + 1024
+        SAMPLES = 1
 
         # Generate the control tensors for later testing
         s = torch.randn(SIZE, dtype=DEFAULT_DTYPE).abs() + 2
@@ -88,11 +84,9 @@ class HurwitzZetaTest(unittest.TestCase):
 class LerchZetaTest(unittest.TestCase):
     def testSizing(self):
         # Generate random sizing parameters
-        SIZELEN = randint(1, 5)
-        SIZESCALAR = randint(5, 10)
-        SIZE = torch.Size((torch.randn((SIZELEN)) * SIZESCALAR).type(torch.int64).abs() + 1)
-        BLANKS = randint(0, 512)
-        SAMPLES = randint(10, 100)
+        SIZE = SUPERSINGULAR_PRIMES_HL[0] * SUPERSINGULAR_PRIMES_HL[1]
+        BLANKS = randint(0, 3)
+        SAMPLES = randint(SUPERSINGULAR_PRIMES_LH[3], SUPERSINGULAR_PRIMES_LH[4])
 
         # Generate the control tensors for later testing
         x = torch.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
@@ -123,11 +117,9 @@ class LerchZetaTest(unittest.TestCase):
 
     def testValues(self):
         # Generate random sizing parameters
-        SIZELEN = randint(1, 3)
-        SIZESCALAR = 10
-        SIZE = torch.Size((torch.randn((SIZELEN)) * SIZESCALAR).type(torch.int64).abs() + 1)
-        BLANKS = randint(0, 512) + 10240
-        SAMPLES = 1024
+        SIZE = SUPERSINGULAR_PRIMES_HL[0] * SUPERSINGULAR_PRIMES_HL[1]
+        BLANKS = randint(0, 512) + 1024
+        SAMPLES = 1
 
         # Generate the control tensors for later testing
         s = torch.randn(SIZE, dtype=DEFAULT_DTYPE).abs() + 2

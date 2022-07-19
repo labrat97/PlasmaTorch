@@ -1,5 +1,5 @@
 from .defaults import *
-from .math import asigphi, i, pi, isigmoid
+from .math import asigphi, i, pi, csigmoid
 from .conversions import toComplex
 from .sizing import resignal
 
@@ -41,23 +41,23 @@ def hzetae(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.Tensor=t.tenso
             the Hurwitz Zeta function.
     """
     # Set up the parameters for residual evaluation
-    epsig:t.Tensor = isigmoid(res)
+    epsig:t.Tensor = csigmoid(res)
     idx:int = 1
     epsigexp:t.Tensor = t.ones_like(epsig)
 
     # Generate the first value
     delta:t.Tensor = __hzetaitr(s=s, a=a, n=0)
-    result:t.Tensor = t.ones_like(delta) * delta
+    result:t.Tensor = delta
     keepGoing:t.Tensor = (result.abs() >= aeps.abs()).type(t.int64)
 
     # Progress each value forward to convergence or max iteration
-    while t.all(keepGoing) and idx < maxiter:
+    while t.any(keepGoing) and idx < maxiter:
         # Find and apply the changes according to the aeps variable
         # Multiplying s by keepGoing allows for a quicker exponential eval potentially
         # on the finished values
-        delta = __hzetaitr(s=(s * keepGoing), a=a, n=idx)
+        delta = __hzetaitr(s=s, a=a, n=idx)
         epsigexp = t.pow(epsig, float(idx) / (maxiter - 1))
-        result = (keepGoing * ((epsigexp * delta) + result)) + ((1 - keepGoing) * result)
+        result.add_(epsigexp * delta)
 
         # Check to see if the values are still needing iteration
         keepGoing = (result.abs() >= aeps.abs()).type(t.int64)
@@ -89,7 +89,7 @@ def hzetas(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blankSamples:int=0,
     result:t.Tensor = toComplex(s.unsqueeze(-1) @ t.zeros((1, samples), dtype=s.dtype))
 
     # Set up running parameters
-    epsig:t.Tensor = isigmoid(res)
+    epsig:t.Tensor = csigmoid(res)
     idx:int = 1
     epsigexp:t.Tensor = t.ones_like(epsig)
     totsamples:int = blankSamples + samples
@@ -161,23 +161,23 @@ def lerche(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.
             the Lerch Zeta function.
     """
     # Set up the running parameters
-    epsig:t.Tensor = isigmoid(res)
+    epsig:t.Tensor = csigmoid(res)
     idx:int = 1
     epsigexp:t.Tensor = t.ones_like(epsig)
 
     # Generate the first value
     delta:t.Tensor = __lerchitr(lam=lam, s=s, a=a, n=0)
-    result:t.Tensor = t.ones_like(delta) * delta
+    result:t.Tensor = delta
     keepGoing:t.Tensor = (result.abs() >= aeps.abs()).type(t.int64)
 
     # Progress each element forward to convergence or max iteration
-    while t.all(keepGoing) and idx < maxiter:
+    while t.any(keepGoing) and idx < maxiter:
         # Find and apply the changes according to the aeps variable
         # Multiplying lam & s by keepGoing allows for a quicker exponential eval potentially
         # on the finished values
-        delta = __lerchitr(lam=(lam * keepGoing), s=(s * keepGoing), a=a, n=idx)
+        delta = __lerchitr(lam=lam, s=s, a=a, n=idx)
         epsigexp = t.pow(epsig, float(idx) / (maxiter - 1))
-        result = (keepGoing * ((epsigexp * delta) + result)) + ((1 - keepGoing) * result)
+        result.add_(epsigexp * delta)
 
         # Check to see if the values are still needing iteration
         keepGoing = (result.abs() >= aeps.abs()).type(t.int64)
@@ -210,7 +210,7 @@ def lerchs(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blank
     result:t.Tensor = toComplex(s.unsqueeze(-1) @ t.zeros((1, samples), dtype=s.dtype))
 
     # Set up running parameters
-    epsig:t.Tensor = isigmoid(res)
+    epsig:t.Tensor = csigmoid(res)
     idx:int = 1
     epsigexp:t.Tensor = t.ones_like(epsig)
     totsamples:int = blankSamples + samples
