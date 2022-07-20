@@ -9,8 +9,6 @@ from random import randint
 
 
 
-# TODO: Verify all things are tested
-
 class ConstantsTest(unittest.TestCase):
     def testPhi(self):
         self.assertTrue(torch.all((phi() - 1.61803398875).abs() < 1e-4))
@@ -51,10 +49,49 @@ class ConstantsTest(unittest.TestCase):
 
 
 
+class LatticeParamsTest(unittest.TestCase):
+    def testSizingTyping(self):
+        # Generate the testing tensors
+        x = t.randn((1), dtype=DEFAULT_DTYPE)
+        xc = t.randn_like(x, dtype=DEFAULT_COMPLEX_DTYPE)
+        params = randint(1, 1024)
+
+        # Generate the parameters to test
+        y = latticeParams(n=params, basisParam=x)
+        yc = latticeParams(n=params, basisParam=xc)
+
+        # Check the sizing of the output
+        self.assertEqual(y.size(-1), params)
+        self.assertEqual(yc.size(-1), params)
+
+        # Check the type of the output
+        self.assertFalse(y.is_complex())
+        self.assertTrue(yc.is_complex())
+
+
+    def testValues(self):
+        # Generate the testing tensors
+        x = t.randn((1), dtype=DEFAULT_DTYPE).abs()
+        params = randint(2, 64)
+
+        # Generate the parameters to test
+        ctrl = -t.log(latticeParams(n=params)) / t.log(phi())
+        y = -t.log(latticeParams(n=params, basisParam=x)) / t.log(x)
+
+        # Generate log deltas
+        dctrl = ctrl[1:] - ctrl[:-1]
+        dy = y[1:] - y[:-1]
+
+        # Check to make sure that all of the values are within a single scalar of each other
+        self.assertTrue((t.max(dctrl.abs()) - 1).abs() < 1e-4, msg=f'{dctrl}')
+        self.assertTrue((t.max(dy.abs()) - 1).abs() < 1e-4, msg=f'{dy}')
+
+
+
 class SoftunitTest(unittest.TestCase):
     SIZE = (97, 11, 13, 128)
 
-    def testSizing(self):
+    def testSizingTyping(self):
         # Seeding tensors
         x = torch.randn(self.SIZE, dtype=DEFAULT_DTYPE)
         xc = torch.randn(self.SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
@@ -70,6 +107,13 @@ class SoftunitTest(unittest.TestCase):
         self.assertEqual(x.size(), y0.size(), msg=f'{x.size()} != {y0.size()}')
         self.assertEqual(x.size(), yc.size(), msg=f'{x.size()} != {yc.size()}')
         self.assertEqual(x.size(), yc0.size(), msg=f'{x.size()} != {yc0.size()}')
+
+        # Test that only things that need to be complex are
+        self.assertFalse(y.is_complex())
+        self.assertFalse(y0.is_complex())
+        self.assertTrue(yc.is_complex())
+        self.assertTrue(yc0.is_complex())
+
 
     def testValues(self):
         # Seeding tensors
@@ -91,6 +135,56 @@ class SoftunitTest(unittest.TestCase):
         self.assertTrue(torch.all(torch.angle(xc) - torch.angle(yc0) < 0.0001))
         self.assertTrue(torch.all(torch.softmax(torch.abs(xc), dim=-1) - torch.abs(yc) < 0.0001))
         self.assertTrue(torch.all(torch.softmax(torch.abs(xc), dim=0) - torch.abs(yc0) < 0.0001))
+
+
+
+class NSoftunitTest(unittest.TestCase):
+    SIZE = SoftunitTest.SIZE
+
+    def testSizingTyping(self):
+        # Seeding tensors
+        x = torch.randn(self.SIZE, dtype=DEFAULT_DTYPE)
+        xc = torch.randn(self.SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Calculate the n-dimensional softmax
+        y = nsoftunit(x, dims=[-1,-2])
+        yc = nsoftunit(xc, dims=[-1,-2])
+        z = nsoftunit(x, dims=range(len(x.size())))
+        zc = nsoftunit(xc, dims=range(len(xc.size())))
+
+        # Check to make sure that sizes came through appropriately
+        self.assertEqual(x.size(), y.size())
+        self.assertEqual(x.size(), z.size())
+        self.assertEqual(xc.size(), yc.size())
+        self.assertEqual(xc.size(), zc.size())
+
+        # Check to make sure that only the things that should be complex, are
+        self.assertFalse(y.is_complex())
+        self.assertFalse(z.is_complex())
+        self.assertTrue(yc.is_complex())
+        self.assertTrue(zc.is_complex())
+
+
+    def testRanges(self):
+        # Seeding tensors
+        x = torch.randn(self.SIZE, dtype=DEFAULT_DTYPE)
+        xc = torch.randn(self.SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Calculate the n-dimensional softmax
+        y = nsoftunit(x, dims=[-1,-2])
+        yc = nsoftunit(xc, dims=[-1,-2])
+        z = nsoftunit(x, dims=range(len(x.size())))
+        zc = nsoftunit(xc, dims=range(len(xc.size())))
+
+        # Test the ranges of the output values to verify that they do not go over
+        self.assertTrue(t.min(y.abs()) > 0)
+        self.assertTrue(t.max(y.abs()) < 1)
+        self.assertTrue(t.min(yc.abs()) > 0)
+        self.assertTrue(t.max(yc.abs()) < 1)
+        self.assertTrue(t.min(z.abs()) > 0)
+        self.assertTrue(t.max(z.abs()) < 1)
+        self.assertTrue(t.min(zc.abs()) > 0)
+        self.assertTrue(t.max(zc.abs()) < 1)
 
 
 
@@ -337,3 +431,7 @@ class PrimishValsTest(unittest.TestCase):
         # Check to make sure that all values are of 4k +- 3 and ascending
         self.assertTrue(torch.all(y[:-1] < y[1:]))
         self.assertTrue(torch.all(((y[3:] % 4) - 1) * ((y[3:] % 4) - 3) == 0))
+
+
+
+# TODO: Bulk testing

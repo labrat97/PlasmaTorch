@@ -77,7 +77,6 @@ def asigphi(dtype:t.dtype=DEFAULT_DTYPE) -> t.Tensor:
 
 
 
-# TODO: Test
 @ts
 def latticeParams(n:int, basisParam:t.Tensor=phi()) -> t.Tensor:
     """Creates a set of parameters that decrease their power of the `basisParam` argument
@@ -115,7 +114,6 @@ def softunit(x:t.Tensor, dim:int) -> t.Tensor:
 
 
 
-# TODO: Test
 @ts
 def nsoftunit(x:t.Tensor, dims:List[int]) -> t.Tensor:
     """Stacks a `softunit()` call onto multiple dimensions (provided in argument
@@ -363,6 +361,7 @@ def quadcheck(x:t.Tensor, boolChannel:bool=False) -> t.Tensor:
         result[..., idx] = (quadint == idx).type(t.uint8)
 
     return result
+
 
 
 @ts
