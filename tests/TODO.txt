@@ -11,5 +11,8 @@ lens
 losses
 sizing
 toroidallin
-knowledge.*
 attention
+
+3.
+Make tests for:
+knowledge.*
