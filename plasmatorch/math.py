@@ -544,7 +544,7 @@ def isin(x:t.Tensor) -> t.Tensor:
     # Main computation.
     # The sin() function actually maps perfectly to the complex plane, no weird identities
     #   and fuckery are needed.
-    return t.sin(x.abs()) * t.exp(i() * x.angle())
+    return t.sin(x.abs()) * x.sgn()
 
 
 
@@ -671,7 +671,7 @@ def fft(x:t.Tensor, n:Union[int, List[int], None]=-1, dim:Union[int, List[int], 
         dim (Union[int, List[int], None], optional): The dimension(s) to perform the FFT on. Defaults to -1.
 
     Raises:
-        ValueError: `n` and `dim` are of unequal length.
+        ValueError: `n` and `dim` are of unequal length, and `n` is not broadcastable.
         ValueError: `n` and `dim` must have the same type.
 
     Returns:
@@ -717,7 +717,7 @@ def ifft(x:t.Tensor, n:Union[int, List[int], None]=-1, dim:Union[int, List[int],
         dim (Union[int, List[int], None], optional): The dimension(s) to perform the FFT on. Defaults to -1.
 
     Raises:
-        ValueError: 'n' and 'dim' are of unequal length.
+        ValueError: 'n' and 'dim' are of unequal length, and `n` is not broadcastable.
         ValueError: 'n' and 'dim' must have the same type.
 
     Returns:

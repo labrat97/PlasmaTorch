@@ -1,7 +1,4 @@
 import unittest
-from pyrsistent import b
-import test
-import math
 
 import torch
 from plasmatorch import *
@@ -189,7 +186,6 @@ class NSoftunitTest(unittest.TestCase):
 
 
 
-# TODO: Add the `tanh()` function to the TrigTest class
 class TrigTest(unittest.TestCase):
     SIZE = (11, 23, 1024, 3)
 
@@ -221,7 +217,7 @@ class TrigTest(unittest.TestCase):
 
         # Test the values and assert lack of runaway
         self.assertTrue(torch.all(cosx == torch.cos(x)))
-        self.assertFalse(torch.all(cosxc == torch.cos(xc)))
+        self.assertTrue(torch.all(cosxc.abs() - torch.cos(xc.abs()).abs() < 1e-4))
 
         # Test the values of the exp construction to assert some cos() equivalence
         self.assertTrue(torch.all(
@@ -241,7 +237,7 @@ class TrigTest(unittest.TestCase):
 
         # Test the values and assert lack of runaway
         self.assertTrue(torch.all(sinx == torch.sin(x)))
-        self.assertFalse(torch.all(sinxc == torch.sin(xc)))
+        self.assertTrue(torch.all(sinxc.abs() - t.sin(xc.abs()).abs() < 1e-4))
 
         # Test that the regular sin function is present
         self.assertTrue(torch.all((sinx - isin(toComplex(x)).real).abs() < 1e-4))
@@ -249,6 +245,37 @@ class TrigTest(unittest.TestCase):
 
         # Double check by asserting that the real value of the function is 0
         self.assertTrue(torch.all(isin(torch.zeros_like(xc)).abs() < 1e-4))
+    
+    def testTanh(self):
+        # Seeding tensors
+        x = t.randn(self.SIZE, dtype=DEFAULT_DTYPE)
+        xc = t.randn(self.SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+        zeros = t.zeros_like(x)
+        zerosc = t.zeros_like(xc)
+
+        # Calculate zero pass
+        ctanhz = ctanh(zeros)
+        itanhz = itanh(zeros)
+        ctanhzc = ctanh(zerosc)
+        itanhzc = itanh(zerosc)
+
+        # Test zero passthroughs
+        self.assertTrue(t.all(ctanhz == zeros.abs()))
+        self.assertTrue(t.all(itanhz == zeros))
+        self.assertTrue(t.all(ctanhzc == zerosc.abs()))
+        self.assertTrue(t.all(itanhzc == zerosc))
+
+        # Calculate
+        ctanhx = ctanh(x)
+        itanhx = itanh(x)
+        ctanhxc = ctanh(xc)
+        itanhxc = itanh(xc)
+
+        # Test random passthroughs
+        self.assertTrue(t.all((ctanhx - t.tanh(x)).abs() < 1e-8))
+        self.assertTrue(t.all((itanhx - t.tanh(x)).abs() < 1e-8))
+        self.assertTrue(t.all(ctanhxc.abs() < 1))
+        self.assertTrue(t.all(itanhxc.abs() < 1))
 
 
 
