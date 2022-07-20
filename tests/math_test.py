@@ -515,7 +515,43 @@ class QuadcheckTest(unittest.TestCase):
 
 
 
-# TODO: class ComplexSigmoidTest(unittest.TestCase):
+class ComplexSigmoidTest(unittest.TestCase):
+    def testSizingTyping(self):
+        # Generate testing tensors
+        SIZELEN = randint(1, 4)
+        SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
+        x = t.randn(SIZE, dtype=DEFAULT_DTYPE)
+        xc = t.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Run the testing tensors through the function needing to be tested
+        sx = csigmoid(x)
+        sxc = csigmoid(xc)
+
+        # Test the result sizes and types
+        self.assertEqual(sx.size(), x.size())
+        self.assertEqual(sxc.size(), xc.size())
+
+    
+    def testValues(self):
+        # Generate testing tensors
+        SIZELEN = randint(1, 4)
+        SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
+        x = t.randn(SIZE, dtype=DEFAULT_DTYPE)
+        xc = t.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Run the testing tensors through the function needing to be tested
+        sx = csigmoid(x)
+        sxc = csigmoid(xc)
+
+        # Test the ranges of the values. Because the values of a sigmoid function are always
+        #   between [0, 1], just test the magnitude
+        self.assertLessEqual(t.max(sx.abs()), 1)
+        self.assertLessEqual(t.max(sxc.abs()), 1)
+        self.assertGreaterEqual(t.min(sx.abs()), 0)
+        self.assertGreaterEqual(t.min(sxc.abs()), 0)
+
+
+
 # TODO: class HarmonicMeanTest(unittest.TestCase):
 # TODO: class HarmonicSeriesTest(unittest.TestCase):
 # TODO: class RealfoldTest(unittest.TestCase):
