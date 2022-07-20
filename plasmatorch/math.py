@@ -1,4 +1,3 @@
-from torch import neg
 from .defaults import *
 from .conversions import toComplex
 
