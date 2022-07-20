@@ -182,9 +182,9 @@ def collapse(x:t.Tensor, polarization:t.Tensor) -> t.Tensor:
 
     # The eigvals will be the one vals as they represent the solved roots of the
     #   input matrix
-    rote = eigv * isin(polarization)
-    rota = suma * isin(polarization + iter)
-    rotb = sumb * isin(polarization - iter)
+    rote = eigv * csin(polarization)
+    rota = suma * csin(polarization + iter)
+    rotb = sumb * csin(polarization - iter)
 
     # Combine the three phases and return
     return rote + rota + rotb

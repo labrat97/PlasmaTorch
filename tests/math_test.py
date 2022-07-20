@@ -12,8 +12,8 @@ class ConstantsTest(unittest.TestCase):
         self.assertTrue(t.all((phi() - 1.61803398875).abs() < 1e-4))
 
     def testAsigphi(self):
-        self.assertTrue(t.all((isigmoid(asigphi()) - (1/phi())).abs() < 1e-4))
-        self.assertTrue(t.all((isigmoid(toComplex(asigphi())) - (1/phi())).abs() < 1e-4))
+        self.assertTrue(t.all((csigmoid(asigphi()).abs() - (1/phi())).abs() < 1e-4))
+        self.assertTrue(t.all((csigmoid(toComplex(asigphi())).abs() - (1/phi())).abs() < 1e-4))
     
     def testLattice(self):
         paramControl = latticeParams(10)
@@ -33,14 +33,6 @@ class ConstantsTest(unittest.TestCase):
 
     def testPi(self):
         self.assertTrue(t.all(pi() - 3.1415926535 < 0.0001))
-    
-    def testI(self):
-        built = i()
-        homebrew = t.sqrt(-1 * t.ones((1), 
-            dtype=DEFAULT_COMPLEX_DTYPE))
-
-        self.assertTrue(t.all(built.real - homebrew.real < 0.0001))
-        self.assertTrue(t.all(built.imag - homebrew.imag < 0.0001))
 
     def testEulerMascheroni(self):
         self.assertTrue((egamma() - 0.57721566490153286060651209008240243104215933593992).abs() < 1e-8)
@@ -195,16 +187,20 @@ class TrigTest(unittest.TestCase):
         xc = t.randn(self.SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Calculate
-        cosx = icos(x)
-        cosxc = icos(xc)
-        sinx = isin(x)
-        sinxc = isin(xc)
+        cosx = ccos(x)
+        cosxc = ccos(xc)
+        sinx = csin(x)
+        sinxc = csin(xc)
+        tanhx = ctanh(x)
+        tanhxc = ctanh(xc)
 
         # Test that the values go in and come out the same
         self.assertEqual(cosx.size(), x.size(), msg=f'{cosx.size()} != {x.size()}')
         self.assertEqual(cosxc.size(), xc.size(), msg=f'{cosxc.size()} != {xc.size()}')
         self.assertEqual(sinx.size(), x.size(), msg=f'{sinx.size()} != {x.size()}')
         self.assertEqual(sinxc.size(), xc.size(), msg=f'{sinxc.size()} != {xc.size()}')
+        self.assertEqual(tanhx.size(), x.size(), msg=f'{tanhx.size()} != {x.size()}')
+        self.assertEqual(tanhxc.size(), xc.size(), msg=f'{tanhxc.size()} != {xc.size()}')
 
     def testCos(self):
         # Seeding tensors
@@ -212,8 +208,8 @@ class TrigTest(unittest.TestCase):
         xc = t.randn(self.SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Calculate
-        cosx = icos(x)
-        cosxc = icos(xc)
+        cosx = ccos(x)
+        cosxc = ccos(xc)
 
         # Test the values and assert lack of runaway
         self.assertTrue(t.all(cosx == t.cos(x)))
@@ -221,10 +217,10 @@ class TrigTest(unittest.TestCase):
 
         # Test the values of the exp construction to assert some cos() equivalence
         self.assertTrue(t.all(
-            (cosxc.abs() - (icos(xc.abs()) * t.exp(i() * pi() / 4.)).abs()) < 1e-4
+            (cosxc.abs() - (ccos(xc.abs()) * t.exp((pi() * 1j) / 4.)).abs()) < 1e-4
         ))
-        self.assertTrue(t.all(icos(t.zeros_like(xc)) == t.ones_like(xc)))
-        self.assertTrue(t.all(toComplex(icos(t.zeros_like(x))) == icos(t.zeros_like(xc))))
+        self.assertTrue(t.all(ccos(t.zeros_like(xc)) == t.ones_like(xc)))
+        self.assertTrue(t.all(toComplex(ccos(t.zeros_like(x))) == ccos(t.zeros_like(xc))))
     
     def testSin(self):
         # Seeding tensors
@@ -232,19 +228,19 @@ class TrigTest(unittest.TestCase):
         xc = t.randn(self.SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Calculate
-        sinx = isin(x)
-        sinxc = isin(xc)
+        sinx = csin(x)
+        sinxc = csin(xc)
 
         # Test the values and assert lack of runaway
         self.assertTrue(t.all(sinx == t.sin(x)))
         self.assertTrue(t.all(sinxc.abs() - t.sin(xc.abs()).abs() < 1e-4))
 
         # Test that the regular sin function is present
-        self.assertTrue(t.all((sinx - isin(toComplex(x)).real).abs() < 1e-4))
-        self.assertTrue(t.all(isin(toComplex(x)).imag.abs() < 1e-4))
+        self.assertTrue(t.all((sinx - csin(toComplex(x)).real).abs() < 1e-4))
+        self.assertTrue(t.all(csin(toComplex(x)).imag.abs() < 1e-4))
 
         # Double check by asserting that the real value of the function is 0
-        self.assertTrue(t.all(isin(t.zeros_like(xc)).abs() < 1e-4))
+        self.assertTrue(t.all(csin(t.zeros_like(xc)).abs() < 1e-4))
     
     def testTanh(self):
         # Seeding tensors
@@ -288,10 +284,10 @@ class PrimishDistTest(unittest.TestCase):
         xga = realprimishdist(x, relative=False, gaussApprox=True)
         xcgr = gaussianprimishdist(xc, relative=True)
         xcga = gaussianprimishdist(xc, relative=False)
-        xfr = iprimishdist(x, relative=True)
-        xfa = iprimishdist(x, relative=False)
-        xcr = iprimishdist(xc, relative=True)
-        xca = iprimishdist(xc, relative=False)
+        xfr = cprimishdist(x, relative=True)
+        xfa = cprimishdist(x, relative=False)
+        xcr = cprimishdist(xc, relative=True)
+        xca = cprimishdist(xc, relative=False)
 
         # Assert size equivalences
         self.assertEqual(x.size(), xpr.size())
@@ -319,8 +315,8 @@ class PrimishDistTest(unittest.TestCase):
         rpres = realprimishdist(tprimes, relative=True, gaussApprox=False)
         agres = realprimishdist(tgrimes, relative=False, gaussApprox=True)
         rgres = realprimishdist(tgrimes, relative=True, gaussApprox=True)
-        aires = iprimishdist(tprimes, relative=False)
-        rires = iprimishdist(tprimes, relative=True)
+        aires = cprimishdist(tprimes, relative=False)
+        rires = cprimishdist(tprimes, relative=True)
 
         # First assert that the iprimishdist function is switching properly
         self.assertTrue(t.all((aires - apres).abs() < 1e-4), msg=f'{aires} != {apres}')
@@ -337,21 +333,21 @@ class PrimishDistTest(unittest.TestCase):
         # Generate random sizing
         SIZELEN = randint(1, 5)
         SIZESCALAR = randint(1, 5)
-        SIZE = t.Size(isigmoid(t.randn((SIZELEN), dtype=DEFAULT_DTYPE)).type(dtype=t.int64).abs() + 1) * SIZESCALAR
+        SIZE = t.Size(csigmoid(t.randn((SIZELEN), dtype=DEFAULT_DTYPE)).type(dtype=t.int64).abs() + 1) * SIZESCALAR
         
         # Generate the randomized control tensors
         trandr = t.randn(SIZE, dtype=DEFAULT_DTYPE)
         trandrc = toComplex(trandr)
-        trandrci = trandrc * i()
+        trandrci = trandrc * 1j
 
         # Compute the gaussian distances for both formats of the randomized input
         agres = gaussianprimishdist(trandr, relative=False)
         agces = gaussianprimishdist(trandrc, relative=False)
         agcesi = gaussianprimishdist(trandrci, relative=False)
-        agies = iprimishdist(trandrc, relative=False)
+        agies = cprimishdist(trandrc, relative=False)
         rgres = gaussianprimishdist(trandr, relative=True)
         rgces = gaussianprimishdist(trandrc, relative=True)
-        rgies = iprimishdist(trandrc, relative=True)
+        rgies = cprimishdist(trandrc, relative=True)
         rgcesi = gaussianprimishdist(trandrci, relative=True)
 
         # Assert conversion equivalencies
@@ -366,7 +362,7 @@ class PrimishDistTest(unittest.TestCase):
         # Generate the control tensors
         tprimes = xbias(n=10, bias=0).type(dtype=DEFAULT_COMPLEX_DTYPE)
         tpres = t.tensor([1, 0, 0, 0, 1, 0, 1, 0, 1, 0]).type(dtype=DEFAULT_DTYPE)
-        tgaussians = t.tensor([2+(3*i()), 2-(3*i()), -2+(3*i()), -2-(3*i()), 6+(3*i())])
+        tgaussians = t.tensor([2+(3j), 2-(3j), -2+(3j), -2-(3j), 6+(3j)])
         tgres = t.tensor([0, 0, 0, 0, t.sqrt(t.ones(1) * 2)]).type(dtype=DEFAULT_DTYPE)
         trgres = t.tensor([0, 0, 0, 0, 1])
 

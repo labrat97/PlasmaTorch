@@ -97,7 +97,7 @@ class LissajousTest(unittest.TestCase):
         lcl10 = lisac.forward(torch.zeros_like(xc), oneD=False)
         lcl11 = lisac.forward(xc, oneD=False)
         self.assertFalse(torch.all(lcl10 == lcl11), msg="Frequency delta not working (!oneD, complex).")
-        self.assertTrue(torch.all(lcl11 == isin(xc)), \
+        self.assertTrue(torch.all(lcl11 == csin(xc)), \
             msg="Sin values don't check out for complex values.")
 
         # Phase testing
@@ -116,7 +116,7 @@ class LissajousTest(unittest.TestCase):
         self.assertTrue(torch.all(phic0[:,:,:,:-1] == phic0[:,:,:,1:]), msg='Phi not consistent (oneD, complex).')
         phicl0 = lisac.forward(torch.zeros_like(xc), oneD=False)
         self.assertTrue(torch.all(phicl0[:,:,:-1] == phicl0[:,:,1:]), msg='Phi not consistent (!oneD, complex).')
-        self.assertTrue(torch.all(phicl0 == isin(torch.ones_like(xc))), msg="Phi values don't check out for complex values.")
+        self.assertTrue(torch.all(phicl0 == csin(torch.ones_like(xc))), msg="Phi values don't check out for complex values.")
 
         # Final value testing, both phase and frequency
         lisa.frequency = nn.Parameter(lisa.frequency + 1)
@@ -125,7 +125,7 @@ class LissajousTest(unittest.TestCase):
         final0 = lisa.forward(x, oneD=False)
         finalc0 = lisac.forward(xc, oneD=False)
         self.assertTrue(torch.all(final0 == torch.sin(x+1)), msg="Composite values don't check out for real values.")
-        self.assertTrue(torch.all(finalc0 == isin(xc+1)), \
+        self.assertTrue(torch.all(finalc0 == csin(xc+1)), \
             msg="Composite values don't check out for complex values.")
 
 
@@ -300,9 +300,9 @@ class KnotTest(unittest.TestCase):
             self.assertTrue(torch.all(cout[idx] == rout[idx]))
 
             if torch.is_complex(cout[idx]):
-                self.assertTrue(torch.all(cout[idx].real - isin(torch.ones((1)) * -2) < 0.0001))
+                self.assertTrue(torch.all(cout[idx].real - csin(torch.ones((1)) * -2) < 0.0001))
             else:
-                self.assertTrue(torch.all(cout[idx] - isin(torch.ones((1)) * -2) < 0.0001))
+                self.assertTrue(torch.all(cout[idx] - csin(torch.ones((1)) * -2) < 0.0001))
 
         # Make sure that the phasing of the signal is stacking at a rate of phi
         phaseProto = torch.zeros_like(knot.phases)
@@ -320,7 +320,7 @@ class KnotTest(unittest.TestCase):
         # Test phase with three phases seeded according to phi
         cout = [knotc.forward(c) if torch.is_complex(c) else knot.forward(c) for c in CONSTANTS]
         rout = [knotc.forward(c) if torch.is_complex(c) else knot.forward(c) for c in RANDOMS]
-        stackedVal = (isin(torch.ones((1))) + isin(torch.ones((1)) * 2) + ((test.TBATCH - 2) * isin(torch.ones((1)) * 3))) / test.TBATCH
+        stackedVal = (csin(torch.ones((1))) + csin(torch.ones((1)) * 2) + ((test.TBATCH - 2) * csin(torch.ones((1)) * 3))) / test.TBATCH
 
         # Because of frequency zeroing, all values should be equal
         for idx in range(len(cout)):
@@ -364,10 +364,10 @@ class KnotTest(unittest.TestCase):
             self.assertFalse(torch.all(cout[idx] == rout[idx]))
 
             if torch.is_complex(cout[idx]):
-                self.assertTrue(torch.all(cout[idx].real - isin(toComplex(torch.ones((1)))).real < 0.0001))
-                self.assertTrue(torch.all(cout[idx].imag - isin(toComplex(torch.ones((1)))).imag < 0.0001))
+                self.assertTrue(torch.all(cout[idx].real - csin(toComplex(torch.ones((1)))).real < 0.0001))
+                self.assertTrue(torch.all(cout[idx].imag - csin(toComplex(torch.ones((1)))).imag < 0.0001))
             else:
-                self.assertTrue(torch.all(cout[idx] - isin(torch.ones((1))) < 0.0001))
+                self.assertTrue(torch.all(cout[idx] - csin(torch.ones((1))) < 0.0001))
         
         # Add stacked frequency definition
         freqProto = torch.zeros_like(knot.frequencies)
@@ -385,7 +385,7 @@ class KnotTest(unittest.TestCase):
         # Verify frequency stacking property
         cout = [knotc.forward(c) if torch.is_complex(c) else knot.forward(c) for c in CONSTANTS]
         rout = [knotc.forward(c) if torch.is_complex(c) else knot.forward(c) for c in RANDOMS]
-        stackedVal = (isin(torch.ones((1))) + isin(torch.ones((1)) * 2) + ((test.TBATCH - 2) * isin(torch.ones((1)) * 3))) / test.TBATCH
+        stackedVal = (csin(torch.ones((1))) + csin(torch.ones((1)) * 2) + ((test.TBATCH - 2) * csin(torch.ones((1)) * 3))) / test.TBATCH
         
         for idx in range(len(cout)):
             self.assertFalse(torch.all(cout[idx] == rout[idx]))
@@ -484,7 +484,7 @@ class RingingTest(unittest.TestCase):
         FORKS:int = SIZE[-1] - FORK_DISP
 
         # Generate the control tensors to test against
-        x = isigmoid(torch.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE))
+        x = csigmoid(torch.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE))
 
         # Construct the required classes for Ringing
         ring = Ringing(forks=FORKS, dtype=DEFAULT_DTYPE)

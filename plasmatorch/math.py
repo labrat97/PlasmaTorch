@@ -4,19 +4,6 @@ from .conversions import toComplex
 
 
 @ts
-def i() -> t.Tensor:
-    """Constructs the imaginary number.
-
-    Returns:
-        t.Tensor: The imaginary number as a tensor of size (1).
-    """
-    return t.view_as_complex(t.stack(
-        (t.zeros(1), t.ones(1)), \
-        dim=-1)).detach()
-
-
-
-@ts
 def pi(dtype:t.dtype=DEFAULT_DTYPE) -> t.Tensor:
     """Gets the value of Pi in the requested datatype.
 
@@ -302,7 +289,7 @@ def gaussianprimishdist(x:t.Tensor, relative:bool=True) -> t.Tensor:
 
 
 @ts
-def iprimishdist(x:t.Tensor, relative:bool=True, forceGauss:bool=False) -> t.Tensor:
+def cprimishdist(x:t.Tensor, relative:bool=True, forceGauss:bool=False) -> t.Tensor:
     """Checks the distance betwwen the input tensor `x` and the nearest primish value
     according to if the type of `x` is complex. If `x` is not complex, the `forceGauss`
     option can be used to ensure 4k+-1 prime value approximation. This function can
@@ -404,25 +391,7 @@ def csigmoid(x:t.Tensor) -> t.Tensor:
     examVal:t.Tensor = examineQuad * t.sigmoid(rotScalar * xabs)
 
     # Add everything together according to the previously applied boolean based scalars
-    return posVal + negVal + examVal
-
-
-
-@ts
-def isigmoid(x:t.Tensor) -> t.Tensor:
-    """Calculate the complex number equivalent of a sigmoid function. This function
-    internally calls the `csigmoid()` function to get the magnitude of the result, then
-    multiplies it by the unit signal unit-wise from `x`.
-
-    Args:
-        x (t.Tensor): The tensor to perform the computation on unit-wise.
-
-    Returns:
-        t.Tensor: The complex sigmoid of `x`.
-    """
-    if x.is_complex():
-        return csigmoid(x) * x.sgn()
-    return csigmoid(x)
+    return (posVal + negVal + examVal) * t.exp(ang * 1j)
 
 
 
@@ -442,7 +411,7 @@ def ctanh(x:t.Tensor) -> t.Tensor:
 
 
 @ts
-def icos(x:t.Tensor) -> t.Tensor:
+def ccos(x:t.Tensor) -> t.Tensor:
     """Calculate a direct real cosine equivalent in the complex plane. This is done
     by using the magnitude of the complex tensor provided in a unit-wise fashion, the
     result is the cosine and the winding of the complex number on the cosine doubled.
@@ -462,12 +431,12 @@ def icos(x:t.Tensor) -> t.Tensor:
     # Main computation.
     # A multiplier of 2 is needed on the angling system due to the fact that cos()
     #   is secretly actually just sin() squared.
-    return t.cos(x.abs()) * t.exp(i() * 2. * x.angle())
+    return t.cos(x.abs()) * t.exp(x.angle() * 2j)
 
 
 
 @ts
-def isin(x:t.Tensor) -> t.Tensor:
+def csin(x:t.Tensor) -> t.Tensor:
     """Calculate a direct real sine equivalent in the complex plane. This is done
     by using the magnitude of the complex tensor provided in a unit-wise fashion, the
     result is the sine function and the signal of the complex number getting carried through.
@@ -590,13 +559,13 @@ def realfold(x:t.Tensor, phase:t.Tensor=pi()) -> t.Tensor:
 
     Args:
         x (t.Tensor): The complex tensor to fold into itself.
-        phase (t.Tensor, optional): Rotates the imaginary values through an `icos()` function, so pi() results in a value of -1. Defaults to pi().
+        phase (t.Tensor, optional): Rotates the imaginary values through an `ccos()` function, so pi() results in a value of -1. Defaults to pi().
 
     Returns:
         t.Tensor: The folded values from the input tensor `x`.
     """
     if x.is_complex():
-        return x.real + (icos(phase) * x.imag)
+        return x.real + (ccos(phase) * x.imag)
     return x
 
 

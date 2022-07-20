@@ -1,5 +1,5 @@
 from .defaults import *
-from .math import asigphi, i, pi, csigmoid
+from .math import asigphi, pi, csigmoid
 from .conversions import toComplex
 from .sizing import resignal
 
@@ -28,7 +28,7 @@ def hzetae(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.Tensor=t.tenso
         s (t.Tensor): The `s` value of the Hurwitz Zeta function.
         a (t.Tensor): The `a` value of the Hurwitz Zeta function.
         res (t.Tensor, optional): The amount of residual evaluation used to determine the output value. This
-            value is piped through the isigmoid() fuction. A full activation means
+            value is piped through the csigmoid() fuction. A full activation means
             a normal evaluation of the zeta function, as where a 0 activation means
             something closer to just the evaluation of the delta value. Defaults to asigphi().
         aeps (t.Tensor, optional): The arc-epsilon value. If the delta value is less
@@ -73,7 +73,7 @@ def hzetas(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blankSamples:int=0,
         s (t.Tensor): The `s` value of the Hurwitz Zeta function.
         a (t.Tensor): The `a` value of the Hurwitz Zeta function.
         res (t.Tensor, optional): The amount of residual evaluation used to determine the output value. This
-            value is piped through the isigmoid() fuction. A full activation means
+            value is piped through the csigmoid() fuction. A full activation means
             a normal evaluation of the zeta function, as where a 0 activation means
             something closer to just the evaluation of the delta value. Defaults to asigphi().
         blankSamples (int, optional): The amount of samples to ignore at the start. Defaults to 0.
@@ -136,7 +136,7 @@ def __lerchitr(lam:t.Tensor, s:t.Tensor, a:t.Tensor, n:int) -> t.Tensor:
         hzetaexp = hzetaexp * lam
     
     # Multiply the numerator of the hzeta itr to create the final itr result
-    return t.exp(hzetaexp * i()) * __hzetaitr(s=s, a=a, n=n)
+    return t.exp(hzetaexp * 1j) * __hzetaitr(s=s, a=a, n=n)
 
 @ts
 def lerche(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.Tensor=t.tensor(1e-8), maxiter:int=1024) -> t.Tensor:
@@ -148,7 +148,7 @@ def lerche(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.
         s (t.Tensor): The `s` value of the Lerch Zeta function.
         a (t.Tensor): The `a` value of the Lerch Zeta function.
         res (t.Tensor, optional): The amount of residual evaluation used to determine the output value. This
-            value is piped through the isigmoid() fuction. A full activation means
+            value is piped through the csigmoid() fuction. A full activation means
             a normal evaluation of the zeta function, as where a 0 activation means
             something closer to just the evaluation of the delta value. Defaults to asigphi().
         aeps (t.Tensor, optional): The arc-epsilon value. If the delta value is less than
@@ -194,7 +194,7 @@ def lerchs(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blank
         s (t.Tensor): The `s` value of the Lerch Zeta function.
         a (t.Tensor): The `a` value of the Lerch Zeta function.
         res (t.Tensor, optional): The amount of residual evaluation used to determine the output value. This
-            value is piped through the isigmoid() fuction. A full activation means
+            value is piped through the csigmoid() fuction. A full activation means
             a normal evaluation of the zeta function, as where a 0 activation means
             something closer to just the evaluation of the delta value. Defaults to asigphi()*3.
         blankSamples (int, optional): The amount of samples to ignore at the start. Defaults to 0.
