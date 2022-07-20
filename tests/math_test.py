@@ -87,7 +87,7 @@ class LatticeParamsTest(unittest.TestCase):
 
 
 class SoftunitTest(unittest.TestCase):
-    SIZE = (97, 11, 13, 128)
+    SIZE = SUPERSINGULAR_PRIMES_HL[:4]
 
     def testSizingTyping(self):
         # Seeding tensors
@@ -175,19 +175,19 @@ class NSoftunitTest(unittest.TestCase):
         zc = nsoftunit(xc, dims=range(len(xc.size())))
 
         # Test the ranges of the output values to verify that they do not go over
-        self.assertTrue(t.min(y.abs()) > 0)
-        self.assertTrue(t.max(y.abs()) < 1)
-        self.assertTrue(t.min(yc.abs()) > 0)
-        self.assertTrue(t.max(yc.abs()) < 1)
-        self.assertTrue(t.min(z.abs()) > 0)
-        self.assertTrue(t.max(z.abs()) < 1)
-        self.assertTrue(t.min(zc.abs()) > 0)
-        self.assertTrue(t.max(zc.abs()) < 1)
+        self.assertTrue(t.min(y.abs()) >= 0)
+        self.assertTrue(t.max(y.abs()) <= 1)
+        self.assertTrue(t.min(yc.abs()) >= 0)
+        self.assertTrue(t.max(yc.abs()) <= 1)
+        self.assertTrue(t.min(z.abs()) >= 0)
+        self.assertTrue(t.max(z.abs()) <= 1)
+        self.assertTrue(t.min(zc.abs()) >= 0)
+        self.assertTrue(t.max(zc.abs()) <= 1)
 
 
 
 class TrigTest(unittest.TestCase):
-    SIZE = (11, 23, 1024, 3)
+    SIZE = SUPERSINGULAR_PRIMES_HL[:4]
 
     def testSizing(self):
         # Seeding tensors
@@ -402,9 +402,6 @@ class PrimishValsTest(unittest.TestCase):
         self.assertTrue(z.size()[0] == SIZE)
 
     def testSmallValues(self):
-        # No more randomness needed
-        SIZE = 10
-
         # Generate the primishes to test
         x = primishvals(n=1)
         y = primishvals(n=2, base=x)
