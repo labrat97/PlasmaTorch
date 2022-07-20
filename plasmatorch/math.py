@@ -344,7 +344,7 @@ def quadcheck(x:t.Tensor, boolChannel:bool=False) -> t.Tensor:
     angOffset:t.Tensor = 2. * PI * (xang < 0).type(PI.dtype)
 
     # Make all the angles positively bound, then label the quadrant from 0 to 3
-    quadint:t.Tensor = ((xang + angOffset) * 2. / PI).type(t.uint8)
+    quadint:t.Tensor = ((xang + angOffset) * 2. / PI).type(t.uint8) % 4
 
     # No need to create channel-wise output
     if not boolChannel:
