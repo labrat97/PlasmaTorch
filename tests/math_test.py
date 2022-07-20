@@ -1,4 +1,5 @@
 import unittest
+from pyrsistent import b
 import test
 import math
 
@@ -435,3 +436,69 @@ class PrimishValsTest(unittest.TestCase):
 
 
 # TODO: Bulk testing
+
+
+class QuadcheckTest(unittest.TestCase):
+    def testSizingTyping(self):
+        # Generate testing tensors
+        SIZELEN = randint(1, 4)
+        SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
+        x = t.randn(SIZE, dtype=DEFAULT_DTYPE)
+        xc = t.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Check the quadrants of each tensor
+        q = quadcheck(x, boolChannel=False)
+        qc = quadcheck(xc, boolChannel=False)
+        qb = quadcheck(x, boolChannel=True)
+        qbc = quadcheck(xc, boolChannel=True)
+
+        # Check the resultant sizing
+        self.assertEqual(x.size(), q.size())
+        self.assertEqual(xc.size(), qc.size())
+        self.assertEqual(len(x.size()) + 1, len(qb.size()))
+        self.assertEqual(len(xc.size()) + 1, len(qbc.size()))
+        self.assertEqual(qb.size(-1), 4)
+        self.assertEqual(qbc.size(-1), 4)
+
+        # Check the resultant types
+        self.assertEqual(q.dtype, t.uint8)
+        self.assertEqual(qc.dtype, t.uint8)
+        self.assertEqual(qb.dtype, t.uint8)
+        self.assertEqual(qbc.dtype, t.uint8)
+
+
+    def testValues(self):
+        # Generate testing tensors
+        SIZELEN = randint(1, 4)
+        SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
+        x = t.randn(SIZE, dtype=DEFAULT_DTYPE)
+        xc = t.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+        planned = t.tensor([
+            1+0j, 1+1j, 0+1j, -1+1j, -1+0j, -1-1j, 0-1j, 1-1j, 0+0j
+            ], dtype=DEFAULT_COMPLEX_DTYPE)
+        plannedCtrl = t.tensor([
+            0,    0,    1,    1,     2,     2,     3,    3,    0
+            ], dtype=t.uint8)
+        plannedCtrlB = t.tensor([
+            [1,0,0,0],[1,0,0,0],[0,1,0,0],[0,1,0,0],[0,0,1,0],[0,0,1,0],[0,0,0,1],[0,0,0,1],[1,0,0,0]
+            ], dtype=t.uint8)
+
+        # Check the quadrants of each tensor
+        q = quadcheck(x, boolChannel=False)
+        qc = quadcheck(xc, boolChannel=False)
+        qb = quadcheck(x, boolChannel=True)
+        qbc = quadcheck(xc, boolChannel=True)
+        pq = quadcheck(planned, boolChannel=False)
+        pqb = quadcheck(planned, boolChannel=True)
+
+        # Check the range of the output values
+        self.assertLessEqual(t.max(q), 3)
+        self.assertLessEqual(t.max(qc), 3)
+        self.assertLessEqual(t.max(qb), 1)
+        self.assertLessEqual(t.max(qbc), 1)
+        self.assertLessEqual(t.max(pq), 3)
+        self.assertLessEqual(t.max(pqb), 1)
+
+        # Check the pre-determined results
+        self.assertTrue(t.all(pq == plannedCtrl))
+        self.assertTrue(t.all(pqb == plannedCtrlB))
