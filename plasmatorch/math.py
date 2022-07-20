@@ -428,73 +428,16 @@ def isigmoid(x:t.Tensor) -> t.Tensor:
 
 @ts
 def ctanh(x:t.Tensor) -> t.Tensor:
-    """Calculate the magnitude of a complex number run through a tanh function only
-    on the magnitude. This function works like a normal tanh call on a real value for the
-    magnitude in the similarly signed quadrants. If the quadrants are negative, the output of the 
-
+    """Calculate the tanh value based off of the magnitude of a complex number.
+    The real equation is `tanh(|x|)*sgn(x)`.
+    
     Args:
-        x (t.Tensor): _description_
+        x (t.Tensor): The complex number to push through the function.
 
     Returns:
-        t.Tensor: _description_
+        t.Tensor: The original tensor pushed through `tanh(|x|)*sgn(x)`.
     """
-    # Normal tanh
-    if not x.is_complex():
-        return t.tanh(x)
-
-    # Extract/calculate required basic parameters
-    PI2 = pi() / 2
-    ang = x.angle()
-    xabs = x.abs()
-
-    # Check the quadrant that the elements of the provided tensor lie in, output channel-wise rather
-    #   than as a basic int
-    quadresult:t.Tensor = quadcheck(x, boolChannel=True)
-    posQuad = quadresult[..., 0]
-    examineQuadLeft = quadresult[..., 1]
-    negQuad = quadresult[..., 2]
-    examineQuadRight = quadresult[..., 3]
-    examineQuad:t.Tensor = t.logical_or(examineQuadLeft, examineQuadRight).type(t.uint8)
-
-    # Get the values that are at each quadrant, zeroing out the quadrants that
-    #   should not be in the output of the system. This works because of the return
-    #   addition
-    posVal:t.Tensor = posQuad * t.tanh(xabs)
-    negVal:t.Tensor = negQuad * t.tanh(-xabs)
-
-    # Calculate a scalar value between [-1.0, 1.0] that interpolates the output of the function
-    #   over half of the curvature of a cosine function.
-    rotScalar:t.Tensor = t.cos(
-        (examineQuadLeft * (ang - (PI2)) * 2) \
-            + (examineQuadRight * (ang + (PI2)) * 2)
-    )
-
-    # Get the values that don't lie at the mutually positive or negative quadrants (1 or 3)
-    #   and zero out if not in this quadrant
-    examVal:t.Tensor = examineQuad * t.tanh(rotScalar * xabs)
-
-    # Calculate the summation of all of the results and return
-    return posVal + negVal + examVal
-
-
-
-@ts
-def itanh(x:t.Tensor) -> t.Tensor:
-    """Calculate the complex number equivalent of the `ctanh()` function defined above.
-    The result of this method ends up as a complex number with the magnitude defined by the
-    return of the `ctanh()` function called with the passed tensor. The result ends up
-    being the absolute value of `ctanh()` due to the negative properties of the `tanh()`
-    function, then is multiplied unit-wise to the signal of the passed tensor.
-
-    Args:
-        x (t.Tensor): The tensor to run the calculation on unit-wise.
-
-    Returns:
-        t.Tensor: The tanh magnitud'd number.
-    """
-    if x.is_complex():
-        return ctanh(x).abs() * x.sgn()
-    return ctanh(x)
+    return t.tanh(x.abs()) * x.sgn()
 
 
 
