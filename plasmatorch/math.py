@@ -324,10 +324,6 @@ def iprimishdist(x:t.Tensor, relative:bool=True, forceGauss:bool=False) -> t.Ten
 
 
 
-# TODO: Bulk testing starts here
-
-
-
 @ts
 def quadcheck(x:t.Tensor, boolChannel:bool=False) -> t.Tensor:
     """Figures out the quadrant that each unit of the provided tensor is in, returning as an int.

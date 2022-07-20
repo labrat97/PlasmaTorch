@@ -189,6 +189,7 @@ class NSoftunitTest(unittest.TestCase):
 
 
 
+# TODO: Add the `tanh()` function to the TrigTest class
 class TrigTest(unittest.TestCase):
     SIZE = (11, 23, 1024, 3)
 
@@ -435,9 +436,6 @@ class PrimishValsTest(unittest.TestCase):
 
 
 
-# TODO: Bulk testing
-
-
 class QuadcheckTest(unittest.TestCase):
     def testSizingTyping(self):
         # Generate testing tensors
@@ -502,3 +500,11 @@ class QuadcheckTest(unittest.TestCase):
         # Check the pre-determined results
         self.assertTrue(t.all(pq == plannedCtrl))
         self.assertTrue(t.all(pqb == plannedCtrlB))
+
+
+
+# TODO: class ComplexSigmoidTest(unittest.TestCase):
+# TODO: class HarmonicMeanTest(unittest.TestCase):
+# TODO: class HarmonicSeriesTest(unittest.TestCase):
+# TODO: class RealfoldTest(unittest.TestCase):
+# TODO: class OrthoFFTsTest(unittest.TestCase):
