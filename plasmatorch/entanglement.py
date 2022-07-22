@@ -192,7 +192,7 @@ def collapse(x:t.Tensor, polarization:t.Tensor) -> t.Tensor:
 
 @ts
 def superposition(a:t.Tensor, b:t.Tensor) -> t.Tensor:
-    """Create a superposition of the two input signals with a complex softunit on the result from the matmul.
+    """Create a superposition of the two input signals with a complex tanh on the result from the matmul.
 
     Args:
         a (t.Tensor): The first tensor to create a superposition with.
@@ -202,8 +202,7 @@ def superposition(a:t.Tensor, b:t.Tensor) -> t.Tensor:
         t.Tensor: The superpositioned tensor.
     """
     # Do the matrix multiplication required 
-    rawSuper:t.Tensor = a.unsqueeze(-1) @ b.unsqueeze(-2)
-    return nsoftunit(x=rawSuper, dims=[-1,-2])
+    return ctanh(a.unsqueeze(-1)) @ ctanh(b.unsqueeze(-2))
 
 
 @ts

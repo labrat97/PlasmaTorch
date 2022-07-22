@@ -90,14 +90,14 @@ class LissajousTest(unittest.TestCase):
         ll10 = lisa.forward(torch.zeros_like(x), oneD=False)
         ll11 = lisa.forward(x, oneD=False)
         self.assertFalse(torch.all(ll10 == ll11), msg="Frequency delta not working (!oneD, real).")
-        self.assertTrue(torch.all(ll11 == torch.sin(x)), msg="Sin values don't check out for real values.")
+        self.assertTrue(torch.all((ll11 - torch.sin(x)).abs() < 1e-4), msg="Sin values don't check out for real values.")
         lc10 = lisac.forward(torch.zeros_like(xc), oneD=True)
         lc11 = lisac.forward(xc, oneD=True)
         self.assertFalse(torch.all(lc10 == lc11), msg="Frequency delta not working (oneD, complex).")
         lcl10 = lisac.forward(torch.zeros_like(xc), oneD=False)
         lcl11 = lisac.forward(xc, oneD=False)
         self.assertFalse(torch.all(lcl10 == lcl11), msg="Frequency delta not working (!oneD, complex).")
-        self.assertTrue(torch.all(lcl11 == csin(xc)), \
+        self.assertTrue(torch.all((lcl11 - csin(xc)).abs() < 1e-4), \
             msg="Sin values don't check out for complex values.")
 
         # Phase testing
@@ -124,8 +124,8 @@ class LissajousTest(unittest.TestCase):
 
         final0 = lisa.forward(x, oneD=False)
         finalc0 = lisac.forward(xc, oneD=False)
-        self.assertTrue(torch.all(final0 == torch.sin(x+1)), msg="Composite values don't check out for real values.")
-        self.assertTrue(torch.all(finalc0 == csin(xc+1)), \
+        self.assertTrue(torch.all((final0 - torch.sin(x+1)).abs() < 1e-4), msg="Composite values don't check out for real values.")
+        self.assertTrue(torch.all((finalc0 - csin(xc+1)).abs() < 1e-4), \
             msg="Composite values don't check out for complex values.")
 
 

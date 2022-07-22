@@ -105,10 +105,10 @@ class EntangleTest(unittest.TestCase):
         colc, supc = subjectc.forward(xc)
 
         # Make sure that the values recieved on the other end come through as zero
-        self.assertTrue(torch.all(col == 0))
-        self.assertTrue(torch.all(sup == 0))
-        self.assertTrue(torch.all(colc == 0))
-        self.assertTrue(torch.all(supc == 0))
+        self.assertTrue(torch.all(col.abs() <= 1e-4), msg=f'{col}')
+        self.assertTrue(torch.all(sup.abs() <= 1e-4), msg=f'{sup}')
+        self.assertTrue(torch.all(colc.abs() <= 1e-4), msg=f'{colc}')
+        self.assertTrue(torch.all(supc.abs() <= 1e-4), msg=f'{supc}')
 
         # More tensors for evaluation, but for more value checking
         x = torch.randn_like(x)
@@ -202,10 +202,10 @@ class SuperPositionTest(unittest.TestCase):
         yc = superposition(xc, xc)
 
         # Test the ranges of the values coming out of the function
-        self.assertTrue(t.max(y.abs()) < 1)
-        self.assertTrue(t.min(y.abs()) > 0)
-        self.assertTrue(t.max(yc.abs()) < 1)
-        self.assertTrue(t.min(yc.abs()) > 0)
+        self.assertTrue(t.max(y.abs()) <= t.max(x.abs()), msg=f'{t.max(y.abs())} <= {t.max(x.abs())}')
+        self.assertTrue(t.min(y.abs()) <= t.min(x.abs()))
+        self.assertTrue(t.max(yc.abs()) <= t.max(xc.abs()))
+        self.assertTrue(t.min(yc.abs()) <= t.min(xc.abs()))
 
 
 

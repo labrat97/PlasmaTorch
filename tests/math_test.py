@@ -62,7 +62,7 @@ class LatticeParamsTest(unittest.TestCase):
     def testValues(self):
         # Generate the testing tensors
         x = t.randn((1), dtype=DEFAULT_DTYPE).abs()
-        params = randint(2, 64)
+        params = randint(2, 24)
 
         # Generate the parameters to test
         ctrl = -t.log(latticeParams(n=params)) / t.log(phi())
@@ -117,8 +117,8 @@ class SoftunitTest(unittest.TestCase):
         yc0 = softunit(xc, dim=0)
 
         # Test that the values are actually softunited'd at least normally in a real value operating mode
-        self.assertTrue(t.all(y == x.sign() * t.softmax(x.abs(), dim=-1)))
-        self.assertTrue(t.all(y0 == x.sign() * t.softmax(x.abs(), dim=0)))
+        self.assertTrue(t.all(y == sgn(x) * t.softmax(x.abs(), dim=-1)))
+        self.assertTrue(t.all(y0 == sgn(x) * t.softmax(x.abs(), dim=0)))
 
         # Test to make sure that the magnitudes are softmax'd
         self.assertTrue(t.all(t.angle(xc) - t.angle(yc) < 0.0001))
@@ -530,6 +530,8 @@ class ComplexSigmoidTest(unittest.TestCase):
         # Test the result sizes and types
         self.assertEqual(sx.size(), x.size())
         self.assertEqual(sxc.size(), xc.size())
+        self.assertFalse(sx.is_complex())
+        self.assertTrue(sxc.is_complex())
 
     
     def testValues(self):
@@ -538,10 +540,15 @@ class ComplexSigmoidTest(unittest.TestCase):
         SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
         x = t.randn(SIZE, dtype=DEFAULT_DTYPE)
         xc = t.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+        known = nantonum(t.tensor([t.inf+0j, t.inf*(1+1j), t.inf*1j, t.inf*(-1+1j), -t.inf, t.inf*(-1-1j), t.inf*(0-1j), t.inf*(1-1j), 0+0j], dtype=DEFAULT_COMPLEX_DTYPE), posinf=t.inf, neginf=-t.inf)
 
         # Run the testing tensors through the function needing to be tested
         sx = csigmoid(x)
         sxc = csigmoid(xc)
+        sk = csigmoid(known)
+
+        # Consistency check
+        self.assertTrue(t.all(sx - t.sigmoid(x)) <= 1e-4)
 
         # Test the ranges of the values. Because the values of a sigmoid function are always
         #   between [0, 1], just test the magnitude
@@ -550,8 +557,17 @@ class ComplexSigmoidTest(unittest.TestCase):
         self.assertGreaterEqual(t.min(sx.abs()), 0)
         self.assertGreaterEqual(t.min(sxc.abs()), 0)
 
+        # Test that the values come out with the appropriate magnitudes
+        zeroval = sk[-1].abs()
+        oppositeQuads = sk[[3, -2]].abs()
+        self.assertTrue(t.sigmoid(t.zeros(1)) - zeroval <= 1e-4, msg=f'{zeroval}')
+        self.assertTrue(t.all(oppositeQuads - zeroval <= 1e-4), msg=f'{known[[3, -2]]}->{oppositeQuads}')
+        self.assertTrue(t.all(sk[:3].abs() - 1 <= 1e-4), msg=f'{known[:3]}->{sk[:3]}')
+        self.assertTrue(t.all(sk[4:-2].abs() <= 1e-4), msg=f'{known[4:-2]}->{sk[4:-2]}')
 
 
+
+# TODO: class SgnTest(unittest.TestCase):
 # TODO: class HarmonicMeanTest(unittest.TestCase):
 # TODO: class HarmonicSeriesTest(unittest.TestCase):
 # TODO: class RealfoldTest(unittest.TestCase):

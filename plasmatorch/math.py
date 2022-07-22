@@ -1,5 +1,5 @@
 from .defaults import *
-from .conversions import toComplex
+from .conversions import toComplex, nantonum
 
 
 
@@ -64,6 +64,86 @@ def asigphi(dtype:t.dtype=DEFAULT_DTYPE) -> t.Tensor:
 
 
 @ts
+def sgn(x:t.Tensor) -> t.Tensor:
+    """Calculate the `sgn` value of x, but 0 more rightfully comes out as 1 
+    (or 1+0j depending on the datatype). This is done to keep the output of this
+    function locked to a magnitude of 1.
+
+    Args:
+        x (t.Tensor): The tensor to perform the `sgn` function on.
+
+    Returns:
+        t.Tensor: The resultant unit tensor defining direction.
+    """
+    preres:t.Tensor = nantonum(x, nan=t.nan).sgn()
+    addval:t.Tensor = (preres.abs() < 1e-4).to(x.dtype)
+
+    return preres + addval
+
+
+
+@ts
+def ctanh(x:t.Tensor) -> t.Tensor:
+    """Calculate the tanh value based off of the magnitude of a complex number.
+    The real equation is `tanh(|x|)*sgn(x)`.
+    
+    Args:
+        x (t.Tensor): The complex number to push through the function.
+
+    Returns:
+        t.Tensor: The original tensor pushed through `tanh(|x|)*sgn(x)`.
+    """
+    # Fine to use this sgn() because origin is zero in this function
+    return t.tanh(x.abs()) * x.sgn()
+
+
+
+@ts
+def ccos(x:t.Tensor) -> t.Tensor:
+    """Calculate a direct real cosine equivalent in the complex plane. This is done
+    by using the magnitude of the complex tensor provided in a unit-wise fashion, the
+    result is the cosine and the winding of the complex number on the cosine doubled.
+    The winding must be doubled (the complex angle) in order to keep the differentiability
+    of the function.
+
+    Args:
+        x (t.Tensor): The tensor to run through the cosine unit-wise.
+
+    Returns:
+        t.Tensor: `x` evaluated unit-wise through a complex cosine function.
+    """
+    # Normal cos
+    if not x.is_complex():
+        return t.cos(x)
+
+    # Main computation.
+    # A multiplier of 2 is needed on the angling system due to the fact that cos()
+    #   is secretly actually just sin() squared.
+    return t.cos(x.abs()) * t.exp(x.angle() * 2j)
+
+
+
+@ts
+def csin(x:t.Tensor) -> t.Tensor:
+    """Calculate a direct real sine equivalent in the complex plane. This is done
+    by using the magnitude of the complex tensor provided in a unit-wise fashion, the
+    result is the sine function and the signal of the complex number getting carried through.
+    The winding of the signal is not doubled here as continuity is reachable due to the
+    shape of the sine function.
+
+    Args:
+        x (t.Tensor): The tensor to run through the sine unit-wise.
+
+    Returns:
+        t.Tensor: `x` evaluated unit-wise through a complex sine function.
+    """
+    # The sin() function actually maps perfectly to the complex plane, no weird identities
+    #   and fuckery are needed.
+    return t.sin(x.abs()) * sgn(x)
+
+
+
+@ts
 def latticeParams(n:int, basisParam:t.Tensor=phi()) -> t.Tensor:
     """Creates a set of parameters that decrease their power of the `basisParam` argument
     from 0 to `1-n`. The default value of Phi for the basis parameter makes the lattice parameters
@@ -96,7 +176,7 @@ def softunit(x:t.Tensor, dim:int) -> t.Tensor:
         t.Tensor: The input tensor with a magnitude no larger than 1.
     """
     # Normal magnitude based softmax, keep signal
-    return t.softmax(x.abs(), dim=dim) * x.sgn()
+    return t.softmax(x.abs(), dim=dim) * sgn(x)
 
 
 
@@ -120,7 +200,7 @@ def nsoftunit(x:t.Tensor, dims:List[int]) -> t.Tensor:
         result.mul_(t.softmax(x.abs(), dim=dim))
     
     # Return the complex arethmetic mean (all angles should be preserved through the softunit function)
-    return t.pow(result, 1 / len(dims)) * x.sgn()
+    return t.pow(result, 1 / len(dims)) * sgn(x)
 
 
 @ts
@@ -365,7 +445,8 @@ def csigmoid(x:t.Tensor) -> t.Tensor:
 
     # Extract/calculate required basic parameters
     PI2 = pi() / 2
-    ang = x.angle()
+    xsgn = sgn(x)
+    ang = xsgn.angle()
     xabs = x.abs()
     
     # Do a sigmoid in the unanimous sign'd quadrants and find the connecting point
@@ -385,78 +466,14 @@ def csigmoid(x:t.Tensor) -> t.Tensor:
     # The "examine" quadrants will use a cosine activation to toggle between the signs compounded in the
     #   magnitude evaluation for the sigmoid.
     rotScalar:t.Tensor = t.cos(
-        (examineQuadLeft * (ang - (PI2)) * 2) \
-            + (examineQuadRight * (ang + (PI2)) * 2)
+        (examineQuadLeft * (ang - PI2) * 2) \
+            + (examineQuadRight * (PI2 - ang) * 2)
     )
     examVal:t.Tensor = examineQuad * t.sigmoid(rotScalar * xabs)
 
     # Add everything together according to the previously applied boolean based scalars
-    return (posVal + negVal + examVal) * t.exp(ang * 1j)
-
-
-
-@ts
-def ctanh(x:t.Tensor) -> t.Tensor:
-    """Calculate the tanh value based off of the magnitude of a complex number.
-    The real equation is `tanh(|x|)*sgn(x)`.
-    
-    Args:
-        x (t.Tensor): The complex number to push through the function.
-
-    Returns:
-        t.Tensor: The original tensor pushed through `tanh(|x|)*sgn(x)`.
-    """
-    return t.tanh(x.abs()) * x.sgn()
-
-
-
-@ts
-def ccos(x:t.Tensor) -> t.Tensor:
-    """Calculate a direct real cosine equivalent in the complex plane. This is done
-    by using the magnitude of the complex tensor provided in a unit-wise fashion, the
-    result is the cosine and the winding of the complex number on the cosine doubled.
-    The winding must be doubled (the complex angle) in order to keep the differentiability
-    of the function.
-
-    Args:
-        x (t.Tensor): The tensor to run through the cosine unit-wise.
-
-    Returns:
-        t.Tensor: `x` evaluated unit-wise through a complex cosine function.
-    """
-    # Normal cos
-    if not x.is_complex():
-        return t.cos(x)
-
-    # Main computation.
-    # A multiplier of 2 is needed on the angling system due to the fact that cos()
-    #   is secretly actually just sin() squared.
-    return t.cos(x.abs()) * t.exp(x.angle() * 2j)
-
-
-
-@ts
-def csin(x:t.Tensor) -> t.Tensor:
-    """Calculate a direct real sine equivalent in the complex plane. This is done
-    by using the magnitude of the complex tensor provided in a unit-wise fashion, the
-    result is the sine function and the signal of the complex number getting carried through.
-    The winding of the signal is not doubled here as continuity is reachable due to the
-    shape of the sine function.
-
-    Args:
-        x (t.Tensor): The tensor to run through the sine unit-wise.
-
-    Returns:
-        t.Tensor: `x` evaluated unit-wise through a complex sine function.
-    """
-    # Normal sin
-    if not x.is_complex():
-        return t.sin(x)
-
-    # Main computation.
-    # The sin() function actually maps perfectly to the complex plane, no weird identities
-    #   and fuckery are needed.
-    return t.sin(x.abs()) * x.sgn()
+    coll:t.Tensor = posVal + negVal + examVal
+    return coll * xsgn
 
 
 
