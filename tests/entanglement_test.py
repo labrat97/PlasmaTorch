@@ -206,6 +206,8 @@ class SuperPositionTest(unittest.TestCase):
         self.assertTrue(t.min(y.abs()) <= t.min(x.abs()))
         self.assertTrue(t.max(yc.abs()) <= t.max(xc.abs()))
         self.assertTrue(t.min(yc.abs()) <= t.min(xc.abs()))
+        self.assertTrue(t.all(y.abs() <= 1))
+        self.assertTrue(t.all(yc.abs() <= 1))
 
 
 
