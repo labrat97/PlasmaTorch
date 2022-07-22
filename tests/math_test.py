@@ -567,7 +567,51 @@ class ComplexSigmoidTest(unittest.TestCase):
 
 
 
-# TODO: class SgnTest(unittest.TestCase):
+class SgnTest(unittest.TestCase):
+    def testSizingTyping(self):
+        # Generate testing tensors
+        SIZELEN = randint(1, 4)
+        SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
+        x = t.randn(SIZE, dtype=DEFAULT_DTYPE)
+        xc = t.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Run the testing tensors through the `sgn()` function
+        sgnx = sgn(x)
+        sgnxc = sgn(xc)
+
+        # Assert that the sizing is appropriate
+        self.assertEqual(x.size(), sgnx.size())
+        self.assertEqual(xc.size(), sgnxc.size())
+
+        # Assert that the typing is appropriate
+        self.assertEqual(x.is_complex(), sgnx.is_complex())
+        self.assertEqual(xc.is_complex(), sgnxc.is_complex())
+
+    def testValues(self):
+        # Generate testing tensors
+        SIZELEN = randint(1, 4)
+        SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
+        x = t.randn(SIZE, dtype=DEFAULT_DTYPE)
+        xc = t.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Run the testing tensors through the `sgn()` function
+        sgnx = sgn(x)
+        sgnxc = sgn(xc)
+
+        # For the cases where x and xc are zero, calculate if they come out as one
+        zeros = t.logical_and(x == 0., sgnx == 1.)
+        zerosc = t.logical_and(x == 0.+0.j, sgnxc == 1.+0.j)
+
+        # Calculate equivalency
+        validsgn = (sgnx - x.sgn()).abs() <= 1e-4
+        validsgnc = (sgnxc - xc.sgn()).abs() <= 1e-4
+        valid = t.logical_or(validsgn, zeros)
+        validc = t.logical_or(validsgnc, zerosc)
+
+        # Evaluate the test results
+        self.assertTrue(t.all(valid))
+        self.assertTrue(t.all(validc))
+
 # TODO: class HarmonicMeanTest(unittest.TestCase):
 # TODO: class HarmonicSeriesTest(unittest.TestCase):
 # TODO: class RealfoldTest(unittest.TestCase):
