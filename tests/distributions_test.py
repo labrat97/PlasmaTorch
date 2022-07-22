@@ -6,7 +6,7 @@ from plasmatorch import *
 
 
 class IrregularGaussTest(unittest.TestCase):
-    SIZE = (11, 11, 13, 128)
+    SIZE = SUPERSINGULAR_PRIMES_HL[:4]
 
     def testSizing(self):
         # Seeding tensors, no complex support
@@ -64,7 +64,7 @@ class IrregularGaussTest(unittest.TestCase):
 
 
 class LinearGaussTest(unittest.TestCase):
-    SIZE = (128, 11, 13, 97)
+    SIZE = SUPERSINGULAR_PRIMES_HL[:4]
 
     def testSizing(self):
         # Seeding tensors
