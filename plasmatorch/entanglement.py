@@ -192,7 +192,8 @@ def collapse(x:t.Tensor, polarization:t.Tensor) -> t.Tensor:
 
 @ts
 def superposition(a:t.Tensor, b:t.Tensor) -> t.Tensor:
-    """Create a superposition of the two input signals with a complex tanh on the result from the matmul.
+    """Create a superposition of the two input signals with a harmonic mean of all
+    input values interconnected in every possible configuration.
 
     Args:
         a (t.Tensor): The first tensor to create a superposition with.
@@ -201,17 +202,17 @@ def superposition(a:t.Tensor, b:t.Tensor) -> t.Tensor:
     Returns:
         t.Tensor: The superpositioned tensor.
     """
-    # Create the basis of the harmonic mean
-    ONESA = t.ones_like(b.real).unsqueeze(-2)
-    ONESB = t.ones_like(a.real).unsqueeze(-1)
-    wa = (1. / a.abs()).unsqueeze(-1) @ ONESA
-    wb = (1. / b.abs()).unsqueeze(-2) @ ONESB
+    # Create the basis values of the harmonic mean, and add them
+    ONESA:t.Tensor = t.ones_like(b.real).unsqueeze(-2)
+    ONESB:t.Tensor = t.ones_like(a.real).unsqueeze(-1)
+    pre:t.Tensor = (1. / a.abs()).unsqueeze(-1) @ ONESA
+    pre += (1. / b.abs()).unsqueeze(-2) @ ONESB
 
     # Treat the signals as unit vectors, multiplying them in mass
-    angs = sgn(a).unsqueeze(-1) @ sgn(b).unsqueeze(-2)
+    angs:t.Tensor = sgn(a).unsqueeze(-1) @ sgn(b).unsqueeze(-2)
 
     # Finish up the harmonic mean and give the direction of the magnitude
-    return (2. / (wa + wb)) * angs
+    return (2. / pre) * angs
 
 
 
