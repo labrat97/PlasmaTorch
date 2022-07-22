@@ -201,8 +201,18 @@ def superposition(a:t.Tensor, b:t.Tensor) -> t.Tensor:
     Returns:
         t.Tensor: The superpositioned tensor.
     """
-    # Do the matrix multiplication required 
-    return ctanh(a.unsqueeze(-1)) @ ctanh(b.unsqueeze(-2))
+    # Create the basis of the harmonic mean
+    ONESA = t.ones_like(b.real).unsqueeze(-2)
+    ONESB = t.ones_like(a.real).unsqueeze(-1)
+    wa = (1. / a.abs()).unsqueeze(-1) @ ONESA
+    wb = (1. / b.abs()).unsqueeze(-2) @ ONESB
+
+    # Treat the signals as unit vectors, multiplying them in mass
+    angs = sgn(a).unsqueeze(-1) @ sgn(b).unsqueeze(-2)
+
+    # Finish up the harmonic mean and give the direction of the magnitude
+    return (2. / (wa + wb)) * angs
+
 
 
 @ts
