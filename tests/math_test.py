@@ -587,6 +587,7 @@ class SgnTest(unittest.TestCase):
         self.assertEqual(x.is_complex(), sgnx.is_complex())
         self.assertEqual(xc.is_complex(), sgnxc.is_complex())
 
+
     def testValues(self):
         # Generate testing tensors
         SIZELEN = randint(1, 4)
@@ -614,7 +615,63 @@ class SgnTest(unittest.TestCase):
 
 
 
-# TODO: class HarmonicMeanTest(unittest.TestCase):
+class HarmonicMeanTest(unittest.TestCase):
+    def testSizingTyping(self):
+        # Generate testing tensors
+        SIZELEN = randint(2, 4)
+        SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
+        x = t.randn(SIZE, dtype=DEFAULT_DTYPE)
+        xc = t.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Store the outputs of the means for later sizing evaluation
+        hx = []
+        hxc = []
+
+        # Iterate through each dim to check sizing in testing
+        for idx in range(SIZELEN):
+            hx.append(hmean(x, dim=idx))
+            hxc.append(hmean(xc, dim=idx))
+
+        # Test the typing results
+        for idx in range(SIZELEN):
+            self.assertEqual(hx[idx].dtype, x.dtype)
+            self.assertFalse(hx[idx].is_complex())
+            self.assertEqual(hxc[idx].dtype, xc.dtype)
+            self.assertTrue(hxc[idx].is_complex())
+
+        # Test the sizing results
+        for idx in range(SIZELEN):
+            tsize = SIZE[:idx] + SIZE[idx+1:]
+            self.assertEqual(list(hx[idx].size()), tsize)
+            self.assertEqual(list(hxc[idx].size()), tsize)
+    
+
+    def testValues(self):
+        # Generate testing tensors
+        SIZELEN = randint(1, 4)
+        SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
+        x = t.randn(SIZE, dtype=DEFAULT_DTYPE)
+        xc = x * sgn(t.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE))
+        ones = t.ones_like(x)
+
+        # Store the outputs of the means to be tested against later
+        hx = hmean(x, dim=-1)
+        hxc = hmean(xc, dim=-1)
+        ho = hmean(ones, dim=-1)
+
+        # Test to make sure that only the magnitudes are affected
+        self.assertTrue(t.all((hx.abs() - hxc.abs()) <= 1e-4))
+        
+        # Test to make sure it is not a normal mean
+        self.assertTrue(t.any(hx != t.mean(x, dim=-1)))
+        self.assertTrue(t.any(hxc != t.mean(xc, dim=-1)))
+
+        # Test to make sure that the mean never exceeds the max value of the system
+        self.assertTrue(t.all(hx.abs() <= t.max(x.abs())))
+        self.assertTrue(t.all(hxc.abs() <= t.max(xc.abs())))
+
+
+
 # TODO: class HarmonicSeriesTest(unittest.TestCase):
 # TODO: class RealfoldTest(unittest.TestCase):
 # TODO: class OrthoFFTsTest(unittest.TestCase):

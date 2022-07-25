@@ -490,13 +490,16 @@ def hmean(x:t.Tensor, dim:int=-1) -> t.Tensor:
     """
     # Turn all the values to their -1 power
     invx:t.Tensor = 1. / x.abs()
-    xang = x.angle()
+    xang:t.Tensor = x.angle()
     
     # Find the amount of values for the mean
-    vals = x.size(dim)
+    vals:int = x.size(dim)
     
     # Calculate the harmonic mean
-    return (vals / invx.sum(dim=dim)) * t.exp(xang.sum(dim=dim) * 1j)
+    result:t.Tensor = (vals / invx.sum(dim=dim)) * t.exp(xang.sum(dim=dim) * 1j)
+    if x.is_complex():
+        return result
+    return result.real
 
 
 
