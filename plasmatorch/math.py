@@ -529,7 +529,7 @@ def harmonicvals(n:int, noSum:bool=False, useZero:bool=False) -> t.Tensor:
     # Break early if skipping the final summation
     if noSum:
         # Flip around order of values to keep ascending ordering
-        factors[zeroint:] = factors[zeroint:][::-1]
+        factors[zeroint:] = factors[zeroint:].flip(-1)
         return factors
 
     # Avoid squaring the memory requirement by sequencing accelerated summations

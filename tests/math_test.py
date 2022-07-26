@@ -672,6 +672,49 @@ class HarmonicMeanTest(unittest.TestCase):
 
 
 
-# TODO: class HarmonicSeriesTest(unittest.TestCase):
+class HarmonicValuesTest(unittest.TestCase):
+    def testSizingTyping(self):
+        # Set starting parameters
+        SIZE = randint(SUPERSINGULAR_PRIMES_HL[0], GREISS_SAMPLES)
+        
+        # Run the function
+        hv = harmonicvals(SIZE, noSum=False, useZero=False)
+        hvz = harmonicvals(SIZE, noSum=False, useZero=True)
+        hvs = harmonicvals(SIZE, noSum=True, useZero=False)
+        hvsz = harmonicvals(SIZE, noSum=True, useZero=True)
+
+        # Check that the size of the resultant vector is appropriate
+        self.assertEqual(hv.numel(), SIZE)
+        self.assertEqual(hvz.numel(), SIZE)
+        self.assertEqual(hvs.numel(), SIZE)
+        self.assertEqual(hvsz.numel(), SIZE)
+
+        # Check that all of the values are not complex
+        self.assertFalse(hv.is_complex())
+        self.assertFalse(hvz.is_complex())
+        self.assertFalse(hvs.is_complex())
+        self.assertFalse(hvsz.is_complex())
+
+    def testValues(self):
+        # The control for the test
+        ctrl = t.Tensor([1, 3/2, 11/6, 25/12, 137/60, 49/20, 363/140, 761/280])
+        ctrls = t.Tensor([1, 1/2, 1/3, 1/4, 1/5, 1/6, 1/7]).flip(-1)
+
+        # Run the function
+        hv = harmonicvals(ctrl.numel(), noSum=False, useZero=False)
+        hvz = harmonicvals(ctrl.numel()+1, noSum=False, useZero=True)
+        hvs = harmonicvals(ctrls.numel(), noSum=True, useZero=False)
+        hvsz = harmonicvals(ctrls.numel()+1, noSum=True, useZero=True)
+
+        # Check consistency accross sum-similar results
+        self.assertTrue(t.all((hv - ctrl) <= 1e-4))
+        self.assertTrue(t.all((hvz[1:] - ctrl <= 1e-4)))
+        self.assertTrue(t.all((hvs - ctrls) <= 1e-4))
+        self.assertTrue(t.all((hvsz[1:] - ctrls) <= 1e-4))
+        self.assertTrue(hvz[0] == 0)
+        self.assertTrue(hvsz[0] == 0)
+
+
+# TODO: class HarmonicDistanceTest(unittest.TestCase):
 # TODO: class RealfoldTest(unittest.TestCase):
 # TODO: class OrthoFFTsTest(unittest.TestCase):
