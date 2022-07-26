@@ -555,21 +555,33 @@ def harmonicdist(x:t.Tensor) -> t.Tensor:
     Returns:
         t.Tensor: The raw distance of each value from its nearest harmonic series value.
     """
+    # Positive and negative frequencies are equivalent in an fft like system
+    #   so the reasoning here is that the distance of the value is only really
+    #   needed to be considered in the magnitude of the value.
+    # Because this is a distance function however, each value in each linear space
+    #   is taken as a magnitude to essentially make a harmonic grid distance function
+    #   in the complex number-space.
+    xcompl:bool = x.is_complex()
+    if xcompl:
+        xabs:t.Tensor = t.view_as_real(x).abs()
+    else:
+        xabs:t.Tensor = x.abs()
+
     # Gather constants for evaluation
     em:t.Tensor = egamma()
 
     # Take the inverse harmonic index of the input values and flatten them after for indexing
-    inverse:t.Tensor = t.round(t.exp(x - em)) + t.exp(-em)
+    inverse:t.Tensor = t.round(t.exp(xabs - em)).to(t.int64)
     finv = inverse.flatten(0, -1)
 
     # Find the needed harmonics for producing the final value
-    maxn:t.Tensor = finv.max()[0]
+    maxn:t.Tensor = finv.max()+1
     harmonics:t.Tensor = harmonicvals(n=maxn, useZero=True)
     
     # Find the closest harmonic value, refold the shape, then calculate the result
-    closest = harmonics[finv].unflatten(0, inverse.size())
-    return x - closest
-
+    closest:t.Tensor = harmonics[finv].unflatten(0, inverse.size())
+    result:t.Tensor = xabs - closest
+    return t.view_as_complex(result) if xcompl else result
 
 
 @ts

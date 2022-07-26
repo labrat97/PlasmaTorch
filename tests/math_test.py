@@ -695,6 +695,7 @@ class HarmonicValuesTest(unittest.TestCase):
         self.assertFalse(hvs.is_complex())
         self.assertFalse(hvsz.is_complex())
 
+    
     def testValues(self):
         # The control for the test
         ctrl = t.Tensor([1, 3/2, 11/6, 25/12, 137/60, 49/20, 363/140, 761/280])
@@ -715,6 +716,32 @@ class HarmonicValuesTest(unittest.TestCase):
         self.assertTrue(hvsz[0] == 0)
 
 
-# TODO: class HarmonicDistanceTest(unittest.TestCase):
+
+class HarmonicDistanceTest(unittest.TestCase):
+    def testSizingTyping(self):
+        # Generate testing tensors
+        SIZELEN = randint(1, 4)
+        SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
+        TSIZE = t.Size(SIZE)
+        x = t.randn(SIZE, dtype=DEFAULT_DTYPE)
+        xc = t.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Run the function
+        hx = harmonicdist(x)
+        hxc = harmonicdist(xc)
+
+        # Test that the sizing hasn't changed after passing through the function
+        self.assertTrue(hx.size() == TSIZE, msg=f'{hx.size()}\t!=\t{TSIZE}')
+        self.assertTrue(hxc.size() == TSIZE, msg=f'{hxc.size()}\t!=\t{TSIZE}')
+
+        # Test to make sure that complexity of the number-space hasn't changed
+        self.assertFalse(hx.is_complex())
+        self.assertTrue(hxc.is_complex())
+
+
+    # TODO: def testValues(self):
+
+
+
 # TODO: class RealfoldTest(unittest.TestCase):
 # TODO: class OrthoFFTsTest(unittest.TestCase):
