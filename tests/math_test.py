@@ -739,7 +739,31 @@ class HarmonicDistanceTest(unittest.TestCase):
         self.assertTrue(hxc.is_complex())
 
 
-    # TODO: def testValues(self):
+    def testValues(self):
+        # The tensors to test with
+        SIZELEN = randint(1, 4)
+        SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
+        TSIZE = t.Size(SIZE)
+        x = t.randn(TSIZE, dtype=DEFAULT_DTYPE)
+        xc = t.randn(TSIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+        ctrl = t.Tensor([1, 3/2, 11/6, 25/12, 137/60, 49/20, 363/140, 761/280])
+        ctrlc = t.view_as_complex(t.stack([ctrl, ctrl.flip(-1)], dim=-1))
+        harm = harmonicvals(n=randint(SUPERSINGULAR_PRIMES_HL[0], GREISS_SAMPLES), useZero=True)
+
+        # Run the testing tensors through the function to find the distances from each unit
+        hx = harmonicdist(x)
+        hxc = harmonicdist(xc)
+        hctrl = harmonicdist(ctrl)
+        hctrlc = harmonicdist(ctrlc)
+        hharm = harmonicdist(harm)
+
+        # Test the resultant values to make sure none of them are over half of the
+        #   harmonic series' maximum value of 1 (so 0.5)
+        self.assertTrue(t.all(hx.abs().max() <= 0.5), msg=f'{x}->{hx}')
+        self.assertTrue(t.all(hxc.abs().max() <= t.sqrt(t.tensor([0.5]))), msg=f'{xc}->{hxc}')
+        self.assertTrue(t.all(hctrl.abs().max() <= 0.5), msg=f'{ctrl}->{hctrl}')
+        self.assertTrue(t.all(hctrlc.abs().max() <= t.sqrt(t.tensor([0.5]))), msg=f'{ctrlc}->{hctrlc}')
+        self.assertTrue(t.all(hharm.abs() <= 1e-4), msg=f'{hharm}')
 
 
 

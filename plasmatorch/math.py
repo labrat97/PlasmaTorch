@@ -579,8 +579,12 @@ def harmonicdist(x:t.Tensor) -> t.Tensor:
     harmonics:t.Tensor = harmonicvals(n=maxn, useZero=True)
     
     # Find the closest harmonic value, refold the shape, then calculate the result
-    closest:t.Tensor = harmonics[finv].unflatten(0, inverse.size())
-    result:t.Tensor = xabs - closest
+    highest:t.Tensor = xabs - harmonics[finv].unflatten(0, inverse.size())
+    lowest:t.Tensor = xabs - harmonics[(finv-1).clamp(min=0)].unflatten(0, inverse.size())
+    compare:t.Tensor = (highest.abs() < lowest.abs()).to(t.uint8)
+    result:t.Tensor = (highest * compare) + (lowest * (1 - compare))
+
+    # Calculate the result's complexity
     return t.view_as_complex(result) if xcompl else result
 
 
