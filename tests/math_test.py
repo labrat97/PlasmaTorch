@@ -767,5 +767,57 @@ class HarmonicDistanceTest(unittest.TestCase):
 
 
 
-# TODO: class RealfoldTest(unittest.TestCase):
+class RealfoldTest(unittest.TestCase):
+    def testSizingTyping(self):
+        # Generate testing tensors
+        SIZELEN = randint(1, 4)
+        SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
+        TSIZE = t.Size(SIZE)
+        x = t.randn(TSIZE, dtype=DEFAULT_DTYPE)
+        xc = t.randn(TSIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+        xo = x.to(DEFAULT_COMPLEX_DTYPE)
+
+        # Run the tensors through the function
+        rx = realfold(x)
+        rxc = realfold(xc)
+        rxo = realfold(xo)
+
+        # Test to make sure no complex values propogate through
+        self.assertFalse(rx.is_complex())
+        self.assertFalse(rxc.is_complex())
+        self.assertFalse(rxo.is_complex())
+
+        # Test to make sure that the sizing is consistent
+        self.assertEqual(rx.size(), TSIZE)
+        self.assertEqual(rxc.size(), TSIZE)
+        self.assertEqual(rxo.size(), TSIZE)
+
+
+    def testValues(self):
+        # Generate testing tensors
+        SIZELEN = randint(1, 4)
+        SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
+        TSIZE = t.Size(SIZE)
+        x = t.randn(TSIZE, dtype=DEFAULT_DTYPE)
+        xc = t.randn(TSIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+        xo = x.to(DEFAULT_COMPLEX_DTYPE)
+
+        # Run the tensors through the function
+        rx = realfold(x)
+        rxc = realfold(xc)
+        rxo = realfold(xo)
+        rxc2 = realfold(xc, phase=t.zeros(1))
+
+        # Test to make sure that real values are not operated on
+        self.assertTrue(t.all(rx == x))
+        self.assertTrue(t.all(rxo == x))
+        
+        # Test to make sure that the imaginary values are just subtracted
+        self.assertTrue(t.all((rxc - (xc.real - xc.imag)) <= 1e-4))
+
+        # Test to make sure that the 0 phase option has the values added
+        self.assertTrue(t.all((rxc2 - (xc.real + xc.imag)) <= 1e-4))
+
+
+
 # TODO: class OrthoFFTsTest(unittest.TestCase):
