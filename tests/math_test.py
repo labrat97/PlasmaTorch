@@ -913,7 +913,6 @@ class OrthoFFTsTest(unittest.TestCase):
         TSIZE = t.Size(SIZE)
         x = t.randn(TSIZE, dtype=DEFAULT_DTYPE)
         xc = t.randn(TSIZE, dtype=DEFAULT_COMPLEX_DTYPE)
-        dims = [element for element in range(SIZELEN)]
 
         # Run the vectors through the fft functions
         fx =    (fft(x,   n=-1, dim=-1  ).abs() ** 2).sum(-1)
