@@ -820,4 +820,116 @@ class RealfoldTest(unittest.TestCase):
 
 
 
-# TODO: class OrthoFFTsTest(unittest.TestCase):
+class OrthoFFTsTest(unittest.TestCase):
+    # Use the Plancherel theorem to ensure energy conservation, maybe
+    # https://en.wikipedia.org/wiki/Plancherel_theorem
+    def testSizingTyping(self):
+        # Generate testing tensors
+        SIZELEN = randint(2, 4)
+        SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
+        TSIZE = t.Size(SIZE)
+        x = t.randn(TSIZE, dtype=DEFAULT_DTYPE)
+        xc = t.randn(TSIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+        ns = [-1] * SIZELEN
+        dims = [element for element in range(SIZELEN)]
+
+        # Run the vectors through the fft functions
+        fx = fft(x, n=-1, dim=-1)
+        ffx = fft(x, n=ns, dim=dims)
+        ifx = ifft(x, n=-1, dim=-1)
+        iffx = ifft(x, n=ns, dim=dims)
+        fxc = fft(xc, n=-1, dim=-1)
+        ffxc = fft(xc, n=ns, dim=dims)
+        ifxc = ifft(xc, n=-1, dim=-1)
+        iffxc = ifft(xc, n=ns, dim=dims)
+
+        # Assert that the sizing has not changed
+        self.assertEqual(fx.size(), TSIZE)
+        self.assertEqual(ffx.size(), TSIZE)
+        self.assertEqual(ifx.size(), TSIZE)
+        self.assertEqual(iffx.size(), TSIZE)
+        self.assertEqual(fxc.size(), TSIZE)
+        self.assertEqual(ffxc.size(), TSIZE)
+        self.assertEqual(ifxc.size(), TSIZE)
+        self.assertEqual(iffxc.size(), TSIZE)
+
+        # Assert that all results are complex, ignoring the input type
+        self.assertTrue(fx.is_complex())
+        self.assertTrue(ffx.is_complex())
+        self.assertTrue(ifx.is_complex())
+        self.assertTrue(iffx.is_complex())
+        self.assertTrue(fxc.is_complex())
+        self.assertTrue(ffxc.is_complex())
+        self.assertTrue(ifxc.is_complex())
+        self.assertTrue(iffxc.is_complex())
+
+
+    def testConsistency(self):
+        # Generate testing tensors
+        SIZELEN = randint(2, 4)
+        SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
+        TSIZE = t.Size(SIZE)
+        x = t.randn(TSIZE, dtype=DEFAULT_DTYPE)
+        xc = t.randn(TSIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+        ns = [-1] * SIZELEN
+        dims = [element for element in range(SIZELEN)]
+
+        # Run the vectors through the fft functions
+        fx = fft(x, n=-1, dim=-1)
+        ffx = fft(x, n=ns, dim=dims)
+        ifx = ifft(x, n=-1, dim=-1)
+        iffx = ifft(x, n=ns, dim=dims)
+        fxc = fft(xc, n=-1, dim=-1)
+        ffxc = fft(xc, n=ns, dim=dims)
+        ifxc = ifft(xc, n=-1, dim=-1)
+        iffxc = ifft(xc, n=ns, dim=dims)
+
+        # Check to make sure that the single dimension ffts are checking out to
+        #   the standard torch library
+        cfx = tfft.fft(x, n=x.size(-1), dim=-1, norm='ortho')
+        cifx = tfft.ifft(x, n=x.size(-1), dim=-1, norm='ortho')
+        cfxc = tfft.fft(xc, n=xc.size(-1), dim=-1, norm='ortho')
+        cifxc = tfft.ifft(xc, n=xc.size(-1), dim=-1, norm='ortho')
+        self.assertTrue(t.all((cfx - fx).abs() <= 1e-4))
+        self.assertTrue(t.all((cifx - ifx).abs() <= 1e-4))
+        self.assertTrue(t.all((cfxc - fxc).abs() <= 1e-4))
+        self.assertTrue(t.all((cifxc - ifxc).abs() <= 1e-4))
+
+        # Check to make sure that the multiple dimension ffts are checking out also
+        cffx = tfft.fftn(x, s=ns, dim=dims, norm='ortho')
+        ciffx = tfft.ifftn(x, s=ns, dim=dims, norm='ortho')
+        cffxc = tfft.fftn(xc, s=ns, dim=dims, norm='ortho')
+        ciffxc = tfft.ifftn(xc, s=ns, dim=dims, norm='ortho')
+        self.assertTrue(t.all((cffx - ffx).abs() <= 1e-4))
+        self.assertTrue(t.all((ciffx - iffx).abs() <= 1e-4))
+        self.assertTrue(t.all((cffxc - ffxc).abs() <= 1e-4))
+        self.assertTrue(t.all((ciffxc - iffxc).abs() <= 1e-4))
+
+
+    def testPlancherel(self):
+        # Generate testing tensors
+        SIZELEN = randint(2, 4)
+        SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
+        TSIZE = t.Size(SIZE)
+        x = t.randn(TSIZE, dtype=DEFAULT_DTYPE)
+        xc = t.randn(TSIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+        dims = [element for element in range(SIZELEN)]
+
+        # Run the vectors through the fft functions
+        fx =    (fft(x,   n=-1, dim=-1  ).abs() ** 2).sum(-1)
+        ifx =   (ifft(x,  n=-1, dim=-1  ).abs() ** 2).sum(-1)
+        fxc =   (fft(xc,  n=-1, dim=-1  ).abs() ** 2).sum(-1)
+        ifxc =  (ifft(xc, n=-1, dim=-1  ).abs() ** 2).sum(-1)
+
+        # Get the magnitude squared of x and xc
+        plan =  (x.abs()  ** 2).sum(-1)
+        planc = (xc.abs() ** 2).sum(-1)
+        
+        # Compare the values of the functions according to the Plancherel theorem
+        #   ensuring conservation of energy
+        # Single dims
+        self.assertTrue(t.all((fx - plan).abs() <= 1e-4))
+        self.assertTrue(t.all((fxc - planc).abs() <= 1e-4))
+        self.assertTrue(t.all((ifx - plan).abs() <= 1e-4))
+        self.assertTrue(t.all((ifxc - planc).abs() <= 1e-4))
+        
