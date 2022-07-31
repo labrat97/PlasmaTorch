@@ -38,10 +38,12 @@ class IrregularGaussTest(unittest.TestCase):
         gaussreg = irregularGauss(x=x, mean=xmean, lowStd=xlow, highStd=xhigh, reg=True)
 
         # Calculate control values
-        softp = t.nn.Softplus(beta=1.618033988749895, threshold=100)
-        reglow = 1. / (softp(xlow) * t.sqrt(t.ones_like(xlow) * 2 * 3.14159265358979))
+        PHI = float(phi())
+        P2I = float(pi() * 2)
+        softp = t.nn.Softplus(beta=PHI, threshold=100)
+        reglow = 1. / (softp(xlow) * t.sqrt(t.ones_like(xlow) * P2I))
         reflow = t.exp(-0.5 * t.pow((x - xmean) / softp(xlow), 2.))
-        reghigh = 1. / (softp(xhigh) * t.sqrt(t.ones_like(xhigh) * 2 * 3.14159265358979))
+        reghigh = 1. / (softp(xhigh) * t.sqrt(t.ones_like(xhigh) * P2I))
         refhigh = t.exp(-0.5 * t.pow((x - xmean) / softp(xhigh), 2.))
 
         # Test the values to make sure a normal guassian is happening on
