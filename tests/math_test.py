@@ -821,8 +821,6 @@ class RealfoldTest(unittest.TestCase):
 
 
 class OrthoFFTsTest(unittest.TestCase):
-    # Use the Plancherel theorem to ensure energy conservation, maybe
-    # https://en.wikipedia.org/wiki/Plancherel_theorem
     def testSizingTyping(self):
         # Generate testing tensors
         SIZELEN = randint(2, 4)
@@ -907,6 +905,9 @@ class OrthoFFTsTest(unittest.TestCase):
 
 
     def testPlancherel(self):
+        # Use the Plancherel theorem to ensure energy conservation
+        # https://en.wikipedia.org/wiki/Plancherel_theorem
+
         # Generate testing tensors
         SIZELEN = randint(2, 4)
         SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
