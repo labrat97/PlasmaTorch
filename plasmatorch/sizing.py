@@ -121,27 +121,28 @@ def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str=DEFAULT_PADDIN
 
 
 @ts
-def dimmatch(a:t.Tensor, b:t.Tensor, dim:int, mode:str=DEFAULT_PADDING) -> Tuple[t.Tensor, t.Tensor]:
-    """Make the selected dimension have the same size between two tensors.
+def dimmatch(a:t.Tensor, b:t.Tensor, dim:int) -> Tuple[t.Tensor, t.Tensor]:
+    """Make the selected dimension have the same size between two tensors using
+    the `resignal()` function.
 
     Args:
         a (t.Tensor): The first tensor to match.
         b (t.Tensor): The second tensor to match.
         dim (int): The dimension to perform the matching operation on.
-        mode (str, optional): The padding mode to use for the specified dim. Defaults to DEFAULT_PADDING.
         
     Returns:
         Tuple[t.Tensor, t.Tensor]: Signals a and b, respectively, with the selected dim having matching sample counts.
     """
     # Extract sizing parameters
-    asize:int = a.size()[dim]
-    bsize:int = b.size()[dim]
+    asize:int = a.size(dim)
+    bsize:int = b.size(dim)
 
     # Pad whichever dim needs padding
     if asize < bsize:
-        return paddim(a, 0, bsize-asize, dim=dim, mode=mode), b
+        return resignal(a, samples=bsize, dim=dim), b
     elif bsize < asize:
-        return a, paddim(b, 0, asize-bsize, dim=dim, mode=mode)
+        return a, resignal(b, samples=asize, dim=dim)
+    # ==
     return a, b
 
 

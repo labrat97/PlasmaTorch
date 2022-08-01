@@ -149,3 +149,33 @@ class PaddimTest(unittest.TestCase):
             #   a reasonable epsilon value from each other
             self.assertTrue(t.all((px - xcont).abs() <= 1e-4))
             self.assertTrue(t.all((pxc - xccont).abs() <= 1e-4))
+
+
+
+class DimmatchTest(unittest.TestCase):
+    def testSizingByDim(self):
+        # Generate the starting tensors
+        SIZELEN:int = randint(2, 5)
+        SIZEA:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[7]) for _ in range(SIZELEN)]
+        SIZEB:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[7]) for _ in range(SIZELEN)]
+        a:t.Tensor = t.randn(SIZEA, dtype=DEFAULT_DTYPE)
+        ac:t.Tensor = t.randn(SIZEA, dtype=DEFAULT_COMPLEX_DTYPE)
+        b:t.Tensor = t.randn(SIZEB, dtype=DEFAULT_DTYPE)
+        bc:t.Tensor = t.randn(SIZEB, dtype=DEFAULT_COMPLEX_DTYPE)
+        testingTensors:List[List[t.Tensor]] = [[a, b], [ac, bc]]
+
+        # Iterate through each possible dim to make sure that the testing tensors
+        #   work in any perspective through the dim matching function
+        for idx in range(SIZELEN):
+            # Check each pair of tensors
+            for ta, tb in testingTensors:
+                # Run each pair of tensors through the dimension matching function
+                da, db = dimmatch(ta, tb, dim=idx)
+
+                # Assert that the sizes are what they should be
+                self.assertEqual(da.size(idx), db.size(idx))
+                self.assertEqual(max(ta.size(idx), tb.size(idx)), da.size(idx))
+
+
+
+# TODO: class WeightedResampleTest(unittest.TestCase):
