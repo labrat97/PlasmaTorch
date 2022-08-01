@@ -1,70 +1,9 @@
-from numpy import iscomplex
+from torch import chunk
 from .defaults import *
 from .math import xbias
 from .conversions import nantonum
 
 
-
-@ts
-def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str=DEFAULT_PADDING) -> t.Tensor:
-    """Pad the selected dimension with the torch.nnf pad() method internally.
-
-    Args:
-        x (t.Tensor): The signal to pad.
-        lowpad (int): The number of samples to pad at the start of the tensor's indices.
-        highpad (int): The number of samples to pad at the end of the tensor's indices.
-        dim (int): The dimension to pad.
-        mode (str, optional): The padding mode to use for the specified dim. Defaults to DEFAULT_PADDING.
-
-    Returns:
-        t.Tensor: The padded signal.
-    """
-    # Transpose the dim of interest to the end of the tensor
-    wx:t.Tensor = x.transpose(dim, -1)
-
-    # Force a certain level of dimensions
-    oneD:bool = (x.dim() <= 1)
-    if oneD: wx.unsqueeze_(0)
-    padform:List[int] = [lowpad, highpad] + ([0] * (2 * (wx.dim() - 3)))
-
-    # Handle number complexity
-    xcomp:bool = wx.is_complex()
-
-    # Pad the dimension with the padding parameters
-    if xcomp:
-        xpadr:t.Tensor = nnf.pad(wx.real, pad=padform, mode=mode)
-        xpadi:t.Tensor = nnf.pad(wx.imag, pad=padform, mode=mode)
-        xpad:t.Tensor = t.view_as_complex(t.stack((xpadr, xpadi), dim=-1))
-    else:
-        xpad:t.Tensor = nnf.pad(wx, pad=padform, mode=mode)
-
-    # Put the dimension back in the appropriate place
-    if oneD: xpad.squeeze_(0)
-    return xpad.transpose(dim, -1)
-
-@ts
-def dimmatch(a:t.Tensor, b:t.Tensor, dim:int, mode:str=DEFAULT_PADDING) -> Tuple[t.Tensor, t.Tensor]:
-    """Make the selected dimension have the same size between two tensors.
-
-    Args:
-        a (t.Tensor): The first tensor to match.
-        b (t.Tensor): The second tensor to match.
-        dim (int): The dimension to perform the matching operation on.
-        mode (str, optional): The padding mode to use for the specified dim. Defaults to DEFAULT_PADDING.
-        
-    Returns:
-        Tuple[t.Tensor, t.Tensor]: Signals a and b, respectively, with the selected dim having matching sample counts.
-    """
-    # Extract sizing parameters
-    asize:int = a.size()[dim]
-    bsize:int = b.size()[dim]
-
-    # Pad whichever dim needs padding
-    if asize < bsize:
-        return paddim(a, 0, bsize-asize, dim=dim, mode=mode), b
-    elif bsize < asize:
-        return a, paddim(b, 0, asize-bsize, dim=dim, mode=mode)
-    return a, b
 
 @ts
 def unflatten(x:t.Tensor, dim:int, size:List[int]) -> t.Tensor:
@@ -86,14 +25,18 @@ def unflatten(x:t.Tensor, dim:int, size:List[int]) -> t.Tensor:
 
     # Accumulate the result
     y:t.Tensor = x
+    xdim:int = x.dim()
 
     # Unfold the specified dimension for each descriptive dimension of size
-    for idx, n in enumerate(list(size)):
-        target:int = dim + idx
+    # The dimensions must be unflattened in a queue, so flip the order of the list
+    #   and reverse the indexing system to be end-relative
+    for idx, n in enumerate(size[::-1]):
+        target:int = -xdim + dim - idx
         y = y.unfold(target, n, n).movedim(-1, target)
 
-    # Return fully unflattened tensor
-    return y
+    # Return fully unflattened tensor, squeezing the leftover element dim
+    return y.squeeze(dim)
+
 
 @ts
 def resignal(x:t.Tensor, samples:int, dim:int=-1) -> t.Tensor:
@@ -129,6 +72,78 @@ def resignal(x:t.Tensor, samples:int, dim:int=-1) -> t.Tensor:
         y:t.Tensor = tfft.irfft(xfft, dim=dim, n=samples, norm='ortho')
 
     return y
+
+
+@ts
+def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str=DEFAULT_PADDING) -> t.Tensor:
+    """Pad the selected dimension with the torch.nnf pad() method internally.
+
+    Args:
+        x (t.Tensor): The signal to pad.
+        lowpad (int): The number of samples to pad at the start of the tensor's indices.
+        highpad (int): The number of samples to pad at the end of the tensor's indices.
+        dim (int): The dimension to pad.
+        mode (str, optional): The padding mode to use for the specified dim. Defaults to DEFAULT_PADDING.
+
+    Returns:
+        t.Tensor: The padded signal.
+    """
+    # Transpose the dim of interest to the end of the tensor
+    wx:t.Tensor = x.transpose(dim, -1)
+    unsqueezes:int = 0
+
+    # Force a certain level of dimensions
+    while wx.dim() <= 2:
+        wx.unsqueeze_(0)
+        unsqueezes += 1
+    chunkShape:List[int] = wx.size()[:-2]
+    wx = wx.flatten(start_dim=0, end_dim=-3) 
+
+    # Prep the padding description
+    padform = (lowpad, highpad)
+
+    # Handle number complexity
+    xcomp:bool = wx.is_complex()
+
+    # Pad the dimension with the padding parameters
+    if xcomp:
+        xpadr:t.Tensor = nnf.pad(wx.real, pad=padform, mode=mode)
+        xpadi:t.Tensor = nnf.pad(wx.imag, pad=padform, mode=mode)
+        xpad:t.Tensor = t.view_as_complex(t.stack((xpadr, xpadi), dim=-1))
+    else:
+        xpad:t.Tensor = nnf.pad(wx, pad=padform, mode=mode)
+
+    # Put the dimension structure back in the appropriate place
+    xpad = unflatten(xpad, dim=0, size=chunkShape)
+    for _ in range(unsqueezes):
+        xpad.squeeze_(0)
+    return xpad.transpose(dim, -1)
+
+
+@ts
+def dimmatch(a:t.Tensor, b:t.Tensor, dim:int, mode:str=DEFAULT_PADDING) -> Tuple[t.Tensor, t.Tensor]:
+    """Make the selected dimension have the same size between two tensors.
+
+    Args:
+        a (t.Tensor): The first tensor to match.
+        b (t.Tensor): The second tensor to match.
+        dim (int): The dimension to perform the matching operation on.
+        mode (str, optional): The padding mode to use for the specified dim. Defaults to DEFAULT_PADDING.
+        
+    Returns:
+        Tuple[t.Tensor, t.Tensor]: Signals a and b, respectively, with the selected dim having matching sample counts.
+    """
+    # Extract sizing parameters
+    asize:int = a.size()[dim]
+    bsize:int = b.size()[dim]
+
+    # Pad whichever dim needs padding
+    if asize < bsize:
+        return paddim(a, 0, bsize-asize, dim=dim, mode=mode), b
+    elif bsize < asize:
+        return a, paddim(b, 0, asize-bsize, dim=dim, mode=mode)
+    return a, b
+
 
 @ts 
 def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True) -> t.Tensor:
