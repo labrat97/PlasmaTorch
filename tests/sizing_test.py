@@ -37,6 +37,60 @@ class UnflattenTest(unittest.TestCase):
 
 
 
+class ResignalTest(unittest.TestCase):
+    def testSizingByDim(self):
+        # Generate the starting tensors
+        SIZELEN:int = randint(1, 5)
+        SIZE:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[7]) for _ in range(SIZELEN)]
+        TSIZE:t.Size = t.Size(SIZE)
+        x:t.Tensor = t.randn(TSIZE, dtype=DEFAULT_DTYPE)
+        xc:t.Tensor = t.randn(TSIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Iterate through each possible dim in the tensors for testing
+        for idx in range(SIZELEN):
+            # Generate the number of samples for the dimension
+            samples:int = randint(1, GREISS_SAMPLES)
+            
+            # Run the tensors through the function
+            rx:t.Tensor = resignal(x, samples=samples, dim=idx)
+            rxc:t.Tensor = resignal(xc, samples=samples, dim=idx)
+
+            # Generate the size that should come out of the system
+            newSize:List[int] = SIZE.copy()
+            newSize[idx] = samples
+
+            # Test the sizing
+            self.assertEqual(rx.size(), t.Size(newSize))
+            self.assertEqual(rxc.size(), t.Size(newSize))
+
+
+    def testReversability(self):
+        # Generate the starting tensors
+        SIZELEN:int = randint(1, 4)
+        SIZE:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[7]) for _ in range(SIZELEN)]
+        TSIZE:t.Size = t.Size(SIZE)
+        x:t.Tensor = t.randn(TSIZE, dtype=DEFAULT_DTYPE)
+        xc:t.Tensor = t.randn(TSIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Iterate through each possible dim in the tensors for testing
+        for idx in range(SIZELEN):
+            # Generate the number of samples for the dimension
+            samples:int = randint(SIZE[idx], GREISS_SAMPLES)
+
+            # Run the tensors through the function to increase the samples
+            rx:t.Tensor = resignal(x, samples=samples, dim=idx)
+            rxc:t.Tensor = resignal(xc, samples=samples, dim=idx)
+
+            # Run the tensors back through the function to reduce the samples
+            rrx:t.Tensor = resignal(rx, samples=SIZE[idx], dim=idx)
+            rrxc:t.Tensor = resignal(rxc, samples=SIZE[idx], dim=idx)
+
+            # Check for value consistency
+            self.assertTrue(t.all((rrx - x).abs() <= 1e-4))
+            self.assertTrue(t.all((rrxc - xc).abs() <= 1e-4))
+
+
+
 class PaddimTest(unittest.TestCase):
     PADOPTIONS:List[str] = ['reflect', 'replicate', 'circular']
 
