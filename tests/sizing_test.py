@@ -7,6 +7,36 @@ from random import randint
 
 
 
+class UnflattenTest(unittest.TestCase):
+    def testConsistency(self):
+        # Generate the starting tensors
+        SIZELEN:int = randint(2, 5)
+        SIZE:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[7]) for _ in range(SIZELEN)]
+        TSIZE:t.Size = t.Size(SIZE)
+        x:t.Tensor = t.randn(TSIZE, dtype=DEFAULT_DTYPE)
+        xc:t.Tensor = t.randn(TSIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+        START_IDX:int = randint(0, x.dim()-2)
+        END_IDX:int = randint(START_IDX, x.dim()-1)
+        FLATTENED_SIZE:List[int] = SIZE[START_IDX:END_IDX+1]
+
+        # Flatten the tensors with the working function included from torch
+        flat:t.Tensor = t.flatten(x, start_dim=START_IDX, end_dim=END_IDX)
+        flatc:t.Tensor = t.flatten(xc, start_dim=START_IDX, end_dim=END_IDX)
+
+        # Unflatten the tensors at the start index
+        ux:t.Tensor = unflatten(flat, dim=START_IDX, size=FLATTENED_SIZE)
+        uxc:t.Tensor = unflatten(flatc, dim=START_IDX, size=FLATTENED_SIZE)
+
+        # Test sizing
+        self.assertEqual(x.size(), ux.size())
+        self.assertEqual(xc.size(), uxc.size())
+
+        # Test the values
+        self.assertTrue(t.all((ux - x).abs() <= 1e-4), msg=f'{ux}\n!=\n{x}')
+        self.assertTrue(t.all((uxc - xc).abs() <= 1e-4), msg=f'{uxc}\n!=\n{xc}')
+
+
+
 class PaddimTest(unittest.TestCase):
     PADOPTIONS:List[str] = ['reflect', 'replicate', 'circular']
 
@@ -14,7 +44,7 @@ class PaddimTest(unittest.TestCase):
     def testSizingByDim(self):
         # Generate the starting tensors
         SIZELEN:int = randint(2, 5)
-        SIZE:List[int] = [randint(SUPERSINGULAR_PRIMES_LH[5], SUPERSINGULAR_PRIMES_LH[-4]) for _ in range(SIZELEN)]
+        SIZE:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[7]) for _ in range(SIZELEN)]
         TSIZE:t.Size = t.Size(SIZE)
         x:t.Tensor = t.randn(TSIZE, dtype=DEFAULT_DTYPE)
         xc:t.Tensor = t.randn(TSIZE, dtype=DEFAULT_COMPLEX_DTYPE)
@@ -41,7 +71,7 @@ class PaddimTest(unittest.TestCase):
     def testConsistency(self):
         # Generate the starting tensors
         SIZELEN:int = randint(2, 5)
-        SIZE:List[int] = [randint(SUPERSINGULAR_PRIMES_LH[0], SUPERSINGULAR_PRIMES_LH[-4]) for _ in range(SIZELEN)]
+        SIZE:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[7]) for _ in range(SIZELEN)]
         TSIZE:t.Size = t.Size(SIZE)
         x:t.Tensor = t.randn(TSIZE, dtype=DEFAULT_DTYPE)
         xc:t.Tensor = t.randn(TSIZE, dtype=DEFAULT_COMPLEX_DTYPE)

@@ -1,9 +1,77 @@
-from numpy import iscomplex
 from .defaults import *
 from .math import xbias
 from .conversions import nantonum
 
 
+
+@ts
+def unflatten(x:t.Tensor, dim:int, size:List[int]) -> t.Tensor:
+    """Run the equivalent of a functional unflatten on the provided signal.
+
+    Args:
+        x (t.Tensor): The signal to unflatten.
+        dim (int): The dimension to unflatten in the signal.
+        size (List[int]): The new expanded size of the unflattened dimension.
+
+    Returns:
+        t.Tensor: The unflattened signal.
+    """
+    # Assert that the tensor unflattens to the appropriate size at the provided dim
+    numel:int = 1
+    for n in size:
+        numel = numel * n
+    assert numel == x.size(dim)
+
+    # Accumulate the result
+    y:t.Tensor = x
+    xdim:int = x.dim()
+
+    # Unfold the specified dimension for each descriptive dimension of size
+    # The dimensions must be unflattened in a queue, so flip the order of the list
+    #   and reverse the indexing system to be end-relative
+    for idx, n in enumerate(size[::-1]):
+        target:int = -xdim + dim - idx
+        y = y.unfold(target, n, n).movedim(-1, target)
+
+    # Return fully unflattened tensor, squeezing the leftover element dim
+    return y.squeeze(dim)
+
+
+@ts
+def resignal(x:t.Tensor, samples:int, dim:int=-1) -> t.Tensor:
+    """Takes the input signal, finds the basis frequency responses for the signal, then applies said
+    responses to a properly sized dimension.
+
+    Args:
+        x (t.Tensor): The signal to resignal.
+        samples (int): The amount of samples to use in the selected dimension of the input signal.
+        dim (int, optional): The dimension to resignal in x. Defaults to -1.
+
+    Returns:
+        t.Tensor: The resignalled input signal.
+    """
+    # I know there are redundant `if` calls in this equation. Due to the out of order
+    #     size aquisition, this should have minimal performance impact relative to the actual 
+    #     computation and improves readability.
+    xcomp:bool = x.is_complex()
+
+    # Sample the constructing frequencies and phases, zero padding. Get rid of
+    #     inifinite values while evaluating.
+    if xcomp:
+        xfft:t.Tensor = tfft.fft(nantonum(x), dim=dim, n=x.size(dim), norm='ortho')
+    else:
+        xfft:t.Tensor = tfft.rfft(nantonum(x), dim=dim, n=x.size(dim), norm='ortho')
+
+    # Put the samples back to smearwise where no zero padding exists
+    # This can be done because this is a natural signal
+    # No data is lost or obscured in theory during upsampling, downsampling loses higher frequencies
+    if xcomp:
+        y:t.Tensor = tfft.ifft(xfft, dim=dim, n=samples, norm='ortho')
+    else:
+        y:t.Tensor = tfft.irfft(xfft, dim=dim, n=samples, norm='ortho')
+
+    return y
+    
 
 @ts
 def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str=DEFAULT_PADDING) -> t.Tensor:
@@ -42,6 +110,7 @@ def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str=DEFAULT_PADDIN
     if oneD: xpad.squeeze_(0)
     return xpad.transpose(dim, -1)
 
+
 @ts
 def dimmatch(a:t.Tensor, b:t.Tensor, dim:int, mode:str=DEFAULT_PADDING) -> Tuple[t.Tensor, t.Tensor]:
     """Make the selected dimension have the same size between two tensors.
@@ -66,69 +135,6 @@ def dimmatch(a:t.Tensor, b:t.Tensor, dim:int, mode:str=DEFAULT_PADDING) -> Tuple
         return a, paddim(b, 0, asize-bsize, dim=dim, mode=mode)
     return a, b
 
-@ts
-def unflatten(x:t.Tensor, dim:int, size:List[int]) -> t.Tensor:
-    """Run the equivalent of a functional unflatten on the provided signal.
-
-    Args:
-        x (t.Tensor): The signal to unflatten.
-        dim (int): The dimension to unflatten in the signal.
-        size (List[int]): The new expanded size of the unflattened dimension.
-
-    Returns:
-        t.Tensor: The unflattened signal.
-    """
-    # Assert that the tensor unflattens to the appropriate size at the provided dim
-    numel:int = 1
-    for n in size:
-        numel = numel * n
-    assert numel == x.size(dim)
-
-    # Accumulate the result
-    y:t.Tensor = x
-
-    # Unfold the specified dimension for each descriptive dimension of size
-    for idx, n in enumerate(list(size)):
-        target:int = dim + idx
-        y = y.unfold(target, n, n).movedim(-1, target)
-
-    # Return fully unflattened tensor
-    return y
-
-@ts
-def resignal(x:t.Tensor, samples:int, dim:int=-1) -> t.Tensor:
-    """Takes the input signal, finds the basis frequency responses for the signal, then applies said
-    responses to a properly sized dimension.
-
-    Args:
-        x (t.Tensor): The signal to resignal.
-        samples (int): The amount of samples to use in the selected dimension of the input signal.
-        dim (int, optional): The dimension to resignal in x. Defaults to -1.
-
-    Returns:
-        t.Tensor: The resignalled input signal.
-    """
-    # I know there are redundant `if` calls in this equation. Due to the out of order
-    #     size aquisition, this should have minimal performance impact relative to the actual 
-    #     computation and improves readability.
-    xcomp:bool = x.is_complex()
-
-    # Sample the constructing frequencies and phases, zero padding. Get rid of
-    #     inifinite values while evaluating.
-    if xcomp:
-        xfft:t.Tensor = tfft.fft(nantonum(x), dim=dim, n=x.size(dim), norm='ortho')
-    else:
-        xfft:t.Tensor = tfft.rfft(nantonum(x), dim=dim, n=x.size(dim), norm='ortho')
-
-    # Put the samples back to smearwise where no zero padding exists
-    # This can be done because this is a natural signal
-    # No data is lost or obscured in theory during upsampling, downsampling loses higher frequencies
-    if xcomp:
-        y:t.Tensor = tfft.ifft(xfft, dim=dim, n=samples, norm='ortho')
-    else:
-        y:t.Tensor = tfft.irfft(xfft, dim=dim, n=samples, norm='ortho')
-
-    return y
 
 @ts 
 def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True) -> t.Tensor:
