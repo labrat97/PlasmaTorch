@@ -1,3 +1,4 @@
+from torch import chunk
 from .defaults import *
 from .math import xbias
 from .conversions import nantonum
@@ -71,7 +72,7 @@ def resignal(x:t.Tensor, samples:int, dim:int=-1) -> t.Tensor:
         y:t.Tensor = tfft.irfft(xfft, dim=dim, n=samples, norm='ortho')
 
     return y
-    
+
 
 @ts
 def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str=DEFAULT_PADDING) -> t.Tensor:
@@ -89,11 +90,17 @@ def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str=DEFAULT_PADDIN
     """
     # Transpose the dim of interest to the end of the tensor
     wx:t.Tensor = x.transpose(dim, -1)
+    unsqueezes:int = 0
 
     # Force a certain level of dimensions
-    oneD:bool = (x.dim() <= 1)
-    if oneD: wx.unsqueeze_(0)
-    padform:List[int] = [lowpad, highpad] + ([0] * (2 * (wx.dim() - 3)))
+    while wx.dim() <= 2:
+        wx.unsqueeze_(0)
+        unsqueezes += 1
+    chunkShape:List[int] = wx.size()[:-2]
+    wx = wx.flatten(start_dim=0, end_dim=-3) 
+
+    # Prep the padding description
+    padform = (lowpad, highpad)
 
     # Handle number complexity
     xcomp:bool = wx.is_complex()
@@ -106,8 +113,10 @@ def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str=DEFAULT_PADDIN
     else:
         xpad:t.Tensor = nnf.pad(wx, pad=padform, mode=mode)
 
-    # Put the dimension back in the appropriate place
-    if oneD: xpad.squeeze_(0)
+    # Put the dimension structure back in the appropriate place
+    xpad = unflatten(xpad, dim=0, size=chunkShape)
+    for _ in range(unsqueezes):
+        xpad.squeeze_(0)
     return xpad.transpose(dim, -1)
 
 
