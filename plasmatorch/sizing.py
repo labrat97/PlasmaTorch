@@ -1,10 +1,12 @@
+from numpy import iscomplex
 from .defaults import *
 from .math import xbias
 from .conversions import nantonum
 
 
+
 @ts
-def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str=DEFAULT_PADDING, value:float=0.0) -> t.Tensor:
+def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str=DEFAULT_PADDING) -> t.Tensor:
     """Pad the selected dimension with the torch.nnf pad() method internally.
 
     Args:
@@ -13,22 +15,35 @@ def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str=DEFAULT_PADDIN
         highpad (int): The number of samples to pad at the end of the tensor's indices.
         dim (int): The dimension to pad.
         mode (str, optional): The padding mode to use for the specified dim. Defaults to DEFAULT_PADDING.
-        value (float, optional): The value to use to pad if applicable from the mode parameter. Defaults to 0.0.
 
     Returns:
         t.Tensor: The padded signal.
     """
     # Transpose the dim of interest to the end of the tensor
-    xT:t.Tensor = x.transpose(dim, -1)
+    wx:t.Tensor = x.transpose(dim, -1)
+
+    # Force a certain level of dimensions
+    oneD:bool = (x.dim() <= 1)
+    if oneD: wx.unsqueeze_(0)
+    padform:List[int] = [lowpad, highpad] + ([0] * (2 * (wx.dim() - 3)))
+
+    # Handle number complexity
+    xcomp:bool = wx.is_complex()
 
     # Pad the dimension with the padding parameters
-    xPad:t.Tensor = nnf.pad(xT, (lowpad, highpad), mode=mode, value=value)
-    
+    if xcomp:
+        xpadr:t.Tensor = nnf.pad(wx.real, pad=padform, mode=mode)
+        xpadi:t.Tensor = nnf.pad(wx.imag, pad=padform, mode=mode)
+        xpad:t.Tensor = t.view_as_complex(t.stack((xpadr, xpadi), dim=-1))
+    else:
+        xpad:t.Tensor = nnf.pad(wx, pad=padform, mode=mode)
+
     # Put the dimension back in the appropriate place
-    return xPad.transpose(dim, -1)
+    if oneD: xpad.squeeze_(0)
+    return xpad.transpose(dim, -1)
 
 @ts
-def dimmatch(a:t.Tensor, b:t.Tensor, dim:int, mode:str=DEFAULT_PADDING, value:float=0.0) -> Tuple[t.Tensor, t.Tensor]:
+def dimmatch(a:t.Tensor, b:t.Tensor, dim:int, mode:str=DEFAULT_PADDING) -> Tuple[t.Tensor, t.Tensor]:
     """Make the selected dimension have the same size between two tensors.
 
     Args:
@@ -36,8 +51,7 @@ def dimmatch(a:t.Tensor, b:t.Tensor, dim:int, mode:str=DEFAULT_PADDING, value:fl
         b (t.Tensor): The second tensor to match.
         dim (int): The dimension to perform the matching operation on.
         mode (str, optional): The padding mode to use for the specified dim. Defaults to DEFAULT_PADDING.
-        value (float, optional): The value to use to pad if applicable from the mode parameter. Defaults to 0.0.
-
+        
     Returns:
         Tuple[t.Tensor, t.Tensor]: Signals a and b, respectively, with the selected dim having matching sample counts.
     """
@@ -47,9 +61,9 @@ def dimmatch(a:t.Tensor, b:t.Tensor, dim:int, mode:str=DEFAULT_PADDING, value:fl
 
     # Pad whichever dim needs padding
     if asize < bsize:
-        return paddim(a, 0, bsize-asize, dim=dim, mode=mode, value=value), b
+        return paddim(a, 0, bsize-asize, dim=dim, mode=mode), b
     elif bsize < asize:
-        return a, paddim(b, 0, asize-bsize, dim=dim, mode=mode, value=value)
+        return a, paddim(b, 0, asize-bsize, dim=dim, mode=mode)
     return a, b
 
 @ts
