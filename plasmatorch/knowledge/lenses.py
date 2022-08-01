@@ -70,7 +70,7 @@ class PolarLens(KnowledgeFilter):
 
     def __forward__(self, x:t.Tensor) -> t.Tensor:
         # Create the lens as a signal
-        softlens:t.Tensor = isigmoid(self.lensBasis, dim=-1)
+        softlens:t.Tensor = csigmoid(self.lensBasis, dim=-1)
         lensIntrinsics:t.Tensor = self.lensDir * tfft.irfft(softlens, n=softlens.size(-1), dim=-1, norm='ortho')
         
         # Push the lens through the lens() equation

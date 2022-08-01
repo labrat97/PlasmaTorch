@@ -244,7 +244,7 @@ def bloodmuck(teacher:nn.Module, student:nn.Module, sigma:t.Tensor):
     #   the student to the teacher.
     with t.no_grad():
         # Lock the momentum to be activated inside of a sigmoid like function
-        epsig:t.Tensor = isigmoid(sigma.detach())
+        epsig:t.Tensor = csigmoid(sigma.detach())
         # No need to always re-calc
         aepsig:t.Tensor = 1 - epsig
         

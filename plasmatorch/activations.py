@@ -3,6 +3,7 @@ from .conversions import *
 from .math import *
 
 
+
 @ts
 def lissajous(x:t.Tensor, freqs:t.Tensor, phases:t.Tensor, oneD:bool = True) -> t.Tensor:
     """Create a lissajous curve sampled at position `x` with the associated frequencies
@@ -36,7 +37,7 @@ def lissajous(x:t.Tensor, freqs:t.Tensor, phases:t.Tensor, oneD:bool = True) -> 
     # This is done due to the non-converging nature of the non-convergence of the
     # cos function during the operation on complex numbers. To solve this, a sin function
     # is called in the imaginary place to emulate the e^ix behavior for sinusoidal signals.
-    return isin(sinpos).transpose(-1, -2)
+    return csin(sinpos).transpose(-1, -2)
 
 class Lissajous(nn.Module):
     """
@@ -151,6 +152,7 @@ class Knot(nn.Module):
         # Swap the position of the curve and the sample (so the samples are on the rear)
         return result
 
+
 class Ringing(nn.Module):
     """
     Creates a structure that acts as a set of tuning forks, dampening over time. Because
@@ -181,7 +183,7 @@ class Ringing(nn.Module):
         # Apply fork signals to appropriate locations
         yfft[..., posLow] += ((1 - posMix) * forks)
         yfft[..., posHigh] += (posMix * forks)
-        yfft.add_(xfft * isigmoid(self.signalDecay))
+        yfft.add_(xfft * csigmoid(self.signalDecay))
 
         return yfft
     
@@ -196,7 +198,7 @@ class Ringing(nn.Module):
             self.forkVals = self.forkVals * 0
         # Regular 1/phi() decay
         else:
-            self.forkVals = self.forkVals * isigmoid(self.forkDecay)
+            self.forkVals = self.forkVals * csigmoid(self.forkDecay)
         
 
     def view(self, samples:int=DEFAULT_FFT_SAMPLES) -> t.Tensor:
@@ -210,7 +212,7 @@ class Ringing(nn.Module):
         """
         # Generate metadata needed to create the output signal
         assert samples >= 1
-        positions = csigmoid(self.forkPos) * (samples - 1)
+        positions = csigmoid(self.forkPos).abs() * (samples - 1)
         posLow = positions.type(t.int64)
         posHigh = (posLow + 1).clamp_max(samples - 1)
         posMix = positions - posLow
@@ -236,7 +238,7 @@ class Ringing(nn.Module):
         # Gather parameters needed to have some light attention to the tunes coming in
         xfft = fft(x, dim=-1)
         xsamples = x.size()[-1]
-        positions = isigmoid(self.forkPos) * (xsamples - 1)
+        positions = csigmoid(self.forkPos) * (xsamples - 1)
 
         # Extract the target parameters from the signal. In doing this, signal decay is avoided
         #   only when applying to the forks. In all other parts of this function (parts not contributing
@@ -264,7 +266,7 @@ class Ringing(nn.Module):
 
         # Add the input signals to the enclosed signals, remember, xvals doesn't decay
         #   here, the recurrent fork values do.
-        forkVals = ((self.forkVals * isigmoid(self.forkDecay)) + xvals)
+        forkVals = ((self.forkVals * csigmoid(self.forkDecay)) + xvals)
         if not stopTime:
             self.forkVals = forkVals
         

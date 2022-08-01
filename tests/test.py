@@ -10,6 +10,9 @@ TEST_FFT_SAMPLES:int = defaults.DEFAULT_FFT_SAMPLES
 TEST_FFT_SMALL_BATCHES:int = defaults.SMALL_FFT_BATCH
 TEST_FFT_SMALL_SAMPLES:int = defaults.SMALL_FFT_BATCH
 
+
+
+# This feels stupid as of now
 def getsmear(dtype:torch.dtype, ones:bool = False):
     # The smear to test
     smear = Smear(samples=TEST_FFT_SMALL_SAMPLES, lowerScalar=1/16, upperScalar=1/16, dtype=dtype)

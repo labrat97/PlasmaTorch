@@ -97,10 +97,10 @@ def strToTensor(x:str) -> t.Tensor:
         x (str): The string to turn into a tensor.
 
     Returns:
-        t.Tensor: The input string as a tensor (int32).
+        t.Tensor: The input string as a tensor (uint8).
     """
     # Prepare memory for construction
-    rawstr = t.zeros((len(x)), dtype=t.int32, device='cpu')
+    rawstr = t.zeros((len(x)), dtype=t.uint8, device='cpu')
 
     # Copy string
     for idx, char in enumerate(x):
@@ -108,7 +108,6 @@ def strToTensor(x:str) -> t.Tensor:
     
     return rawstr
 
-@ts
 def tensorToStr(x:t.Tensor, dim:int=-1) -> List[str]:
     """Converts a tensor to a list of python strings.
 
@@ -142,7 +141,7 @@ def tensorToStr(x:t.Tensor, dim:int=-1) -> List[str]:
             build += chr(target[jdx])
         
         # Add the string to the output list
-        pystr.append(build)
+        pystr.append(build.encode('utf-8'))
 
     # Return all embedded strings in a list
     return pystr
