@@ -10,7 +10,7 @@ from random import randint
 class UnflattenTest(unittest.TestCase):
     def testConsistency(self):
         # Generate the starting tensors
-        SIZELEN:int = randint(2, 5)
+        SIZELEN:int = randint(2, 4)
         SIZE:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[7]) for _ in range(SIZELEN)]
         TSIZE:t.Size = t.Size(SIZE)
         x:t.Tensor = t.randn(TSIZE, dtype=DEFAULT_DTYPE)
@@ -40,7 +40,7 @@ class UnflattenTest(unittest.TestCase):
 class ResignalTest(unittest.TestCase):
     def testSizingByDim(self):
         # Generate the starting tensors
-        SIZELEN:int = randint(1, 5)
+        SIZELEN:int = randint(1, 4)
         SIZE:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[7]) for _ in range(SIZELEN)]
         TSIZE:t.Size = t.Size(SIZE)
         x:t.Tensor = t.randn(TSIZE, dtype=DEFAULT_DTYPE)
@@ -97,7 +97,7 @@ class PaddimTest(unittest.TestCase):
 
     def testSizingByDim(self):
         # Generate the starting tensors
-        SIZELEN:int = randint(2, 5)
+        SIZELEN:int = randint(2, 4)
         SIZE:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[7]) for _ in range(SIZELEN)]
         TSIZE:t.Size = t.Size(SIZE)
         x:t.Tensor = t.randn(TSIZE, dtype=DEFAULT_DTYPE)
@@ -155,7 +155,7 @@ class PaddimTest(unittest.TestCase):
 class DimmatchTest(unittest.TestCase):
     def testSizingByDim(self):
         # Generate the starting tensors
-        SIZELEN:int = randint(2, 5)
+        SIZELEN:int = randint(2, 4)
         SIZEA:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[7]) for _ in range(SIZELEN)]
         SIZEB:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[7]) for _ in range(SIZELEN)]
         a:t.Tensor = t.randn(SIZEA, dtype=DEFAULT_DTYPE)
