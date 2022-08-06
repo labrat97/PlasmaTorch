@@ -178,4 +178,80 @@ class DimmatchTest(unittest.TestCase):
 
 
 
-# TODO: class WeightedResampleTest(unittest.TestCase):
+class WeightedResampleTest(unittest.TestCase):
+    def __testBase__(self, posgen:Callable[[int, int], t.Tensor], test:Callable[[t.Tensor, t.Tensor, t.Tensor, int, bool], str]):
+        # Generate the tensors for testing
+        SIZELEN:int = randint(2, 4)
+        SIZE:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[7]) for _ in range(SIZELEN)]
+        x:t.Tensor = t.randn(SIZE, dtype=DEFAULT_DTYPE)
+        xc:t.Tensor = t.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+        posWeights:List[t.Tensor] = [posgen(idx, dimlen) for idx, dimlen in enumerate(SIZE)]
+
+        # Randomize batch dimension
+        for idx in range(1, len(posWeights)):
+            addDim:bool = True #bool(randint(0, 1))
+            if addDim: posWeights[idx] = t.stack([posWeights[idx]] * SIZE[0], dim=0)
+        for weight in posWeights: assert not weight.is_complex()
+
+        # Iterate through each possible dim to make sure that the weighted resample is 
+        #   performing appropriately. Specifically check the sizing here.
+        for idx, posWeight in enumerate(posWeights):
+            # Run each dim of the testing tensors through the function
+            wx:t.Tensor = weightedResample(x, pos=posWeight, dim=idx, ortho=False)
+            wxc:t.Tensor = weightedResample(xc, pos=posWeight, dim=idx, ortho=False)
+            wxo:t.Tensor = weightedResample(x, pos=posWeight, dim=idx, ortho=True)
+            wxco:t.Tensor = weightedResample(xc, pos=posWeight, dim=idx, ortho=True)
+
+            # Run the perscribed test
+            runResults:List[str] = [test(wx, x, posWeight, idx, False),
+            test(wxc, xc, posWeight, idx, False),
+            test(wxo, x, posWeight, idx, True),
+            test(wxco, x, posWeight, idx, True)]
+            for result in runResults:
+                self.assertTrue(result == None, msg=result)
+
+
+    def __sizingPos__(idx:int, dimlen:int) -> t.Tensor:
+        return t.randn(randint(1, dimlen*2), dtype=DEFAULT_DTYPE)
+
+    def __sizingTest__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int, ortho:bool) -> str:
+        # Iterate only the value on the dim
+        size:List[int] = list(x.size())
+        size[dim] = pos.size(-1)
+
+        if wx.size() == t.Size(size):
+            return None
+        return f'[{dim}][{x.size()}||{pos.size()}]\n{wx.size()} != {t.Size(size)}'
+
+    def testSizingByDim(self):
+        self.__testBase__(posgen=WeightedResampleTest.__sizingPos__, test=WeightedResampleTest.__sizingTest__)
+
+
+    def __valueOrthoPos__(idx:int, dimlen:int) -> t.Tensor:
+        return t.zeros(dimlen, dtype=DEFAULT_DTYPE)
+
+    def __valueOrthoTest__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int, ortho:bool) -> str:
+        if ortho:
+            return t.all((wx - x).abs() <= 1e-4)
+        normx:t.Tensor = wx.transpose(dim,-1)
+        if t.all((normx[...,:-1] - normx[...,1:]).abs() <= 1e-4):
+            return None
+        return f'{normx}'
+
+    def testValuesOrtho(self):
+        self.__testBase__(posgen=WeightedResampleTest.__valueOrthoPos__, test=WeightedResampleTest.__valueOrthoTest__)
+    
+
+    def __valueRandnPos__(idx:int, dimlen:int) -> t.Tensor:
+        return t.randn(randint(1, dimlen*2), dtype=DEFAULT_DTYPE)
+    
+    def __valueRandnTest__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int, ortho:bool) -> str:
+        retA:bool = t.all(wx.max(dim=dim) <= (x.max(dim=dim) + 1e-4))
+        retB:bool = t.all(wx.min(dim=dim) >= (x.min(dim=dim) - 1e-4))
+
+        if retA and retB:
+            return None
+        return f'[{(x.min(), x.max())}] -><> [{(wx.min(), wx.max())}]'
+
+    def testValuesRandn(self):
+        self.__testBase__(posgen=WeightedResampleTest.__valueRandnPos__, test=WeightedResampleTest.__valueRandnTest__)
