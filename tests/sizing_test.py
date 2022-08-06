@@ -189,7 +189,7 @@ class WeightedResampleTest(unittest.TestCase):
 
         # Randomize batch dimension
         for idx in range(1, len(posWeights)):
-            addDim:bool = True #bool(randint(0, 1))
+            addDim:bool = bool(randint(0, 1))
             if addDim: posWeights[idx] = t.stack([posWeights[idx]] * SIZE[0], dim=0)
         for weight in posWeights: assert not weight.is_complex()
 

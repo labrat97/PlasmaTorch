@@ -174,7 +174,6 @@ def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True) -> t
     slensSize = lensSize if pos.dim() == 1 else pos.squeeze(0).size()
     slensDims:int = len(slensSize)
     assert not (dim == 0 and slensDims > 1)
-    assert not (xdims == 1 and slensDims == 1)
     
     # Assert the batch dimension isn't poorly sized. This is needed because the above created
     #   batch is actually just an aggregate of all of the unaccounted for dimensions in the resample
@@ -185,7 +184,9 @@ def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True) -> t
     
     # Put the dim in the appropriate place for sampling
     dimout:t.Tensor = x.movedim(dim, -1)
-    
+    extrabatchDim:bool = (batchOffset != 0) and (xdims == 2)
+    if extrabatchDim: dimout.unsqueeze_(-2)
+
     # Flatten the higher dimensional, less significant, batches into one dim
     flatsize = dimout.size()[batchOffset:-1]
     flatbatch:t.Tensor = t.flatten(dimout, start_dim=batchOffset, end_dim=-2) # [..., x] -> [..., F, x]
@@ -200,7 +201,7 @@ def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True) -> t
     wxsize = wx.size() # [batch, flat, channels, units(rows:1), units(cols)]
 
     # Add dummy dimensions for sampling
-    wl:t.Tensor = pos.unsqueeze(0) if slensDims == 1 else pos # [..., p] -> [b, p]
+    wl:t.Tensor = pos.unsqueeze(0) if lensDims == 1 else pos # [..., p] -> [b, p]
     wl = wl.unsqueeze(-2).unsqueeze(-2) # [b, p] -> [b, 1, 1, p]
     wl = t.cat([wl] * wx.size(1), dim=1) # [b, 1, 1, p] -> [b, F, 1, p]
     wl = t.stack((wl, t.zeros_like(wl)), dim=-1) # [b, F, 1, p] -> [b, F, 1, p, [x, (y)0]]
@@ -217,6 +218,7 @@ def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True) -> t
     # Keep the normal [-1.0, 1.0] corner alignment
     else:
         ortholut:t.Tensor = t.zeros(result.size(-1)).unsqueeze(0) # [1, positions]
+        assert ortholut.size() == t.Size([1, result.size(-1)])
     ortholut = t.stack([ortholut, t.zeros_like(ortholut)], dim=-1) # [1, p] -> [1, p, [x, (y)0]]
 
     # Resample each batch
@@ -245,4 +247,5 @@ def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True) -> t
 
     # Reapply the computed dimension to the appropriate dimension according to the
     #   seeding tensor.
+    if extrabatchDim: result.squeeze_(-2)
     return result.movedim(-1, dim)
