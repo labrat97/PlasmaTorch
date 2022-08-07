@@ -7,8 +7,8 @@ XXX `math_test.py`
 
 2.
 Make tests for:
-... sizing
-lens
+XXX sizing
+... lens
 losses
 toroidallin
 attention

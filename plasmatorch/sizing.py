@@ -1,4 +1,3 @@
-from torch import chunk
 from .defaults import *
 from .math import xbias
 from .conversions import nantonum
