@@ -206,9 +206,9 @@ class WeightedResampleTest(unittest.TestCase):
             runResults:List[str] = [test(wx, x, posWeight, idx, False),
             test(wxc, xc, posWeight, idx, False),
             test(wxo, x, posWeight, idx, True),
-            test(wxco, x, posWeight, idx, True)]
-            for result in runResults:
-                self.assertTrue(result == None, msg=result)
+            test(wxco, xc, posWeight, idx, True)]
+            for idx, result in enumerate(runResults):
+                self.assertTrue(result == None, msg=f'[{idx}]->{result}')
 
 
     def __sizingPos__(idx:int, dimlen:int) -> t.Tensor:
@@ -231,13 +231,16 @@ class WeightedResampleTest(unittest.TestCase):
         return t.zeros(dimlen, dtype=DEFAULT_DTYPE)
 
     def __valueOrthoTest__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int, ortho:bool) -> str:
-        if ortho:
-            return t.all((wx - x).abs() <= 1e-4)
         normx:t.Tensor = wx.transpose(dim,-1)
-        if t.all((normx[...,:-1] - normx[...,1:]).abs() <= 1e-4):
-            return None
-        return f'{normx}'
-
+        retmsg = None
+        if ortho:
+            retval:bool = t.all((wx - x).abs() <= 1e-4)
+            if not retval: retmsg = f'{x} !=-> {wx}'
+        else:
+            retval:bool = t.all((normx[...,:-1] - normx[...,1:]).abs() <= 1e-4)
+            if not retval: retmsg = f'wx.transpose({dim},-1)->({normx}) not self-similar'
+        return retmsg
+    
     def testValuesOrtho(self):
         self.__testBase__(posgen=WeightedResampleTest.__valueOrthoPos__, test=WeightedResampleTest.__valueOrthoTest__)
     
@@ -246,12 +249,14 @@ class WeightedResampleTest(unittest.TestCase):
         return t.randn(randint(1, dimlen*2), dtype=DEFAULT_DTYPE)
     
     def __valueRandnTest__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int, ortho:bool) -> str:
-        retA:bool = t.all(wx.max(dim=dim) <= (x.max(dim=dim) + 1e-4))
-        retB:bool = t.all(wx.min(dim=dim) >= (x.min(dim=dim) - 1e-4))
+        wxabs:t.Tensor = wx.abs()
+        xabs:t.Tensor = x.abs()
+        ret:bool = wxabs.max() <= (xabs.max() + 1e-4)
+        # Can't really test minimum value here due to interpolation mixed with sample positions
 
-        if retA and retB:
+        if ret:
             return None
-        return f'[{(x.min(), x.max())}] -><> [{(wx.min(), wx.max())}]'
+        return f'{(xabs.min(), xabs.max())} -<>> {(wxabs.min(), wxabs.max())}'
 
     def testValuesRandn(self):
         self.__testBase__(posgen=WeightedResampleTest.__valueRandnPos__, test=WeightedResampleTest.__valueRandnTest__)

@@ -179,6 +179,10 @@ def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True) -> t
     #   batch is actually just an aggregate of all of the unaccounted for dimensions in the resample
     assert (slensDims == 1) or (slensSize[0] == x.size(0)), f'{lensSize}\t->||<-\t{x.size()}'
 
+    # Quick exit the method for safety if the dimension is of size one with a stack
+    if x.size(dim) == 1:
+        return t.cat([x] * slensSize[-1], dim=dim)
+
     # Ensure that there is a batch
     batchOffset:int = int(pos.dim() == 2)
     
@@ -212,13 +216,14 @@ def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True) -> t
         dtype=wx.dtype, device=x.device) # [batch, flat, channels, units(rows:1), positions]
     
     # Set up an orthonormal lookup system
-    if ortho:
-        posCount:int = result.size(-1)
+    posCount:int = result.size(-1)
+    if ortho and (posCount > 1):
         ortholut:t.Tensor = (((2. * xbias(posCount)) / (posCount - 1.)) - 1.).unsqueeze(0) # [1, positions]
+        assert (ortholut.min() + 1).abs() <= 1e-4, f'{ortholut.min()}'
+        assert (ortholut.max() - 1).abs() <= 1e-4, f'{ortholut.max()}'
     # Keep the normal [-1.0, 1.0] corner alignment
     else:
-        ortholut:t.Tensor = t.zeros(result.size(-1)).unsqueeze(0) # [1, positions]
-        assert ortholut.size() == t.Size([1, result.size(-1)])
+        ortholut:t.Tensor = t.zeros([1, result.size(-1)]) # [1, positions]
     ortholut = t.stack([ortholut, t.zeros_like(ortholut)], dim=-1) # [1, p] -> [1, p, [x, (y)0]]
 
     # Resample each batch
@@ -226,8 +231,8 @@ def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True) -> t
         wwx = wx[idx] # [F, c, 1, x]
         wwl = wl[idx] + ortholut # [F, 1, p, [x, (y)0]] + [1, p, [x, (y)0]] -> [F, 1, p, [x, (y)0]]
         assert wwl.size() == wl[idx].size()
-        result[idx] = nnf.grid_sample(wwx, wwl, mode='bilinear', padding_mode='reflection', align_corners=True)
-        # [flat, channels, units(rows:1), positions]
+        result[idx] = nnf.grid_sample(wwx.exp(), wwl, mode='bilinear', padding_mode='border', align_corners=True).log()
+        # [flat, channels, units(rows:1), positions(cols)]
 
     # Format the result
     result.squeeze_(-2) # [b, F, c, 1, p] -> [b, F, c, p]
@@ -248,4 +253,5 @@ def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True) -> t
     # Reapply the computed dimension to the appropriate dimension according to the
     #   seeding tensor.
     if extrabatchDim: result.squeeze_(-2)
+    assert result.size()[:-1] == t.Size(x.size()[:dim] + x.size()[dim+1:])
     return result.movedim(-1, dim)
