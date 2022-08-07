@@ -234,7 +234,7 @@ class WeightedResampleTest(unittest.TestCase):
         normx:t.Tensor = wx.transpose(dim,-1)
         retmsg = None
         if ortho:
-            retval:bool = t.all((wx - x).abs() <= 1e-4)
+            retval:bool = t.all((wx - x).abs() <= 5e-3)
             if not retval: retmsg = f'{x} !=-> {wx}'
         else:
             retval:bool = t.all((normx[...,:-1] - normx[...,1:]).abs() <= 1e-4)
