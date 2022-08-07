@@ -212,6 +212,7 @@ class WeightedResampleTest(unittest.TestCase):
 
 
     def __sizingPos__(idx:int, dimlen:int) -> t.Tensor:
+        # The actual selected positions shouldn't matter here
         return t.randn(randint(1, dimlen*2), dtype=DEFAULT_DTYPE)
 
     def __sizingTest__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int, ortho:bool) -> str:
@@ -219,38 +220,51 @@ class WeightedResampleTest(unittest.TestCase):
         size:List[int] = list(x.size())
         size[dim] = pos.size(-1)
 
+        # Check to make sure the size iterated in the expected way
         if wx.size() == t.Size(size):
             return None
         return f'[{dim}][{x.size()}||{pos.size()}]\n{wx.size()} != {t.Size(size)}'
 
     def testSizingByDim(self):
+        # Test the sizing on each dim
         self.__testBase__(posgen=WeightedResampleTest.__sizingPos__, test=WeightedResampleTest.__sizingTest__)
 
 
     def __valueOrthoPos__(idx:int, dimlen:int) -> t.Tensor:
+        # This is the most predictable and most contrasting position selector when ortho is togglable
         return t.zeros(dimlen, dtype=DEFAULT_DTYPE)
 
     def __valueOrthoTest__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int, ortho:bool) -> str:
+        # Get the values readily available
         normx:t.Tensor = wx.transpose(dim,-1)
+        
+        # Test based on if ortho is enabled
         retmsg = None
         if ortho:
+            # If ortho, should be a straight passthrough the system
             retval:bool = t.all((wx - x).abs() <= 5e-3)
             if not retval: retmsg = f'{x} !=-> {wx}'
         else:
+            # If not ortho, should all be the same value
             retval:bool = t.all((normx[...,:-1] - normx[...,1:]).abs() <= 1e-4)
             if not retval: retmsg = f'wx.transpose({dim},-1)->({normx}) not self-similar'
         return retmsg
     
     def testValuesOrtho(self):
+        # Test the values based around ortho toggling
         self.__testBase__(posgen=WeightedResampleTest.__valueOrthoPos__, test=WeightedResampleTest.__valueOrthoTest__)
     
 
     def __valueRandnPos__(idx:int, dimlen:int) -> t.Tensor:
+        # Random values should have random positions
         return t.randn(randint(1, dimlen*2), dtype=DEFAULT_DTYPE)
     
     def __valueRandnTest__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int, ortho:bool) -> str:
+        # Precompute re-used values
         wxabs:t.Tensor = wx.abs()
         xabs:t.Tensor = x.abs()
+
+        # Check to make sure that nothing shoots over the original values provided
         ret:bool = wxabs.max() <= (xabs.max() + 1e-4)
         # Can't really test minimum value here due to interpolation mixed with sample positions
 
@@ -259,4 +273,5 @@ class WeightedResampleTest(unittest.TestCase):
         return f'{(xabs.min(), xabs.max())} -<>> {(wxabs.min(), wxabs.max())}'
 
     def testValuesRandn(self):
+        # Test the values based around random sizing and values
         self.__testBase__(posgen=WeightedResampleTest.__valueRandnPos__, test=WeightedResampleTest.__valueRandnTest__)
