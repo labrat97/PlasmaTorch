@@ -5,7 +5,7 @@ import torch.fft as tfft
 import torch.cuda as tc
 from torch.jit import script as ts
 
-from typing import Tuple, List, Dict, Union
+from typing import Tuple, List, Dict, Union, Callable
 from .memory import *
 
 

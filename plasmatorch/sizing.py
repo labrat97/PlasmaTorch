@@ -21,7 +21,7 @@ def unflatten(x:t.Tensor, dim:int, size:List[int]) -> t.Tensor:
     numel:int = 1
     for n in size:
         numel = numel * n
-    assert numel == x.size(dim)
+    assert numel == x.size(dim), f'{numel} != {x.size(dim)}'
 
     # Accumulate the result
     y:t.Tensor = x
@@ -121,27 +121,28 @@ def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str=DEFAULT_PADDIN
 
 
 @ts
-def dimmatch(a:t.Tensor, b:t.Tensor, dim:int, mode:str=DEFAULT_PADDING) -> Tuple[t.Tensor, t.Tensor]:
-    """Make the selected dimension have the same size between two tensors.
+def dimmatch(a:t.Tensor, b:t.Tensor, dim:int) -> Tuple[t.Tensor, t.Tensor]:
+    """Make the selected dimension have the same size between two tensors using
+    the `resignal()` function.
 
     Args:
         a (t.Tensor): The first tensor to match.
         b (t.Tensor): The second tensor to match.
         dim (int): The dimension to perform the matching operation on.
-        mode (str, optional): The padding mode to use for the specified dim. Defaults to DEFAULT_PADDING.
         
     Returns:
         Tuple[t.Tensor, t.Tensor]: Signals a and b, respectively, with the selected dim having matching sample counts.
     """
     # Extract sizing parameters
-    asize:int = a.size()[dim]
-    bsize:int = b.size()[dim]
+    asize:int = a.size(dim)
+    bsize:int = b.size(dim)
 
     # Pad whichever dim needs padding
     if asize < bsize:
-        return paddim(a, 0, bsize-asize, dim=dim, mode=mode), b
+        return resignal(a, samples=bsize, dim=dim), b
     elif bsize < asize:
-        return a, paddim(b, 0, asize-bsize, dim=dim, mode=mode)
+        return a, resignal(b, samples=asize, dim=dim)
+    # ==
     return a, b
 
 
@@ -160,70 +161,97 @@ def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True) -> t
     """
     # Make sure there isn't an imaginary lens vector
     assert not t.is_complex(pos)
-    # Make sure the dim can be referenced
-    lensSize = pos.size()
-    assert not (dim == 0 and len(lensSize) > 1)
+    xdims:int = x.dim()
+    assert xdims > 0
+
     # Make sure the lens is for a 1D system
-    assert len(lensSize) <= 2
-    slens = pos.squeeze(0)
-    lensSize = slens.size()
+    lensSize = pos.size()
+    lensDims = pos.dim()
+    assert (lensDims <= 2) and (lensDims != 0)
+    # [batch, pos]
 
-    # Ensure that there is a batch
-    batchOffset:int = int(len(lensSize) == 2)
-    # Put the dim in the appropriate place for sampling
-    dimout:t.Tensor = x.transpose(dim, -1)
-    # Flatten the batch into one dim
-    flatbatch:t.Tensor = t.flatten(dimout, start_dim=batchOffset, end_dim=-2) # [..., x] -> [..., b, x]
-
+    # Make sure the dim can be referenced
+    slensSize = lensSize if pos.dim() == 1 else pos.squeeze(0).size()
+    slensDims:int = len(slensSize)
+    assert not (dim == 0 and slensDims > 1)
+    
     # Assert the batch dimension isn't poorly sized. This is needed because the above created
     #   batch is actually just an aggregate of all of the unaccounted for dimensions in the resample
-    assert (len(lensSize) == 1) or (lensSize[0] == flatbatch.size(0))
+    assert (slensDims == 1) or (slensSize[0] == x.size(0)), f'{lensSize}\t->||<-\t{x.size()}'
+
+    # Quick exit the method for safety if the dimension is of size one with a stack
+    if x.size(dim) == 1:
+        return t.cat([x] * slensSize[-1], dim=dim)
+
+    # Ensure that there is a batch
+    batchOffset:int = int(pos.dim() == 2)
+    
+    # Put the dim in the appropriate place for sampling
+    dimout:t.Tensor = x.movedim(dim, -1)
+    extrabatchDim:bool = (batchOffset != 0) and (xdims == 2)
+    if extrabatchDim: dimout.unsqueeze_(-2)
+
+    # Flatten the higher dimensional, less significant, batches into one dim
+    flatsize = dimout.size()[batchOffset:-1]
+    flatbatch:t.Tensor = t.flatten(dimout, start_dim=batchOffset, end_dim=-2) # [..., x] -> [..., F, x]
+    if batchOffset == 0: flatbatch.unsqueeze_(0) # [..., F, x] -> [b, F, x]
 
     # Put channels in the appropriate place for complex numbers
-    if t.is_complex(x):
-        wx:t.Tensor = t.view_as_real(flatbatch).movedim(-1, -2) # [..., b, x] -> [..., b, 2, x]
+    if x.is_complex():
+        wx:t.Tensor = t.view_as_real(flatbatch).transpose(-1, -2) # [b, F, x] -> [b, F, (c)2, x]
     else:
-        wx:t.Tensor = t.unsqueeze(flatbatch, -2) # [..., b, x] -> [..., b, 1, x]
+        wx:t.Tensor = flatbatch.unsqueeze(-2) # [b, F, x] -> [b, F, (c)1, x]
+    wx.unsqueeze_(-2) # [b, F, c, 1, x]
+    wxsize = wx.size() # [batch, flat, channels, units(rows:1), units(cols)]
 
     # Add dummy dimensions for sampling
-    wx = wx.unsqueeze(-2) # [..., b, c, x] -> [..., b, c, 1, x]
-    wxsize = wx.size()
-    wl = slens.unsqueeze(-2).unsqueeze(-2).unsqueeze(-1) # [..., y] -> [..., 1, 1, y, 1]
-    wl = t.cat([wl] * wx.size(-4), dim=-4) # [..., 1, 1, y, 1] -> [..., b, 1, y, 1]
-    wl = t.cat((wl, t.zeros_like(wl)), dim=-1) # [..., b, 1, y, 1] -> [..., b, 1, y, [x_iter, 0]]
-    wlsize = wl.size()
+    wl:t.Tensor = pos.unsqueeze(0) if lensDims == 1 else pos # [..., p] -> [b, p]
+    wl = wl.unsqueeze(-2).unsqueeze(-2) # [b, p] -> [b, 1, 1, p]
+    wl = t.cat([wl] * wx.size(1), dim=1) # [b, 1, 1, p] -> [b, F, 1, p]
+    wl = t.stack((wl, t.zeros_like(wl)), dim=-1) # [b, F, 1, p] -> [b, F, 1, p, [x, (y)0]]
+    # [batch, flat, units(rows:1), positions, sample position[x, (y)0]]
 
     # Get ready for resampling
     result:t.Tensor = t.zeros(wxsize[:-1] + [lensSize[-1]], 
-        dtype=x.dtype, device=x.device) # [..., b, c, 1, x]
-    # Set up an orthoganal lookup system
-    if ortho:
-        ortholut:t.Tensor = (((2. * xbias(wlsize[-2])) / (wlsize[-2] - 1.)) - 1.).unsqueeze(-1)
+        dtype=wx.dtype, device=x.device) # [batch, flat, channels, units(rows:1), positions]
+    
+    # Set up an orthonormal lookup system
+    posCount:int = result.size(-1)
+    if ortho and (posCount > 1):
+        ortholut:t.Tensor = (((2. * xbias(posCount)) / (posCount - 1.)) - 1.).unsqueeze(0) # [1, positions]
+        assert (ortholut.min() + 1).abs() <= 1e-4, f'{ortholut.min()}'
+        assert (ortholut.max() - 1).abs() <= 1e-4, f'{ortholut.max()}'
     # Keep the normal [-1.0, 1.0] corner alignment
     else:
-        ortholut:t.Tensor = t.zeros((wlsize[-2])).unsqueeze(-1)
+        ortholut:t.Tensor = t.zeros([1, result.size(-1)]) # [1, positions]
+    ortholut = t.stack([ortholut, t.zeros_like(ortholut)], dim=-1) # [1, p] -> [1, p, [x, (y)0]]
 
     # Resample each batch
-    if batchOffset == 0:
-        wx = wx.unsqueeze(0) # [..., b, c, 1, x] -> [B, b, c, 1, x]
-        wl = wl.unsqueeze(0) # [..., b, 1, y, [x_iter, 0]] -> [B, b, 1, y, [x_iter, 0]]
-        result = result.unsqueeze(0) # [..., b, c, 1, x] -> [B, b, c, 1, y]
     for idx in range(wx.size(0)):
-        wwx = wx[idx] # [b, c, 1, x]
-        wwl = wl[idx] + ortholut # [b, 1, x, [x_iter, 0]]
-        result[idx] = nnf.grid_sample(wwx, wwl, mode='bilinear', padding_mode='reflection', align_corners=True)
+        wwx = wx[idx] # [F, c, 1, x]
+        wwl = wl[idx] + ortholut # [F, 1, p, [x, (y)0]] + [1, p, [x, (y)0]] -> [F, 1, p, [x, (y)0]]
+        assert wwl.size() == wl[idx].size()
+        result[idx] = nnf.grid_sample(wwx.exp(), wwl, mode='bilinear', padding_mode='border', align_corners=True).log()
+        # [flat, channels, units(rows:1), positions(cols)]
 
     # Format the result
-    if batchOffset == 0:
-        result = result.squeeze(0) # [B, b, c, 1, y] -> [..., b, c, 1, y]
-    result = result.movedim(-3, -1) # [..., b, c, 1, y] -> [..., b, 1, y, c]
-    if t.is_complex(x): # [..., b, 1, y, c] -> [..., b, 1, y]
-        result = t.view_as_complex(result)
+    result.squeeze_(-2) # [b, F, c, 1, p] -> [b, F, c, p]
+    result.transpose_(-1, -2) # [b, F, c, p] -> [b, F, p, c]
+
+    # Reintroduce complexity
+    if x.is_complex(): # [b, F, p, c] -> [b, F, p]
+        # Had to restack due to poor stride issue
+        result = t.view_as_complex(t.stack((result[..., 0], result[..., 1]), dim=-1))
     else:
         result = result.squeeze(-1)
-    result = result.squeeze(-2) # [..., b, 1, y] -> [..., b, y]
-    result = unflatten(result, batchOffset, dimout.size()[:-1]) # [..., b, y] -> [..., y]
+
+    # Restore original size
+    if batchOffset == 0: # [b, F, p] -> [..., F, p]
+        result = result.squeeze(0)
+    result = unflatten(result, batchOffset, flatsize) # [..., b, y] -> [..., y]
 
     # Reapply the computed dimension to the appropriate dimension according to the
     #   seeding tensor.
-    return result.transpose(-1, dim)
+    if extrabatchDim: result.squeeze_(-2)
+    assert result.size()[:-1] == t.Size(x.size()[:dim] + x.size()[dim+1:])
+    return result.movedim(-1, dim)
