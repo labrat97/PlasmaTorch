@@ -179,7 +179,10 @@ class DimmatchTest(unittest.TestCase):
 
 
 class WeightedResampleTest(unittest.TestCase):
-    def __testBase__(self, posgen:Callable[[int, int], t.Tensor], test:Callable[[t.Tensor, t.Tensor, t.Tensor, int, bool], str]):
+    PADDING_OPTIONS:List[str] = ['reflection', 'border', 'zeros']
+
+
+    def __testBase__(self, posgen:Callable[[int, int], t.Tensor], test:Callable[[t.Tensor, t.Tensor, t.Tensor, int, bool, bool, str], str]):
         # Generate the tensors for testing
         SIZELEN:int = randint(2, 4)
         SIZE:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[7]) for _ in range(SIZELEN)]
@@ -196,26 +199,31 @@ class WeightedResampleTest(unittest.TestCase):
         # Iterate through each possible dim to make sure that the weighted resample is 
         #   performing appropriately. Specifically check the sizing here.
         for idx, posWeight in enumerate(posWeights):
+            # Corner alignment random
+            ringCoords:bool = bool(randint(0, 1))
+            padding:str = WeightedResampleTest.PADDING_OPTIONS[randint(0, len(WeightedResampleTest.PADDING_OPTIONS)-1)]
+
             # Run each dim of the testing tensors through the function
-            wx:t.Tensor = weightedResample(x, pos=posWeight, dim=idx, ortho=False)
-            wxc:t.Tensor = weightedResample(xc, pos=posWeight, dim=idx, ortho=False)
-            wxo:t.Tensor = weightedResample(x, pos=posWeight, dim=idx, ortho=True)
-            wxco:t.Tensor = weightedResample(xc, pos=posWeight, dim=idx, ortho=True)
+            wx:t.Tensor = weightedResample(x, pos=posWeight, dim=idx, ortho=False, ringCoords=ringCoords, padding=padding)
+            wxc:t.Tensor = weightedResample(xc, pos=posWeight, dim=idx, ortho=False, ringCoords=ringCoords, padding=padding)
+            wxo:t.Tensor = weightedResample(x, pos=posWeight, dim=idx, ortho=True, ringCoords=ringCoords, padding=padding)
+            wxco:t.Tensor = weightedResample(xc, pos=posWeight, dim=idx, ortho=True, ringCoords=ringCoords, padding=padding)
 
             # Run the perscribed test
-            runResults:List[str] = [test(wx, x, posWeight, idx, False),
-            test(wxc, xc, posWeight, idx, False),
-            test(wxo, x, posWeight, idx, True),
-            test(wxco, xc, posWeight, idx, True)]
+            runResults:List[str] = [
+            test(wx, x, posWeight, idx, False, ringCoords, padding),
+            test(wxc, xc, posWeight, idx, False, ringCoords, padding),
+            test(wxo, x, posWeight, idx, True, ringCoords, padding),
+            test(wxco, xc, posWeight, idx, True, ringCoords, padding)]
             for idx, result in enumerate(runResults):
-                self.assertTrue(result == None, msg=f'[{idx}]->{result}')
+                self.assertTrue(result == None, msg=f'[{idx}, ring:{ringCoords}]->{result}')
 
 
     def __sizingPos__(idx:int, dimlen:int) -> t.Tensor:
         # The actual selected positions shouldn't matter here
         return t.randn(randint(1, dimlen*2), dtype=DEFAULT_DTYPE)
 
-    def __sizingTest__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int, ortho:bool) -> str:
+    def __sizingTest__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int, ortho:bool, ringCoords:bool, padding:str) -> str:
         # Iterate only the value on the dim
         size:List[int] = list(x.size())
         size[dim] = pos.size(-1)
@@ -234,7 +242,7 @@ class WeightedResampleTest(unittest.TestCase):
         # This is the most predictable and most contrasting position selector when ortho is togglable
         return t.zeros(dimlen, dtype=DEFAULT_DTYPE)
 
-    def __valueOrthoTest__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int, ortho:bool) -> str:
+    def __valueOrthoTest__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int, ortho:bool, ringCoords:bool, padding:str) -> str:
         # Get the values readily available
         normx:t.Tensor = wx.transpose(dim,-1)
         
@@ -242,8 +250,8 @@ class WeightedResampleTest(unittest.TestCase):
         retmsg = None
         if ortho:
             # If ortho, should be a straight passthrough the system
-            retval:bool = t.all((wx - x).abs() <= 5e-3)
-            if not retval: retmsg = f'{x} !=-> {wx}'
+            retval:bool = t.all((wx - x).abs() <= 1e-3)
+            if not retval: retmsg = f'{t.stack((x, wx), dim=-1)}'
         else:
             # If not ortho, should all be the same value
             retval:bool = t.all((normx[...,:-1] - normx[...,1:]).abs() <= 1e-4)
@@ -259,7 +267,7 @@ class WeightedResampleTest(unittest.TestCase):
         # Random values should have random positions
         return t.randn(randint(1, dimlen*2), dtype=DEFAULT_DTYPE)
     
-    def __valueRandnTest__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int, ortho:bool) -> str:
+    def __valueRandnTest__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int, ortho:bool, ringCoords:bool, padding:str) -> str:
         # Precompute re-used values
         wxabs:t.Tensor = wx.abs()
         xabs:t.Tensor = x.abs()
