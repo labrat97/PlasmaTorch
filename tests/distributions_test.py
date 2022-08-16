@@ -30,8 +30,8 @@ class IrregularGaussTest(unittest.TestCase):
         # Seeding tensors, no complex support
         x = t.randn(self.SIZE, dtype=DEFAULT_DTYPE)
         xmean = t.randn_like(x)
-        xlow = t.randn_like(x)
-        xhigh = t.randn_like(x).abs() + xlow
+        xlow = t.randn_like(x) 
+        xhigh = t.randn_like(x)
 
         # Calculate
         gauss = irregularGauss(x=x, mean=xmean, lowStd=xlow, highStd=xhigh, reg=False)
@@ -39,11 +39,12 @@ class IrregularGaussTest(unittest.TestCase):
 
         # Calculate control values
         TAU = tau()
-        softlow = nnf.softplus(xlow, beta=TAU)
-        softhigh = nnf.softplus(xhigh, beta=TAU)
-        reglow = (softlow * t.sqrt(TAU))
+        PHI = phi()
+        softlow = ((1. / PHI) * t.log(1 + t.exp(PHI * xlow))).clamp(min=1e-18, max=1e18)
+        softhigh = ((1. / PHI) * t.log(1 + t.exp(PHI * xhigh))).clamp(min=1e-18, max=1e18)
+        reglow = 1. / (softlow * t.sqrt(TAU))
         reflow = t.exp(-0.5 * t.pow((x - xmean) / softlow, 2.))
-        reghigh = (softhigh * t.sqrt(TAU))
+        reghigh = 1. / (softhigh * t.sqrt(TAU))
         refhigh = t.exp(-0.5 * t.pow((x - xmean) / softhigh, 2.))
 
         # Test the values to make sure a normal guassian is happening on
@@ -57,11 +58,11 @@ class IrregularGaussTest(unittest.TestCase):
             t.logical_or(t.logical_not(xtop), (gauss - refhigh) < 1e-4)
         ), msg=f'Upper curve off by approx: {t.mean(gauss-refhigh)}')
         self.assertTrue(t.all(
-            t.logical_or(t.logical_not(xbottom), (gaussreg - (reflow / reglow)) < 1e-3)
-        ), msg=f'Lower regular curve off by approx: {t.max((gaussreg-(reflow / reglow)) * xbottom)}')
+            (xbottom * (gaussreg - nantonum(reflow * reglow))) < 1e-3
+        ), msg=f'Lower regular curve off by approx: {t.max((gaussreg-nantonum(reflow * reglow)) * xbottom)}')
         self.assertTrue(t.all(
-            t.logical_or(t.logical_not(xtop), (gaussreg - (refhigh / reghigh)) < 1e-3)
-        ), msg=f'Upper regular curve off by approx: {t.max((gaussreg-(refhigh / reghigh)) * xtop)}')
+            (xtop * (gaussreg - nantonum(refhigh * reghigh))) < 1e-3
+        ), msg=f'Upper regular curve off by approx: {t.max((gaussreg-nantonum(refhigh * reghigh)) * xtop)}')
 
 
 
