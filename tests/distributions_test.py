@@ -40,8 +40,8 @@ class IrregularGaussTest(unittest.TestCase):
         # Calculate control values
         TAU = tau()
         PHI = phi()
-        softlow = ((1. / PHI) * t.log(1 + t.exp(PHI * xlow))).clamp(min=1e-18, max=1e18)
-        softhigh = ((1. / PHI) * t.log(1 + t.exp(PHI * xhigh))).clamp(min=1e-18, max=1e18)
+        softlow = ((1. / PHI) * t.log(1 + t.exp(PHI * xlow))).clamp(min=1e-12, max=1e12)
+        softhigh = ((1. / PHI) * t.log(1 + t.exp(PHI * xhigh))).clamp(min=1e-12, max=1e12)
         reglow = 1. / (softlow * t.sqrt(TAU))
         reflow = t.exp(-0.5 * t.pow((x - xmean) / softlow, 2.))
         reghigh = 1. / (softhigh * t.sqrt(TAU))

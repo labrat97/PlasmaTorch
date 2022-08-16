@@ -41,7 +41,7 @@ def irregularGauss(x:t.Tensor, mean:t.Tensor, lowStd:t.Tensor, highStd:t.Tensor,
     if bottom.dtype == t.float16 or bottom.dtype == t.complex32:
         bottom.clamp_(min=1e-4, max=1e4)
     else:
-        bottom.clamp_(min=1e-18, max=1e18)
+        bottom.clamp_(min=1e-12, max=1e12)
     
     # Calculate the normal distribution
     factor:t.Tensor = top / bottom
