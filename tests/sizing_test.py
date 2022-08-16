@@ -41,7 +41,7 @@ class ResignalTest(unittest.TestCase):
     def testSizingByDim(self):
         # Generate the starting tensors
         SIZELEN:int = randint(1, 4)
-        SIZE:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[7]) for _ in range(SIZELEN)]
+        SIZE:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[6]) for _ in range(SIZELEN)]
         TSIZE:t.Size = t.Size(SIZE)
         x:t.Tensor = t.randn(TSIZE, dtype=DEFAULT_DTYPE)
         xc:t.Tensor = t.randn(TSIZE, dtype=DEFAULT_COMPLEX_DTYPE)
@@ -67,7 +67,7 @@ class ResignalTest(unittest.TestCase):
     def testReversability(self):
         # Generate the starting tensors
         SIZELEN:int = randint(1, 4)
-        SIZE:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[7]) for _ in range(SIZELEN)]
+        SIZE:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[6]) for _ in range(SIZELEN)]
         TSIZE:t.Size = t.Size(SIZE)
         x:t.Tensor = t.randn(TSIZE, dtype=DEFAULT_DTYPE)
         xc:t.Tensor = t.randn(TSIZE, dtype=DEFAULT_COMPLEX_DTYPE)
