@@ -38,30 +38,30 @@ class IrregularGaussTest(unittest.TestCase):
         gaussreg = irregularGauss(x=x, mean=xmean, lowStd=xlow, highStd=xhigh, reg=True)
 
         # Calculate control values
-        PHI = float(phi())
-        P2I = float(pi() * 2)
-        softp = t.nn.Softplus(beta=PHI, threshold=100)
-        reglow = 1. / (softp(xlow) * t.sqrt(t.ones_like(xlow) * P2I))
-        reflow = t.exp(-0.5 * t.pow((x - xmean) / softp(xlow), 2.))
-        reghigh = 1. / (softp(xhigh) * t.sqrt(t.ones_like(xhigh) * P2I))
-        refhigh = t.exp(-0.5 * t.pow((x - xmean) / softp(xhigh), 2.))
+        TAU = tau()
+        softlow = nnf.softplus(xlow, beta=TAU)
+        softhigh = nnf.softplus(xhigh, beta=TAU)
+        reglow = (softlow * t.sqrt(TAU))
+        reflow = t.exp(-0.5 * t.pow((x - xmean) / softlow, 2.))
+        reghigh = (softhigh * t.sqrt(TAU))
+        refhigh = t.exp(-0.5 * t.pow((x - xmean) / softhigh, 2.))
 
         # Test the values to make sure a normal guassian is happening on
         # either side of the mean
-        xbottom = (x <= xmean)
-        xtop = (x >= xmean)
+        xbottom = (x <= xmean).to(t.uint8)
+        xtop = (x >= xmean).to(t.uint8)
         self.assertTrue(t.all(
-            t.logical_or(t.logical_not(xbottom), (gauss - reflow < 1e-4))
+            t.logical_or(t.logical_not(xbottom), (gauss - reflow) < 1e-4)
         ), msg=f'Lower curve off by approx: {t.mean(gauss-reflow)}')
         self.assertTrue(t.all(
-            t.logical_or(t.logical_not(xtop), (gauss - refhigh < 1e-4))
+            t.logical_or(t.logical_not(xtop), (gauss - refhigh) < 1e-4)
         ), msg=f'Upper curve off by approx: {t.mean(gauss-refhigh)}')
         self.assertTrue(t.all(
-            t.logical_or(t.logical_not(xbottom), (gaussreg - (reglow * reflow) < 1e-4))
-        ), msg=f'Lower curve off by approx: {t.mean(gaussreg-(reglow*reflow))}')
+            t.logical_or(t.logical_not(xbottom), (gaussreg - (reflow / reglow)) < 1e-3)
+        ), msg=f'Lower regular curve off by approx: {t.max((gaussreg-(reflow / reglow)) * xbottom)}')
         self.assertTrue(t.all(
-            t.logical_or(t.logical_not(xtop), (gaussreg - (reghigh * refhigh) < 1e-4))
-        ), msg=f'Upper curve off by approx: {t.mean(gaussreg-(reghigh*refhigh))}')
+            t.logical_or(t.logical_not(xtop), (gaussreg - (refhigh / reghigh)) < 1e-3)
+        ), msg=f'Upper regular curve off by approx: {t.max((gaussreg-(refhigh / reghigh)) * xtop)}')
 
 
 

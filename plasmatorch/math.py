@@ -18,6 +18,20 @@ def pi(dtype:t.dtype=DEFAULT_DTYPE) -> t.Tensor:
 
 
 @ts
+def tau(dtype:t.dtype=DEFAULT_DTYPE) -> t.Tensor:
+    """Gets the value of Tau (2. * Pi) in the requested datatype.
+
+    Args:
+        dtype (t.dtype, optional): The datatype to return Tau in. Defaults to DEFAULT_DTYPE.
+
+    Returns:
+        t.Tensor: The value of Tau as a tensor of size (1).
+    """
+    return pi() * 2.
+
+
+
+@ts
 def egamma(dtype:t.dtype=DEFAULT_DTYPE) -> t.Tensor:
     """Gets the value of the Euler-Mascheroni constant in the requested datatype.
 

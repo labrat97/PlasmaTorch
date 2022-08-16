@@ -32,7 +32,10 @@ class ConstantsTest(unittest.TestCase):
         self.assertTrue(t.all((paramLong[1:]/paramLong[:-1]) - (1/phi()) < 0.0001))
 
     def testPi(self):
-        self.assertTrue(t.all(pi() - 3.1415926535 < 0.0001))
+        self.assertTrue(t.all((pi() - 3.1415926535).abs() <= 1e-4))
+
+    def testTau(self):
+        self.assertTrue(t.all((tau() - (2*3.1415926535)).abs() <= 1e-4))
 
     def testEulerMascheroni(self):
         self.assertTrue((egamma() - 0.57721566490153286060651209008240243104215933593992).abs() < 1e-8)
