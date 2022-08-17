@@ -209,7 +209,7 @@ def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True, ring
     wxsize = wx.size() # [batch, flat, channels, units(rows:1), units(cols)]
 
     # Add dummy dimensions for sampling
-    wl:t.Tensor = pos.unsqueeze(0) if lensDims == 1 else pos # [..., p] -> [b, p]
+    wl:t.Tensor = pos.unsqueeze(0) if lensDims == 1 else pos.flatten(0, -2) # [..., p] -> [b, p]
     wl = wl.unsqueeze(-2).unsqueeze(-2) # [b, p] -> [b, 1, 1, p]
     wl = t.cat([wl] * wx.size(1), dim=1) # [b, 1, 1, p] -> [b, F, 1, p]
     wl = t.stack((wl, t.zeros_like(wl)), dim=-1) # [b, F, 1, p] -> [b, F, 1, p, [x, (y)0]]
@@ -220,20 +220,20 @@ def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True, ring
         dtype=wx.dtype, device=x.device) # [batch, flat, channels, units(rows:1), positions]
     
     # Set up an orthonormal lookup system
-    posCount:int = result.size(-1)
-    if ortho and (posCount > 1):
-        ortholut:t.Tensor = (((2. * xbias(posCount)) / (posCount - 1.)) - 1.).unsqueeze(0) # [1, positions]
-        if ringCoords: ortholut.mul_((posCount - 1.) / posCount) # Makes -1.0 and 1.0 equivalent
+    if ortho and (result.size(-1) > 1):
+        ortholut:t.Tensor = t.linspace(start=-1., end=1., steps=result.size(-1)).unsqueeze(0) # [1, positions]
+        if ringCoords: ortholut.mul_((wx.size(-1) - 1.) / wx.size(-1)) # Makes -1.0 and 1.0 equivalent
+    
     # Keep the normal [-1.0, 1.0] corner alignment
     else:
         ortholut:t.Tensor = t.zeros([1, result.size(-1)]) # [1, positions]
+    
     ortholut = t.stack([ortholut, t.zeros_like(ortholut)], dim=-1) # [1, p] -> [1, p, [x, (y)0]]
 
     # Resample each batch
     for idx in range(wx.size(0)):
         wwx = wx[idx] # [F, c, 1, x]
         wwl = wl[idx] + ortholut # [F, 1, p, [x, (y)0]] + [1, p, [x, (y)0]] -> [F, 1, p, [x, (y)0]]
-        assert wwl.size() == wl[idx].size()
         result[idx] = nnf.grid_sample(wwx, wwl, mode='bilinear', padding_mode=padding, align_corners=(not ringCoords))
         # [flat, channels, units(rows:1), positions(cols)]
 

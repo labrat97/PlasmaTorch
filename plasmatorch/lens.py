@@ -31,11 +31,22 @@ def lens(x:t.Tensor, lens:t.Tensor, dim:int=-1) -> t.Tensor:
     transX:t.Tensor = x.transpose(dim, -1)
     flippedX:t.Tensor = transX.flip(-1)
     gaussSpread:t.Tensor = irregularGauss(x=DAMPED_SPACE, mean=ZERO, lowStd=ONE, highStd=ONE, reg=False)
-    sides:t.Tensor = t.stack((flippedX * gaussSpread[0, :x.size(dim)], flippedX * gaussSpread[0, x.size(dim):]), dim=0)
-    assert t.all(sides[0][..., 0].abs() <= 1e-4)
-    assert t.all(sides[1][..., -1].abs() <= 1e-4)
+    sides:t.Tensor = t.stack((flippedX[..., :-1] * gaussSpread[..., :x.size(dim)-1], flippedX[..., 1:] * gaussSpread[..., x.size(dim)+1:]), dim=0)
     sides.transpose_(dim+1, -1)
-    lensSpace:t.Tensor = t.cat([sides[0], x, sides[1]], dim=dim)
+    if x.size(dim) == 1:
+        zeros:t.Tensor = t.zeros(flippedX.size()[:-1].append(1), dtype=x.dtype).transpose(dim, -1)
+        lensSpace:t.Tensor = t.cat([zeros, x, zeros], dim=dim)
+        orthoscalar:float = 1.
+    else:
+        lensSpace:t.Tensor = t.cat([sides[0], x, sides[1]], dim=dim)
+        orthoscalar:float = float(x.size(dim) - 1) / x.size(dim)
+    sizeGain:float = float(lensSpace.size(dim)) / x.size(dim)
+
+    # Create a new ortholut for the lens system
+    
+    ortholut:t.Tensor = t.linspace(start=-orthoscalar/sizeGain, end=orthoscalar/sizeGain, steps=lens.size(-1))
+    ortholens:t.Tensor = ((lens / sizeGain) + ortholut)
+    print(f'{lens / sizeGain}+{ortholut}\n\n{ortholens}')
 
     # Apply the lens through a weighted resample
-    return weightedResample(lensSpace, lens/3., dim=dim, ortho=True, ringCoords=True, padding='zeros')
+    return weightedResample(lensSpace, ortholens, dim=dim, ortho=False, ringCoords=True, padding='zeros')

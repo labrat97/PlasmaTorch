@@ -11,7 +11,7 @@ class LensTest(unittest.TestCase):
     def __testBase__(self, posgen:Callable[[t.Tensor, int], t.Tensor], test:Callable[[t.Tensor, t.Tensor, t.Tensor, int], str]):
         # Generate the tensors for testing
         SIZELEN:int = randint(2, 4)
-        SIZE:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[7]) for _ in range(SIZELEN)]
+        SIZE:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[2]) for _ in range(SIZELEN)]
         x:t.Tensor = t.randn(SIZE, dtype=DEFAULT_DTYPE)
         xc:t.Tensor = t.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
         posWeights:List[t.Tensor] = [posgen(x, idx) for idx in range(SIZELEN)]
@@ -19,7 +19,7 @@ class LensTest(unittest.TestCase):
         # Randomize batch dimension
         for idx in range(1, len(posWeights)):
             addDim:bool = bool(randint(0, 1))
-            if addDim: posWeights[idx] = t.stack([posWeights[idx]] * SIZE[0], dim=0)
+            if addDim and (posWeights[idx].dim() <= 1): posWeights[idx] = t.stack([posWeights[idx]] * SIZE[0], dim=0)
         for weight in posWeights: assert not weight.is_complex()
 
         # Iterate through each possible dim to make sure that the weighted resample is 
@@ -56,32 +56,74 @@ class LensTest(unittest.TestCase):
         return None if testPass else f'Passthrough failed with an error of:\n{wx - x}'
 
     def testPassthrough(self):
-        self.__testBase__(posgen=LensTest.__passthroughPos__, test=LensTest.__sizingTest__)
+        self.__testBase__(posgen=LensTest.__passthroughPos__, test=LensTest.__passthroughTest__)
 
 
     def __wrapZeroPos__(x:t.Tensor, dim:int) -> t.Tensor:
-        return t.tensor([-4, -3, 3, 4], dtype=DEFAULT_DTYPE) + 1e-4
+        result:t.Tensor = t.cat([
+            t.linspace(start=-7., end=-4., steps=x.size(dim)+1),
+            t.linspace(start=4., end=7., steps=x.size(dim)+1)
+            ], dim=-1)
+        return result
 
     def __wrapZeroTest__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int) -> str:
         # Find the wrapping stride
         stride:int = wx.size(dim) // 2
 
         # Seperate out the wraps
-        testX:t.Tensor = wx.transpose(dim, 0)
-        wxp:t.Tensor = testX[:stride].transpose(dim, 0)
-        wxn:t.Tensor = testX[stride:].transpose(dim, 0)
+        testX:t.Tensor = wx.transpose(dim, -1)
 
         # Perform consistency tests between the wrap directions
-        testPass:bool = t.all(wxp.abs() <= 1e-4)
+        testPass:bool = t.all(testX.abs() <= 1e-4)
         if not testPass:
-            return f'High padding failed (max: {wxp.abs().max()}):\n{wxp}'
-        testPass:bool = t.all(wxn.abs() <= 1e-4)
-        if not testPass:
-            return f'Low padding failed (max: {wxn.abs().max()}):\n{wxn}'
+            return f'Padding failed (max: {testX.abs().max()}):\n{wx}->{testX}'
         return None
 
     def testWrapZero(self):
         self.__testBase__(posgen=LensTest.__wrapZeroPos__, test=LensTest.__wrapZeroTest__)
 
 
-    # TODO: Test decay mirroring
+    # TODO: Figure out the position functions below, ring coordinates are really weird
+    def __decayMirrorPosRight__(x:t.Tensor, dim:int) -> t.Tensor:
+        result = t.zeros(x.size(dim))
+        phase:float = 2. - (x.size(dim) / ((3 * x.size(dim)) - 2))
+        if x.size(dim) != 1: phase = phase * (((3 * x.size(dim)) - 2) - 1.) / ((3 * x.size(dim)) - 2)
+        return result + phase
+
+    def __decayMirrorPosLeft__(x:t.Tensor, dim:int) -> t.Tensor:
+        result = t.zeros(x.size(dim))
+        phase:float = 2. - (x.size(dim) / ((3 * x.size(dim)) - 2))
+        return result - phase
+
+    def __decayMirrorTest__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int, lR:bool) -> str:
+        # Constants for evaluation
+        TAU:t.Tensor = tau()
+        ONE:t.Tensor = t.ones(1)
+        ZERO:t.Tensor = t.zeros(1)
+        DAMPED_SPACE:t.Tensor = t.linspace(start=-TAU, end=0., steps=wx.size(dim))
+        if lR: DAMPED_SPACE.add_(TAU)
+
+        # Get the gaussian for the decays
+        gaussSpread:t.Tensor = irregularGauss(x=DAMPED_SPACE, mean=ZERO, lowStd=ONE, highStd=ONE, reg=False)
+        twx:t.Tensor = wx.transpose(dim, -1)
+
+        # Flip x for the reflection
+        testX:t.Tensor = x.transpose(dim, -1).flip(-1) * gaussSpread
+
+        # Test
+        testResult:t.Tensor = (twx - testX).abs()
+        if not t.all(testResult <= 1e-4):
+            return f'Off by max:({testResult.max()}), min:({testResult.min()}), mean:({testResult.mean()})\n\n{twx}\t->\n{testX}\t==\n{twx-testX}'
+        return None
+
+    def __decayMirrorTestRight__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int) -> str:
+        return LensTest.__decayMirrorTest__(wx, x, pos, dim, True)
+
+    def __decayMirrorTestLeft__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int) -> str:
+        return LensTest.__decayMirrorTest__(wx, x, pos, dim, False)
+
+    def testDecayMirrorRight(self):
+        self.__testBase__(posgen=LensTest.__decayMirrorPosRight__, test=LensTest.__decayMirrorTestRight__)
+    
+    def testDecayMirrorLeft(self):
+        self.__testBase__(posgen=LensTest.__decayMirrorPosLeft__, test=LensTest.__decayMirrorTestLeft__)
