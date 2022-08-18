@@ -256,5 +256,4 @@ def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True, ring
     # Reapply the computed dimension to the appropriate dimension according to the
     #   seeding tensor.
     if extrabatchDim: result.squeeze_(-2)
-    assert result.size()[:-1] == t.Size(x.size()[:dim] + x.size()[dim+1:])
     return result.movedim(-1, dim)

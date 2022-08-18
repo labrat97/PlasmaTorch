@@ -11,7 +11,7 @@ class LensTest(unittest.TestCase):
     def __testBase__(self, posgen:Callable[[t.Tensor, int], t.Tensor], test:Callable[[t.Tensor, t.Tensor, t.Tensor, int], str]):
         # Generate the tensors for testing
         SIZELEN:int = randint(2, 4)
-        SIZE:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[2]) for _ in range(SIZELEN)]
+        SIZE:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[1]) for _ in range(SIZELEN)]
         x:t.Tensor = t.randn(SIZE, dtype=DEFAULT_DTYPE)
         xc:t.Tensor = t.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
         posWeights:List[t.Tensor] = [posgen(x, idx) for idx in range(SIZELEN)]
@@ -53,7 +53,7 @@ class LensTest(unittest.TestCase):
 
     def __passthroughTest__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int) -> str:
         testPass:bool = t.all((wx - x).abs() <= 1e-4)
-        return None if testPass else f'Passthrough failed with an error of:\n{wx - x}'
+        return None if testPass else f'Passthrough \n{wx}{wx.size()}-{x}{x.size()}\n failed with a gain of:\n{wx / x}'
 
     def testPassthrough(self):
         self.__testBase__(posgen=LensTest.__passthroughPos__, test=LensTest.__passthroughTest__)
