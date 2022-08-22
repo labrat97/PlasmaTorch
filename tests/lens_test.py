@@ -33,7 +33,7 @@ class LensTest(unittest.TestCase):
             runResults:List[str] = [test(wx, x, posWeight, idx),
             test(wxc, xc, posWeight, idx)]
             for idx, result in enumerate(runResults):
-                self.assertTrue(result == None, msg=f'[{idx}]->{result}')
+                self.assertTrue(result == None, msg=f'[{idx}]{x.size()}->{result}')
 
 
     def __sizingPos__(x:t.Tensor, dim:int) -> t.Tensor:
@@ -83,25 +83,24 @@ class LensTest(unittest.TestCase):
         self.__testBase__(posgen=LensTest.__wrapZeroPos__, test=LensTest.__wrapZeroTest__)
 
 
-    # TODO: Figure out the position functions below, ring coordinates are really weird
     def __decayMirrorPosRight__(x:t.Tensor, dim:int) -> t.Tensor:
-        result = t.zeros(x.size(dim))
-        phase:float = 2. - (x.size(dim) / ((3 * x.size(dim)) - 2))
-        if x.size(dim) != 1: phase = phase * (((3 * x.size(dim)) - 2) - 1.) / ((3 * x.size(dim)) - 2)
-        return result + phase
+        result:t.Tensor = t.zeros(x.size(dim)) + 2.
+        return result
 
     def __decayMirrorPosLeft__(x:t.Tensor, dim:int) -> t.Tensor:
-        result = t.zeros(x.size(dim))
-        phase:float = 2. - (x.size(dim) / ((3 * x.size(dim)) - 2))
-        return result - phase
+        result = t.zeros(x.size(dim)) - 2.
+        return result
 
     def __decayMirrorTest__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int, lR:bool) -> str:
         # Constants for evaluation
         TAU:t.Tensor = tau()
         ONE:t.Tensor = t.ones(1)
         ZERO:t.Tensor = t.zeros(1)
-        DAMPED_SPACE:t.Tensor = t.linspace(start=-TAU, end=0., steps=wx.size(dim))
-        if lR: DAMPED_SPACE.add_(TAU)
+        DAMPED_SPACE:t.Tensor = t.linspace(start=-TAU, end=TAU, steps=wx.size(dim)*2)
+        if lR:
+            DAMPED_SPACE = DAMPED_SPACE[wx.size(dim):]
+        else:
+            DAMPED_SPACE = DAMPED_SPACE[:wx.size(dim)]
 
         # Get the gaussian for the decays
         gaussSpread:t.Tensor = irregularGauss(x=DAMPED_SPACE, mean=ZERO, lowStd=ONE, highStd=ONE, reg=False)
@@ -113,7 +112,7 @@ class LensTest(unittest.TestCase):
         # Test
         testResult:t.Tensor = (twx - testX).abs()
         if not t.all(testResult <= 1e-4):
-            return f'Off by max:({testResult.max()}), min:({testResult.min()}), mean:({testResult.mean()})\n\n{twx}\t->\n{testX}\t==\n{twx-testX}'
+            return f'Reflection off by max:({testResult.max()}), min:({testResult.min()}), mean:({testResult.mean()})\n\n{twx}\t<->\n{testX}\t==\n{twx/testX}'
         return None
 
     def __decayMirrorTestRight__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int) -> str:
