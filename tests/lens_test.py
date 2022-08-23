@@ -11,7 +11,7 @@ class LensTest(unittest.TestCase):
     def __testBase__(self, posgen:Callable[[t.Tensor, int], t.Tensor], test:Callable[[t.Tensor, t.Tensor, t.Tensor, int], str]):
         # Generate the tensors for testing
         SIZELEN:int = randint(2, 4)
-        SIZE:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[1]) for _ in range(SIZELEN)]
+        SIZE:List[int] = [randint(1, SUPERSINGULAR_PRIMES_LH[7]) for _ in range(SIZELEN)]
         x:t.Tensor = t.randn(SIZE, dtype=DEFAULT_DTYPE)
         xc:t.Tensor = t.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
         posWeights:List[t.Tensor] = [posgen(x, idx) for idx in range(SIZELEN)]
