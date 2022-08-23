@@ -65,6 +65,7 @@ class LatticeParamsTest(unittest.TestCase):
     def testValues(self):
         # Generate the testing tensors
         x = t.randn((1), dtype=DEFAULT_DTYPE).abs()
+        if x == 1.: x.add_(1e-12)
         params = randint(2, 24)
 
         # Generate the parameters to test
