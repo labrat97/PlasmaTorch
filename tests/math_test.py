@@ -661,7 +661,6 @@ class HarmonicMeanTest(unittest.TestCase):
         # Store the outputs of the means to be tested against later
         hx = hmean(x, dim=-1)
         hxc = hmean(xc, dim=-1)
-        ho = hmean(ones, dim=-1)
 
         # Test to make sure that only the magnitudes are affected
         self.assertTrue(t.all((hx.abs() - hxc.abs()) <= 1e-4))

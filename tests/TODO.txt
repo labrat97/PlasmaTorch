@@ -9,8 +9,8 @@ XXX `math_test.py`
 Make tests for:
 XXX sizing
 XXX lens
-... toroidallin
-attention
+XXX toroidallin
+... attention
 
 3.
 Make tests for:
