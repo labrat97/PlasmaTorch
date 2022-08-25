@@ -5,8 +5,6 @@ from plasmatorch import *
 
 from random import randint
 
-from plasmatorch.toroidallin import toroidalLinear
-
 
 
 class ToroidalLinearTest(unittest.TestCase):
