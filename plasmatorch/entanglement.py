@@ -202,11 +202,14 @@ def superposition(a:t.Tensor, b:t.Tensor) -> t.Tensor:
     Returns:
         t.Tensor: The superpositioned tensor.
     """
+    # Quick error checking
+    assert a.size()[:-1] == b.size()[:-1]
+
     # Create the basis values of the harmonic mean, and add them
     ONESA:t.Tensor = t.ones_like(b.real).unsqueeze(-2)
     ONESB:t.Tensor = t.ones_like(a.real).unsqueeze(-1)
     pre:t.Tensor = (1. / a.abs()).unsqueeze(-1) @ ONESA
-    pre += (1. / b.abs()).unsqueeze(-2) @ ONESB
+    pre += ONESB @ (1. / b.abs()).unsqueeze(-2)
 
     # Treat the signals as unit vectors, multiplying them in mass
     angs:t.Tensor = sgn(a).unsqueeze(-1) @ sgn(b).unsqueeze(-2)
