@@ -9,10 +9,10 @@ XXX `math_test.py`
 Make tests for:
 XXX sizing
 XXX lens
-... losses
-toroidallin
+... toroidallin
 attention
 
 3.
 Make tests for:
 knowledge.*
+losses
