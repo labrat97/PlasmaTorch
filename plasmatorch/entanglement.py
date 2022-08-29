@@ -171,8 +171,8 @@ def collapse(x:t.Tensor, polarization:t.Tensor) -> t.Tensor:
     
     # Get the means of the matrix on each view according to transposition on the final
     #   dimensions (*..., n, n)
-    suma = t.mean(x, dim=-1)
-    sumb = t.mean(x, dim=-2)
+    ha = hmean(x, dim=-1)
+    hb = hmean(x, dim=-2)
 
     # Gets the eigenvalues of the matrix for the third and final phase of the collapse
     eigv = t.linalg.eigvals(x)
@@ -183,8 +183,8 @@ def collapse(x:t.Tensor, polarization:t.Tensor) -> t.Tensor:
     # The eigvals will be the one vals as they represent the solved roots of the
     #   input matrix
     rote = eigv * csin(polarization)
-    rota = suma * csin(polarization + iter)
-    rotb = sumb * csin(polarization - iter)
+    rota = ha * csin(polarization + iter)
+    rotb = hb * csin(polarization - iter)
 
     # Combine the three phases and return
     return rote + rota + rotb
@@ -234,7 +234,7 @@ def entangle(a:t.Tensor, b:t.Tensor, mask:t.Tensor, polarization:t.Tensor) -> t.
         t.Tensor: The entangled signals.
     """
     # Assert the arguments are size compatible with each other
-    assert len(mask.size()) >= 2
+    assert mask.dim() >= 2
     assert mask.size(-2) == a.size(-1)
     assert mask.size(-1) == b.size(-1)
 
