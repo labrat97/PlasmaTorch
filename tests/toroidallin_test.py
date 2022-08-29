@@ -61,7 +61,8 @@ class ToroidalLinearTest(unittest.TestCase):
         return t.randn(size=size, dtype=dtype)
 
     def __valueTest__(result:Tuple[t.Tensor], controls:List[t.Tensor]) -> str:
-        maxval = t.cat(controls[:2], dim=-1).abs().max()
+        maxvalpre = superposition(controls[0], controls[1]) * controls[2].transpose(-1, -2)
+        maxval = t.cat([hmean(maxvalpre, dim=-1), hmean(maxvalpre, dim=-2)], dim=-1).abs().max()
 
         unbiasedRes:Tuple[t.Tensor] = (result[0] - controls[3], result[1] - controls[4])
         maxres = t.cat(unbiasedRes, dim=-1).abs().max()
