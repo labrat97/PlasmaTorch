@@ -600,7 +600,7 @@ def harmonicdist(x:t.Tensor) -> t.Tensor:
     em:t.Tensor = egamma()
 
     # Take the inverse harmonic index of the input values and flatten them after for indexing
-    inverse:t.Tensor = t.round(t.exp(xabs - em)).to(t.int64)
+    inverse:t.Tensor = t.round(t.exp(xabs - em)).type(t.int64, non_blocking=True)
     finv = inverse.flatten(0, -1)
 
     # Find the needed harmonics for producing the final value
@@ -610,7 +610,7 @@ def harmonicdist(x:t.Tensor) -> t.Tensor:
     # Find the closest harmonic value, refold the shape, then calculate the result
     highest:t.Tensor = xabs - harmonics[finv].unflatten(0, inverse.size())
     lowest:t.Tensor = xabs - harmonics[(finv-1).clamp(min=0)].unflatten(0, inverse.size())
-    compare:t.Tensor = (highest.abs() < lowest.abs()).to(t.uint8)
+    compare:t.Tensor = (highest.abs() < lowest.abs()).type(t.uint8, non_blocking=True)
     result:t.Tensor = (highest * compare) + (lowest * (1 - compare))
 
     # Calculate the result's complexity
