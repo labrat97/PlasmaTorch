@@ -407,23 +407,24 @@ class RingingTest(unittest.TestCase):
         FORKS:int = SIZE[-1] - FORK_DISP
 
         # Generate the control tensors to test against
-        x = torch.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+        x = torch.randn(SIZE, dtype=DEFAULT_DTYPE)
+        xc = torch.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Construct the required classes for Ringing
         ring = Ringing(forks=FORKS, dtype=DEFAULT_DTYPE)
         ringc = Ringing(forks=FORKS, dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Compute the ringing results
-        xr = ring.forward(x, stopTime=False)
-        xc = ringc.forward(x, stopTime=False)        
-        sxr = ring.forward(x, stopTime=True)
-        sxc = ringc.forward(x, stopTime=True)
+        xrr = ring.forward(x)
+        xrc = ringc.forward(x)
+        xcr = ring.forward(xc)
+        xcc = ringc.forward(xc)
 
         # Make sure the sizes translated through properly
-        self.assertEqual(x.size(), xr.size())
-        self.assertEqual(x.size(), xc.size())
-        self.assertEqual(x.size(), sxr.size())
-        self.assertEqual(x.size(), sxc.size())
+        self.assertEqual(x.size(), xrr.size())
+        self.assertEqual(x.size(), xrc.size())
+        self.assertEqual(x.size(), xcr.size())
+        self.assertEqual(x.size(), xcc.size())
 
 
     def testViewSizing(self):
@@ -478,13 +479,17 @@ class RingingTest(unittest.TestCase):
     def testViewValues(self):
         # Generate random sizing
         SIZELEN:int = randint(1, 5)
-        SIZESCALAR:int = randint(6, 10)
+        SIZE:int = randint(5, 32)
         FORK_DISP:int = 2
-        SIZE = torch.Size(((torch.randn((SIZELEN), dtype=DEFAULT_DTYPE)).type(dtype=torch.int64).abs() + 1) * SIZESCALAR)
-        FORKS:int = SIZE[-1] - FORK_DISP
+        FORKS:int = SIZE - FORK_DISP
+        DECAYSCALAR:t.Tensor = phi().pow(-1)
+        GAIN:t.Tensor = t.zeros_like(DECAYSCALAR)
+        for n in range(0, SIZELEN+1):
+            GAIN.add_(DECAYSCALAR.pow(n))
+        DECAY:t.Tensor = DECAYSCALAR.pow(SIZELEN)
 
         # Generate the control tensors to test against
-        x = csigmoid(torch.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE))
+        x = csigmoid(t.stack([torch.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)]*SIZELEN, dim=0))
 
         # Construct the required classes for Ringing
         ring = Ringing(forks=FORKS, dtype=DEFAULT_DTYPE)
@@ -493,32 +498,32 @@ class RingingTest(unittest.TestCase):
         v0c = ringc.view(samples=x.size()[-1])
 
         # Make sure there is no default ringing in the forks
-        self.assertTrue(torch.all(v0r.abs() < 1e-4), msg='Latent ringing with real initialization.')
-        self.assertTrue(torch.all(v0c.abs() < 1e-4), msg='Latent ringing with complex initalization.')
+        self.assertTrue(torch.all(v0r.abs() < 1e-4), msg=f'Latent ringing with real initialization.\t{v0r}')
+        self.assertTrue(torch.all(v0c.abs() < 1e-4), msg=f'Latent ringing with complex initalization.\t{v0c}')
 
         # Compute the ringing results
-        _ = ring.forward(x, stopTime=False)
-        _ = ringc.forward(x, stopTime=False)
+        _ = ring.forward(x[0]) # Don't compound the decay
+        _ = ringc.forward(x[0]) # Don't compound the decay
         vr = ring.view(samples=x.size()[-1])
         vc = ringc.view(samples=x.size()[-1])
-        _ = ring.forward(x, stopTime=False)
-        _ = ringc.forward(x, stopTime=False)
+        _ = ring.forward(x)
+        _ = ringc.forward(x)
         vr2 = ring.view(samples=x.size()[-1])
         vc2 = ringc.view(samples=x.size()[-1])
-        _ = ring.forward(torch.zeros_like(x), stopTime=False)
-        _ = ringc.forward(torch.zeros_like(x), stopTime=False)
+        _ = ring.forward(torch.zeros_like(x))
+        _ = ringc.forward(torch.zeros_like(x))
         vr3 = ring.view(samples=x.size()[-1])
         vc3 = ringc.view(samples=x.size()[-1])
 
         # Check for proper signal degredations on forks
-        self.assertTrue(torch.all((vr2 - (vr * phi())).abs() < 1e-4), \
-            msg=f'build degredation: vr2/vr ({(vr2/vr).abs()}) != phi ({phi()})')
-        self.assertTrue(torch.all((vc2 - (vc * phi())).abs() < 1e-4), \
-            msg=f'build degredation: vc2/vc ({(vc2/vc).abs()}) != phi ({phi()})')
-        self.assertTrue(torch.all((vr3 - (vr2 * (1/phi()))).abs() < 1e-4), \
-            msg=f'decay degredation: vr3/vr2 ({(vr3/vr2).abs()}) != 1/phi ({1/phi()})')
-        self.assertTrue(torch.all((vc3 - (vc2 * (1/phi()))).abs() < 1e-4), \
-            msg=f'decay degredation: vc3/vc2 ({(vc3/vc2).abs()}) != 1/phi ({1/phi()})')
+        self.assertTrue(torch.all((vr2 - (vr * GAIN)).abs() < 1e-4), \
+            msg=f'build degredation: vr2/vr ({(vr2/vr).abs()}) != GAIN ({GAIN})')
+        self.assertTrue(torch.all((vc2 - (vc * GAIN)).abs() < 1e-4), \
+            msg=f'build degredation: vc2/vc ({(vc2/vc).abs()}) != GAIN ({GAIN})')
+        self.assertTrue(torch.all((vr3 - (vr2 * DECAY)).abs() < 1e-4), \
+            msg=f'decay degredation: vr3/vr2 ({(vr3/vr2).abs()}) != DECAY ({DECAY})')
+        self.assertTrue(torch.all((vc3 - (vc2 * DECAY)).abs() < 1e-4), \
+            msg=f'decay degredation: vc3/vc2 ({(vc3/vc2).abs()}) != DECAY ({DECAY})')
 
 
     def testForwardValues(self):
@@ -539,8 +544,8 @@ class RingingTest(unittest.TestCase):
         ringc = Ringing(forks=FORKS, dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Do a latent oscillation test
-        z0r = ring.forward(z, stopTime=False)
-        z0c = ringc.forward(z, stopTime=False)
+        z0r = ring.forward(z)
+        z0c = ringc.forward(z)
         v0r = ring.view(samples=SIZE[-1])
         v0c = ringc.view(samples=SIZE[-1])
 
@@ -553,20 +558,15 @@ class RingingTest(unittest.TestCase):
         # Compute the ringing results
         controlTensors = [z, o, r]
         results = torch.zeros((len(controlTensors), 2, *SIZE), dtype=DEFAULT_COMPLEX_DTYPE)
-        resultsReg = torch.zeros_like(results)
         for idx, control in enumerate(controlTensors):
-            results[idx, 0] = ring.forward(control, stopTime=True, regBatchInput=False)
-            results[idx, 1] = ringc.forward(control, stopTime=True, regBatchInput=False)
-            resultsReg[idx, 0] = ring.forward(control, stopTime=True, regBatchInput=True)
-            resultsReg[idx, 1] = ringc.forward(control, stopTime=True, regBatchInput=True)
+            results[idx, 0] = ring.forward(control)
+            results[idx, 1] = ringc.forward(control)
         
         # Assert that the forward signal decay is appropriate (assuming view testing at different
         #   times is working).
         # If zeros start putting out any sort of signalling, something is really wrong
         self.assertTrue(torch.all(results[0, :].abs() < 1e-4), \
             msg=f'Zeros carrying noise for some reason.')
-        self.assertTrue(torch.all(resultsReg[0, :].abs() < 1e-4), \
-            msg=f'Regularized zeros are carrying noise for some reason.')
         
         # The output signal of the ringing should look something along the lines of
         #   the input signal multiplied by some decay between (0., 1.), added to a
@@ -574,40 +574,29 @@ class RingingTest(unittest.TestCase):
         #   sized/sampled output tensor. The lower bound of the multiple from the input
         #   should be roughly 1/phi, with the top bound being roughly phi (1 + (1/phi)).
         sumControl = []
-        meanControl = []
         for idx, control in enumerate(controlTensors):
             if len(control.size()) <= 1:
                 sumControl.append(control)
-                meanControl.append(control)
                 continue
 
             # Create copies for output
             # I know the max doesn't necessarily match the normal type of output calculated using mean,
             # however, creating the output signal this way can garuntee atleast the lack of a total runaway
             tempSum = (torch.fft.fft(control, dim=-1).transpose(-1, 0)).abs()
-            tempMax = (torch.zeros_like(tempSum) + tempSum).abs()
 
             # Regularize for testing
             for _ in range(len(tempSum.size()) - 1):
                 tempSum = torch.sum(tempSum, dim=1)
-                tempMax = torch.max(tempMax, dim=1)[0]
-            tempMax = torch.max(tempMax, dim=-1)[0] * torch.ones_like(tempMax)
             tempSum = torch.max(tempSum, dim=-1)[0] * torch.ones_like(tempSum)
 
             # Add to test sets
             sumControl.append(torch.max(torch.fft.ifft(tempSum, dim=-1).abs(), dim=-1)[0])
-            meanControl.append(torch.max(torch.fft.ifft(tempMax, dim=-1).abs(), dim=-1)[0])
 
         # Run tests for other prior tensors accordingly
         for idx in range(1, len(controlTensors)):
-            mControl = meanControl[idx]
             sControl = sumControl[idx].unsqueeze(0)
 
             normalDiff = (results[idx, :] - (phi() * (controlTensors[idx]))).abs()
             normalResult = torch.all(normalDiff.abs() <= torch.max(phi() * sControl.abs()) + 1e-4)
-            regularDiff = (resultsReg[idx, :] - (phi() * (controlTensors[idx]))).abs()
-            regularResult = torch.all(regularDiff.abs() <= torch.max(phi() * mControl.abs()) + 1e-4)
             self.assertTrue(normalResult, \
                 msg=f'[idx:{idx}] A value higher than a non-regularized value added to the forks has appeared.\n|{normalDiff}| <= {phi() * sControl.abs() + 1e-4}')
-            self.assertTrue(regularResult, \
-                msg=f'[idx:{idx}] A value higher than a regularized value added to the forks has appeared.\n|{regularDiff}| <= {phi() * mControl.abs() + 1e-4}')

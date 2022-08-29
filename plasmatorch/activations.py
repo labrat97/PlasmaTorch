@@ -39,6 +39,8 @@ def lissajous(x:t.Tensor, freqs:t.Tensor, phases:t.Tensor, oneD:bool = True) -> 
     # is called in the imaginary place to emulate the e^ix behavior for sinusoidal signals.
     return csin(sinpos).transpose(-1, -2)
 
+
+
 class Lissajous(nn.Module):
     """
     Holds a Lissajous-like curve to be used as a sort of activation layer as a unit
@@ -56,6 +58,7 @@ class Lissajous(nn.Module):
         self.frequency:nn.Parameter = nn.Parameter(t.zeros([1, size], dtype=dtype))
         self.phase:nn.Parameter = nn.Parameter(t.zeros([1, size], dtype=dtype))
 
+
     def forward(self, x:t.Tensor, oneD:bool = True) -> t.Tensor:
         """Gets a sample or batch of samples from the contained curve.
 
@@ -72,6 +75,7 @@ class Lissajous(nn.Module):
                     [BATCHES...,Samples] -> [BATCHES...,Curves,Samples]
         """
         return lissajous(x, freqs=self.frequency, phases=self.phase, oneD=oneD)
+
 
 
 class Knot(nn.Module):
@@ -107,6 +111,7 @@ class Knot(nn.Module):
         self.__latticeParams:t.Tensor = latticeParams(self.knotDepth)
 
         self.knotRadii:nn.Parameter = nn.Parameter(t.zeros(paramSize[1:], dtype=dtype))
+
 
     def forward(self, x:t.Tensor, oneD:bool = True) -> t.Tensor:
         """Pushed forward the same way as the Lissajous module. This is just an array
@@ -153,6 +158,7 @@ class Knot(nn.Module):
         return result
 
 
+
 class Ringing(nn.Module):
     """
     Creates a structure that acts as a set of tuning forks, dampening over time. Because
@@ -172,21 +178,23 @@ class Ringing(nn.Module):
         forks = int(forks)
         DECAY_SEED = (asigphi()).type(dtype) # After a sigmoid eval this should come to 1/phi()
         self.forkPos = nn.Parameter(toComplex(t.zeros((forks), dtype=dtype)).real)
-        self.forkVals = toComplex(t.zeros((forks), dtype=dtype, requires_grad=False))
+        self.forkVals = nn.Parameter(toComplex(t.zeros((forks), dtype=dtype)), requires_grad=False)
         self.forkDecay = nn.Parameter(t.ones((forks), dtype=dtype) * DECAY_SEED)
         self.signalDecay = nn.Parameter(t.ones((1), dtype=dtype) * DECAY_SEED)
 
-    def __createOutputSignal__(self, forks:t.Tensor, xfft:t.Tensor, posLow:t.Tensor, posHigh:t.Tensor, posMix:t.Tensor) -> t.Tensor:
+
+    def __createOutputSignal__(self, xfft:t.Tensor, posLow:t.Tensor, posHigh:t.Tensor, posMix:t.Tensor) -> t.Tensor:
         # Create tensor for constructing output
         yfft = t.zeros_like(xfft)
 
         # Apply fork signals to appropriate locations
-        yfft[..., posLow] += ((1 - posMix) * forks)
-        yfft[..., posHigh] += (posMix * forks)
+        yfft[..., posLow] += ((1 - posMix) * self.forkVals)
+        yfft[..., posHigh] += (posMix * self.forkVals)
         yfft.add_(xfft * csigmoid(self.signalDecay))
 
         return yfft
-    
+
+
     def dampen(self, stop:bool=False):
         """Decay the ringing by one internal decay step. Optionally stop the ringing.
 
@@ -195,10 +203,10 @@ class Ringing(nn.Module):
         """
         # If stopping, fully decaying
         if stop:
-            self.forkVals = self.forkVals * 0
-        # Regular 1/phi() decay
+            self.forkVals.mul_(0)
+        # Regular decay
         else:
-            self.forkVals = self.forkVals * csigmoid(self.forkDecay)
+            self.forkVals.mul_(csigmoid(self.forkDecay))
         
 
     def view(self, samples:int=DEFAULT_FFT_SAMPLES) -> t.Tensor:
@@ -219,18 +227,17 @@ class Ringing(nn.Module):
         xfft = t.zeros((samples), dtype=self.forkVals.dtype)
 
         # Generate the output signal
-        yfft = self.__createOutputSignal__(forks=self.forkVals, xfft=xfft, posLow=posLow, posHigh=posHigh, posMix=posMix)
+        yfft = self.__createOutputSignal__(xfft=xfft, posLow=posLow, posHigh=posHigh, posMix=posMix)
 
         # Generate the output signal in the time domain according to the sample size
         return ifft(yfft, n=samples, dim=-1)
 
-    def forward(self, x:t.Tensor, stopTime:bool=False, regBatchInput:bool=True) -> t.Tensor:
+
+    def forward(self, x:t.Tensor) -> t.Tensor:
         """The default forward call for the ringing module.
 
         Args:
                 x (t.Tensor): The signal deconstruct and add to the bank of forks.
-                stopTime (bool, optional): If False, store the signal decay. Defaults to False.
-                regBatchInput (bool, optional): If True, use a mean as the way to input the signal, False sums. Defaults to True.
 
         Returns:
                 t.Tensor: The ringing signal from the input signal using the banked forks.
@@ -248,30 +255,20 @@ class Ringing(nn.Module):
         posMix = positions - posLow # [1, 0] -> [HIGH, 1-LOW]
         xvals = ((1 - posMix) * xfft[..., posLow]) + (posMix * xfft[..., posHigh])
 
-        # To account for the collapse of the potentially massive amount of signals 
-        #   coming in, the paramter regBatchInput (from the definition of the
-        #   method) if True averages out all of the signals per sample. Otherwise, all of the signals
-        #   added to the output with regularization left up to later implementation.
-        if len(xvals.size()) > 1:
-            # Turn the samples to the most significant dimension
-            xvals.transpose_(-1, 0)
+        # Format the incoming signals to have a large batch dimension and a signal dimension
+        if xvals.dim() > 1:
+            xvals = xvals.flatten(start_dim=0, end_dim=-2)
+        else:
+            xvals.unsqueeze_(0)
 
-            # Both of the batch handling functions shift left
-            if regBatchInput:
-                for _ in range(len(xvals.size()) - 1):
-                    xvals = t.mean(xvals, dim=1)
-            else:
-                for _ in range(len(xvals.size()) - 1):
-                    xvals = t.sum(xvals, dim=1)
-
-        # Add the input signals to the enclosed signals, remember, xvals doesn't decay
-        #   here, the recurrent fork values do.
-        forkVals = ((self.forkVals * csigmoid(self.forkDecay)) + xvals)
-        if not stopTime:
-            self.forkVals = forkVals
+        # Iterate through the signals being applied to the module with the according decay
+        forkDecayAct:t.Tensor = csigmoid(self.forkDecay)
+        for idx in range(xvals.size(0)):
+            self.forkVals.mul_(forkDecayAct)
+            self.forkVals.add_(xvals[idx])
         
         # Create the output signal
-        yfft = self.__createOutputSignal__(forks=forkVals, xfft=xfft, posLow=posLow, posHigh=posHigh, posMix=posMix)
+        yfft = self.__createOutputSignal__(xfft=xfft, posLow=posLow, posHigh=posHigh, posMix=posMix)
 
         # Return constructed signal
         return ifft(yfft, n=xsamples, dim=-1)
