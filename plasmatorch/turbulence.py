@@ -1,8 +1,52 @@
 from .defaults import *
 from .activations import *
-from .distributions import *
 from .entanglement import *
 from .math import *
+from .lens import *
+from .sizing import unflatten
+
+
+
+@ts
+def turbulence(ego:t.Tensor, world:t.Tensor, mask:t.Tensor) -> t.Tensor:
+    # Grab the working size of the tensors before evaluation for quick error checking
+    presize:List[int] = list(ego.size()[:-1])
+    assert presize == list(world.size()[:-1])
+    assert presize == list(mask.size()[:-1])
+
+    # Regularize the ego and world tensors. Regularize the ego tensor  with `clog()` to allow the
+    #   full selection of the signal into the reflection of the lens space that it
+    #   occupies. Regularize the mask tensor with `csigmoid()` to gate the selection
+    #   of another signal with element-wise multiplication.
+    regego:t.Tensor = clog(ego)
+    regmask:t.Tensor = csigmoid(mask)
+
+    # Flatten the incoming tensors to the appropriate size
+    if len(presize) > 0:
+        flatego:t.Tensor = regego.flatten(0, -2)
+        flatworld:t.Tensor = world.flatten(0, -2)
+        flatmask:t.Tensor = regmask.flatten(0, -2)
+    else:
+        flatego:t.Tensor = regego
+        flatworld:t.Tensor = world
+        flatmask:t.Tensor = regmask
+    
+    # Find the constructing signals that make up the world tensor
+    worldBasis:t.Tensor = fft(flatworld, dim=-1)
+
+    # Pay attention to the world with the ego tensor in the frequency space according to the mask
+    attnBasis:t.Tensor = lens(flatmask * worldBasis, lens=flatego.real, dim=-1)
+
+    # Turn the attention basis signals back into the sample-time tensor
+    attn:t.Tensor = ifft(attnBasis, dim=-1)
+
+    # Create a flow on the output signal if the ego is complex
+    if ego.is_complex():
+        attn = lens(attn, lens=flatego.imag, dim=-1)
+
+    # Reshape the attention to have the appropriate superbatch size
+    return unflatten(x=attn, dim=0, size=presize)
+
 
 
 class Turbulence(nn.Module):
@@ -61,6 +105,7 @@ class Turbulence(nn.Module):
         self.compressorKnot = Knot(knotSize=internalDimensions, knotDepth=internalWaves, dtype=complexType)
         self.compressorGain = nn.Parameter(t.ones(1, dtype=complexType))
     
+
     def forward(self, queries:t.Tensor, states:t.Tensor, inter:str='bicubic', padding:str='border', oneD:bool=True) -> t.Tensor:
         """Run a forward computation through the module. Defaults to
 

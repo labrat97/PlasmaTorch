@@ -441,6 +441,21 @@ def quadcheck(x:t.Tensor, boolChannel:bool=False) -> t.Tensor:
 
 
 @ts
+def clog(x:t.Tensor) -> t.Tensor:
+    """Creates a logrithmic growth based function that is continuously differentiable
+    and is equal to zero at zero.
+
+    Args:
+        x (t.Tensor): The tensor to evaluate element-wise.
+
+    Returns:
+        t.Tensor: The tensor passed through the logrithmic growth based function.
+    """
+    return x.abs().log1p() * x.sgn()
+
+
+
+@ts
 def csigmoid(x:t.Tensor) -> t.Tensor:
     """Calculate the magnitude of a complex number run through a complex sigmoid
     function. This function works like a normal sigmoid in the similarly signed quadrants
