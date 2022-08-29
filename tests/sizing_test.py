@@ -261,25 +261,3 @@ class WeightedResampleTest(unittest.TestCase):
     def testValuesOrtho(self):
         # Test the values based around ortho toggling
         self.__testBase__(posgen=WeightedResampleTest.__valueOrthoPos__, test=WeightedResampleTest.__valueOrthoTest__)
-    
-
-    def __valueRandnPos__(idx:int, dimlen:int) -> t.Tensor:
-        # Random values should have random positions
-        return t.randn(randint(1, dimlen*2), dtype=DEFAULT_DTYPE)
-    
-    def __valueRandnTest__(wx:t.Tensor, x:t.Tensor, pos:t.Tensor, dim:int, ortho:bool, ringCoords:bool, padding:str) -> str:
-        # Precompute re-used values
-        wxabs:t.Tensor = wx.abs()
-        xabs:t.Tensor = x.abs()
-
-        # Check to make sure that nothing shoots over the original values provided
-        ret:bool = wxabs.max() <= (xabs.max() + 1e-4)
-        # Can't really test minimum value here due to interpolation mixed with sample positions
-
-        if ret:
-            return None
-        return f'{(xabs.min(), xabs.max())} -<>> {(wxabs.min(), wxabs.max())}'
-
-    def testValuesRandn(self):
-        # Test the values based around random sizing and values
-        self.__testBase__(posgen=WeightedResampleTest.__valueRandnPos__, test=WeightedResampleTest.__valueRandnTest__)

@@ -234,7 +234,7 @@ def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True, ring
     for idx in range(wx.size(0)):
         wwx = wx[idx] # [F, c, 1, x]
         wwl = wl[idx] + ortholut # [F, 1, p, [x, (y)0]] + [1, p, [x, (y)0]] -> [F, 1, p, [x, (y)0]]
-        result[idx] = nnf.grid_sample(wwx, wwl, mode='bilinear', padding_mode=padding, align_corners=(not ringCoords))
+        result[idx] = nnf.grid_sample(wwx, wwl, mode='bicubic', padding_mode=padding, align_corners=(not ringCoords))
         # [flat, channels, units(rows:1), positions(cols)]
 
     # Format the result
