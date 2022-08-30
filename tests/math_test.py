@@ -519,6 +519,58 @@ class QuadcheckTest(unittest.TestCase):
 
 
 
+class ComplexLogTest(unittest.TestCase):
+    def testSizingTyping(self):
+        # Generate testing tensors
+        SIZELEN = randint(1, 4)
+        SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
+        x = t.randn(SIZE, dtype=DEFAULT_DTYPE)
+        xc = t.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Run the tensors through the `clog()` function
+        cx = clog(x)
+        cxc = clog(xc)
+
+        # Test the result sizes and types
+        self.assertEqual(cx.size(), x.size())
+        self.assertEqual(cxc.size(), xc.size())
+        self.assertFalse(cx.is_complex())
+        self.assertTrue(cxc.is_complex())
+
+
+    def testConsistency(self):
+        # Generate testing tensors
+        SIZELEN = randint(1, 4)
+        SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
+        x = t.randn(SIZE, dtype=DEFAULT_DTYPE)
+        xc = t.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Run the tensors through the `clog()` function
+        cx = clog(x)
+        cxc = clog(xc)
+
+        # Check to make sure that the result values are the same as the `log1p()` function in terms of magnitude
+        self.assertTrue(t.all((cx.abs() - x.abs().log1p()).abs() <= 1e-4))
+        self.assertTrue(t.all((cxc.abs() - xc.abs().log1p()).abs() <= 1e-4))
+
+
+    def testAngle(self):
+        # Generate testing tensors
+        SIZELEN = randint(1, 4)
+        SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
+        x = t.randn(SIZE, dtype=DEFAULT_DTYPE)
+        xc = t.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Run the tensors through the `clog()` function
+        cx = clog(x)
+        cxc = clog(xc)
+
+        # Check the output angle after evaluation and make sure it is the same as the input angle
+        self.assertTrue(t.all((cx.angle() - x.angle()).abs() <= 1e-4))
+        self.assertTrue(t.all((cxc.angle() - xc.angle()).abs() <= 1e-4))
+
+
+
 class ComplexSigmoidTest(unittest.TestCase):
     def testSizingTyping(self):
         # Generate testing tensors
