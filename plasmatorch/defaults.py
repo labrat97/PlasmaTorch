@@ -44,8 +44,7 @@ DEFAULT_SPACE_PRIME:int = 11
 DEFAULT_PADDING:str = 'circular'
 
 # The default amount of samples to use in lenses
-DEFAULT_SIGNAL_LENS_PADDING:int = 5
-DEFAULT_SIGNAL_LENS_SAMPLES:int = DEFAULT_FFT_SAMPLES
+DEFAULT_SIGNAL_LENS_SAMPLES:int = GREISS_SAMPLES
 
 # The normal amount of lenses used in a signal aggregation system
 AGGREGATE_LENSES:int = 7

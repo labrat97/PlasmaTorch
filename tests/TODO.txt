@@ -7,12 +7,12 @@ XXX `math_test.py`
 
 2.
 Make tests for:
-... sizing
-lens
-losses
-toroidallin
-attention
+XXX sizing
+XXX lens
+XXX toroidallin
+... turbulence
 
 3.
 Make tests for:
 knowledge.*
+losses

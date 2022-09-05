@@ -174,22 +174,27 @@ class EntangleTest(unittest.TestCase):
 class SuperPositionTest(unittest.TestCase):
     def testSizingTyping(self):
         # Create the testing tensors
-        x = t.randn((randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0])), dtype=DEFAULT_DTYPE)
-        xc = t.randn_like(x, dtype=DEFAULT_COMPLEX_DTYPE)
+        a:t.Tensor = t.randn((randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0])), dtype=DEFAULT_DTYPE)
+        ac:t.Tensor = t.randn_like(a, dtype=DEFAULT_COMPLEX_DTYPE)
+        b:t.Tensor = t.randn((randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0])), dtype=DEFAULT_DTYPE)
+        bc:t.Tensor = t.randn_like(b, dtype=DEFAULT_COMPLEX_DTYPE)
+
 
         # Run through
-        y = superposition(x, x)
-        yc = superposition(xc, xc)
+        y = superposition(a, b)
+        yc = superposition(ac, bc)
 
         # Test sizing
-        self.assertTrue(2*x.size() == y.size())
-        self.assertTrue(2*xc.size() == yc.size())
+        expectedSize = list(a.size()) + list(b.size())
+        expectedCSize = list(ac.size()) + list(bc.size())
+        self.assertTrue(expectedSize == list(y.size()))
+        self.assertTrue(expectedCSize == list(yc.size()))
         
         # Test typing
-        self.assertTrue(y.dtype == x.dtype)
-        self.assertTrue(yc.dtype == xc.dtype)
+        self.assertTrue(y.dtype == a.dtype)
+        self.assertTrue(yc.dtype == ac.dtype)
         self.assertTrue(yc.dtype != y.dtype)
-        self.assertTrue(y.dtype != xc.dtype)
+        self.assertTrue(y.dtype != ac.dtype)
     
 
     def testRanges(self):
@@ -202,10 +207,10 @@ class SuperPositionTest(unittest.TestCase):
         yc = superposition(xc, xc)
 
         # Test the ranges of the values coming out of the function
-        self.assertTrue(t.max(y.abs()) <= t.max(x.abs()), msg=f'{t.max(y.abs())} <= {t.max(x.abs())}')
-        self.assertTrue(t.min(y.abs()) <= t.min(x.abs()))
-        self.assertTrue(t.max(yc.abs()) <= t.max(xc.abs()))
-        self.assertTrue(t.min(yc.abs()) <= t.min(xc.abs()))
+        self.assertTrue(t.max(y.abs()) - t.max(x.abs()) <= 1e-4, msg=f'{t.max(y.abs())} <= {t.max(x.abs())}')
+        self.assertTrue(t.min(y.abs()) - t.min(x.abs()) <= 1e-4, msg=f'{t.min(y.abs())} <= {t.min(x.abs())}')
+        self.assertTrue(t.max(yc.abs()) - t.max(xc.abs()) <=1e-4, msg=f'{t.max(yc.abs())} <= {t.max(xc.abs())}')
+        self.assertTrue(t.min(yc.abs()) - t.min(xc.abs()) <= 1e-4, msg=f'{t.min(yc.abs())} <= {t.min(xc.abs())}')
 
 
 

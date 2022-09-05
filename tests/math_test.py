@@ -32,7 +32,10 @@ class ConstantsTest(unittest.TestCase):
         self.assertTrue(t.all((paramLong[1:]/paramLong[:-1]) - (1/phi()) < 0.0001))
 
     def testPi(self):
-        self.assertTrue(t.all(pi() - 3.1415926535 < 0.0001))
+        self.assertTrue(t.all((pi() - 3.1415926535).abs() <= 1e-4))
+
+    def testTau(self):
+        self.assertTrue(t.all((tau() - (2*3.1415926535)).abs() <= 1e-4))
 
     def testEulerMascheroni(self):
         self.assertTrue((egamma() - 0.57721566490153286060651209008240243104215933593992).abs() < 1e-8)
@@ -62,6 +65,7 @@ class LatticeParamsTest(unittest.TestCase):
     def testValues(self):
         # Generate the testing tensors
         x = t.randn((1), dtype=DEFAULT_DTYPE).abs()
+        if x == 1.: x.add_(1e-12)
         params = randint(2, 24)
 
         # Generate the parameters to test
@@ -515,6 +519,58 @@ class QuadcheckTest(unittest.TestCase):
 
 
 
+class ComplexLogTest(unittest.TestCase):
+    def testSizingTyping(self):
+        # Generate testing tensors
+        SIZELEN = randint(1, 4)
+        SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
+        x = t.randn(SIZE, dtype=DEFAULT_DTYPE)
+        xc = t.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Run the tensors through the `clog()` function
+        cx = clog(x)
+        cxc = clog(xc)
+
+        # Test the result sizes and types
+        self.assertEqual(cx.size(), x.size())
+        self.assertEqual(cxc.size(), xc.size())
+        self.assertFalse(cx.is_complex())
+        self.assertTrue(cxc.is_complex())
+
+
+    def testConsistency(self):
+        # Generate testing tensors
+        SIZELEN = randint(1, 4)
+        SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
+        x = t.randn(SIZE, dtype=DEFAULT_DTYPE)
+        xc = t.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Run the tensors through the `clog()` function
+        cx = clog(x)
+        cxc = clog(xc)
+
+        # Check to make sure that the result values are the same as the `log1p()` function in terms of magnitude
+        self.assertTrue(t.all((cx.abs() - x.abs().log1p()).abs() <= 1e-4))
+        self.assertTrue(t.all((cxc.abs() - xc.abs().log1p()).abs() <= 1e-4))
+
+
+    def testAngle(self):
+        # Generate testing tensors
+        SIZELEN = randint(1, 4)
+        SIZE = [randint(SUPERSINGULAR_PRIMES_HL[1], SUPERSINGULAR_PRIMES_HL[0]) for _ in range(SIZELEN)]
+        x = t.randn(SIZE, dtype=DEFAULT_DTYPE)
+        xc = t.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+
+        # Run the tensors through the `clog()` function
+        cx = clog(x)
+        cxc = clog(xc)
+
+        # Check the output angle after evaluation and make sure it is the same as the input angle
+        self.assertTrue(t.all((cx.angle() - x.angle()).abs() <= 1e-4))
+        self.assertTrue(t.all((cxc.angle() - xc.angle()).abs() <= 1e-4))
+
+
+
 class ComplexSigmoidTest(unittest.TestCase):
     def testSizingTyping(self):
         # Generate testing tensors
@@ -657,7 +713,6 @@ class HarmonicMeanTest(unittest.TestCase):
         # Store the outputs of the means to be tested against later
         hx = hmean(x, dim=-1)
         hxc = hmean(xc, dim=-1)
-        ho = hmean(ones, dim=-1)
 
         # Test to make sure that only the magnitudes are affected
         self.assertTrue(t.all((hx.abs() - hxc.abs()) <= 1e-4))

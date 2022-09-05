@@ -1,5 +1,5 @@
 from .defaults import *
-from .math import pi, phi
+from .math import phi, tau
 from .conversions import toComplex
 
 
@@ -21,25 +21,37 @@ def irregularGauss(x:t.Tensor, mean:t.Tensor, lowStd:t.Tensor, highStd:t.Tensor,
     Returns:
             t.Tensor: A sampled set of values with the same size as the input.
     """
+    # Breif argument checking
+    assert not lowStd.is_complex()
+    assert not highStd.is_complex()
+
+    # Constants for evaluation
+    PHI:t.Tensor = phi()
+    TAU:t.Tensor = tau()
+
     # Grab the correct side of the curve
-    belowMean = t.le(x, mean)
-    std = (belowMean.int() * lowStd) + ((1 - belowMean.int()) * highStd)
+    belowMean:t.Tensor = t.le(x, mean).to(t.uint8)
+    std:t.Tensor = (belowMean * lowStd) + ((1 - belowMean) * highStd)
 
     # Calculate the gaussian curve
-    top = x - mean
+    top:t.Tensor = (x - mean).abs()
 
-    # Never hits 0 or inf
-    bottom = nnf.softplus(std, beta=phi()[0])
+    # Never hits 0
+    bottom:t.Tensor = ((1. / PHI) * t.log(1 + t.exp(PHI * std)))
+    if bottom.dtype == t.float16 or bottom.dtype == t.complex32:
+        bottom.clamp_(min=1e-4, max=1e4)
+    else:
+        bottom.clamp_(min=1e-12, max=1e12)
     
     # Calculate the normal distribution
-    factor = top / bottom
-    result = t.exp(-0.5 * t.pow(factor, 2))
+    factor:t.Tensor = top / bottom
+    result:t.Tensor = t.exp(-0.5 * t.pow(factor, 2.))
     if not reg:
         return result
     
     # Regulate the output so that the cdf approaches 0 at inf
-    regulator = (bottom * t.sqrt(2. * pi()))
-    return result / regulator
+    regulator = 1. / (bottom * t.sqrt(TAU))
+    return result * regulator
 
 class LinearGauss(nn.Module):
     """

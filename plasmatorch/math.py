@@ -18,6 +18,20 @@ def pi(dtype:t.dtype=DEFAULT_DTYPE) -> t.Tensor:
 
 
 @ts
+def tau(dtype:t.dtype=DEFAULT_DTYPE) -> t.Tensor:
+    """Gets the value of Tau (2. * Pi) in the requested datatype.
+
+    Args:
+        dtype (t.dtype, optional): The datatype to return Tau in. Defaults to DEFAULT_DTYPE.
+
+    Returns:
+        t.Tensor: The value of Tau as a tensor of size (1).
+    """
+    return pi() * 2.
+
+
+
+@ts
 def egamma(dtype:t.dtype=DEFAULT_DTYPE) -> t.Tensor:
     """Gets the value of the Euler-Mascheroni constant in the requested datatype.
 
@@ -427,6 +441,21 @@ def quadcheck(x:t.Tensor, boolChannel:bool=False) -> t.Tensor:
 
 
 @ts
+def clog(x:t.Tensor) -> t.Tensor:
+    """Creates a logrithmic growth based function that is continuously differentiable
+    and is equal to zero at zero.
+
+    Args:
+        x (t.Tensor): The tensor to evaluate element-wise.
+
+    Returns:
+        t.Tensor: The tensor passed through the logrithmic growth based function.
+    """
+    return x.abs().log1p() * x.sgn()
+
+
+
+@ts
 def csigmoid(x:t.Tensor) -> t.Tensor:
     """Calculate the magnitude of a complex number run through a complex sigmoid
     function. This function works like a normal sigmoid in the similarly signed quadrants
@@ -571,7 +600,7 @@ def harmonicdist(x:t.Tensor) -> t.Tensor:
     em:t.Tensor = egamma()
 
     # Take the inverse harmonic index of the input values and flatten them after for indexing
-    inverse:t.Tensor = t.round(t.exp(xabs - em)).to(t.int64)
+    inverse:t.Tensor = t.round(t.exp(xabs - em)).type(t.int64, non_blocking=True)
     finv = inverse.flatten(0, -1)
 
     # Find the needed harmonics for producing the final value
@@ -581,7 +610,7 @@ def harmonicdist(x:t.Tensor) -> t.Tensor:
     # Find the closest harmonic value, refold the shape, then calculate the result
     highest:t.Tensor = xabs - harmonics[finv].unflatten(0, inverse.size())
     lowest:t.Tensor = xabs - harmonics[(finv-1).clamp(min=0)].unflatten(0, inverse.size())
-    compare:t.Tensor = (highest.abs() < lowest.abs()).to(t.uint8)
+    compare:t.Tensor = (highest.abs() < lowest.abs()).type(t.uint8, non_blocking=True)
     result:t.Tensor = (highest * compare) + (lowest * (1 - compare))
 
     # Calculate the result's complexity
