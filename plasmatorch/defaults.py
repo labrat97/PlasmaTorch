@@ -2,7 +2,7 @@ import torch as t
 import torch.nn as nn
 import torch.nn.functional as nnf
 import torch.fft as tfft
-from torch.jit import script as ts
+from torch.jit import script as ts, fork as tfork, wait as twait, Future as tFuture
 
 from typing import Tuple, List, Dict, Union, Callable
 

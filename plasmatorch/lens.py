@@ -1,5 +1,4 @@
-from .math import tau
-from .defaults import *
+from .__defimp__ import *
 from .sizing import weightedResample
 from .distributions import irregularGauss
 

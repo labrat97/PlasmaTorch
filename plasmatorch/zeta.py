@@ -1,5 +1,5 @@
-from .defaults import *
-from .math import asigphi, pi, csigmoid
+from .__defimp__ import *
+from .math import csigmoid
 from .conversions import toComplex
 from .sizing import resignal
 

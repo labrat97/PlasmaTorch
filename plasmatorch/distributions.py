@@ -1,6 +1,11 @@
-from .defaults import *
-from .math import phi, tau
+from .__defimp__ import *
 from .conversions import toComplex
+
+
+
+@ts
+def linspace(start:Union[float, complex], end:Union[float, complex], steps:int):
+    # TODO: Merging in...
 
 
 
@@ -30,7 +35,7 @@ def irregularGauss(x:t.Tensor, mean:t.Tensor, lowStd:t.Tensor, highStd:t.Tensor,
     TAU:t.Tensor = tau()
 
     # Grab the correct side of the curve
-    belowMean:t.Tensor = t.le(x, mean).to(t.uint8)
+    belowMean:t.Tensor = t.le(x, mean).type(t.uint8, non_blocking=True)
     std:t.Tensor = (belowMean * lowStd) + ((1 - belowMean) * highStd)
 
     # Calculate the gaussian curve
