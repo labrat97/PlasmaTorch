@@ -4,8 +4,67 @@ from .conversions import toComplex
 
 
 @ts
-def linspace(start:Union[float, complex], end:Union[float, complex], steps:int):
-    # TODO: Merging in...
+def linspace(start:Union[float, complex, t.Tensor], end:Union[float, complex, t.Tensor], steps:int, device:t.device=DEFAULT_FAST_DEV) -> t.Tensor:
+    """Wrap `t.linspace()` so that when there is a case where `steps` == 1, the average of
+    `start` and `end` come out instead of just `start`.
+
+    Args:
+        start (Union[float, complex, t.Tensor]): The starting value of the linear space. Must be a singular value.
+        end (Union[float, complex, t.Tensor]): The ending value of the linear space. Must be a singular value.
+        steps (int): The amount of steps to return from the linear space.
+        device (str, optional): The device to render the linear space on. Defaults to DEFAULT_FAST_DEV.
+
+    Returns:
+        t.Tensor: The rendered linear space.
+    """
+    # Convert the start tensor to a singular number
+    ws:Union[float, complex] = 0.
+    if isinstance(start, t.Tensor):
+        # Check that the tensor is a single value
+        assert start.numel() == 1
+
+        # Cast
+        if start.is_complex():
+            ws = complex(start.flatten()[0])
+        else:
+            ws = float(start.flatten()[0])
+    else:
+        # Cast typing down for jit
+        ws = start
+    
+    # Convert the end tensor to a singular number
+    we:Union[float, complex] = 0.
+    if isinstance(end, t.Tensor):
+        # Check that the tensor is a single value
+        assert end.numel() == 1
+
+        # Cast
+        if end.is_complex():
+            we = complex(end.flatten()[0])
+        else:
+            we = float(end.flatten()[0])
+    else:
+        # Cast typing down for jit
+        we = end
+
+    # The quick return case where steps is equal to one
+    if steps == 1:
+        # This is done to avoid a multitude of TorchScript bugs
+        # If either of the unions are complex, a tensor must be created
+        #   of them individually or an error occures in aten. If I add the
+        #   complex numbers at all outside of matrix form it results in an
+        #   error
+        if isinstance(ws, complex) or isinstance(we, complex):
+            return (t.tensor(complex(ws), device=device).unsqueeze(0) 
+                + t.tensor(complex(we), device=device).unsqueeze(0)) / 2.
+        
+        # I feel like this should have worked for the previous statement
+        #   without having to cast
+        return t.tensor([(float(ws) + float(we)) / 2.], device=device)
+
+    # Error correction and default behavior when the above case doesn't test true
+    #   is passed directly to `t.linspace()`
+    return t.linspace(start=ws, end=we, steps=steps, device=device)
 
 
 

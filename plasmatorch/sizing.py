@@ -1,5 +1,6 @@
 from .__defimp__ import *
 from .conversions import nantonum
+from .distributions import linspace
 
 
 
@@ -161,6 +162,7 @@ def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True, ring
     """
     # Quick argument check
     assert padding != 'constant', '\'constant\' not supported.'
+    assert x.device == pos.device
 
     # Make sure there isn't an imaginary lens vector
     assert not t.is_complex(pos)
@@ -220,7 +222,7 @@ def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True, ring
     
     # Set up an orthonormal lookup system
     if ortho and (result.size(-1) > 1):
-        ortholut:t.Tensor = t.linspace(start=-1., end=1., steps=result.size(-1)).unsqueeze(0) # [1, positions]
+        ortholut:t.Tensor = linspace(start=-1., end=1., steps=result.size(-1), device=x.device).unsqueeze(0) # [1, positions]
         if ringCoords: ortholut.mul_((wx.size(-1) - 1.) / wx.size(-1)) # Makes -1.0 and 1.0 equivalent
     
     # Keep the normal [-1.0, 1.0] corner alignment
