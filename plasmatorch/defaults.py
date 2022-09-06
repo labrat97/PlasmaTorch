@@ -50,8 +50,8 @@ DEFAULT_SIGNAL_LENS_SAMPLES:int = GREISS_SAMPLES
 AGGREGATE_LENSES:int = 7
 
 # Figure out the most effective devices to use by default
-DEFAULT_FAST_DEV:str = 'cuda' if tc.is_available() else 'cpu'
-DEFAULT_MEM_DEV:str = 'cuda' if getCudaMemory() > getSystemMemory() else 'cpu'
+DEFAULT_FAST_DEV:t.device = t.device('cuda' if tc.is_available() else 'cpu')
+DEFAULT_MEM_DEV:t.device = t.device('cuda' if getCudaMemory() > getSystemMemory() else 'cpu')
 
 
 
