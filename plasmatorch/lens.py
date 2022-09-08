@@ -19,10 +19,9 @@ def lens(x:t.Tensor, lens:t.Tensor, dim:int=-1) -> t.Tensor:
     """
     # Quick argument checking
     assert not lens.is_complex()
-    assert x.device == lens.device
 
     # Constants for evaluation
-    TAU:t.Tensor = tau()
+    TAU:t.Tensor = tau(device=x.device)
     ONE:t.Tensor = t.ones(1)
     ZERO:t.Tensor = t.zeros(1)
     DAMPED_SPACE:t.Tensor = linspace(start=-TAU, end=TAU, steps=2*x.size(dim), device=x.device).unsqueeze(0)

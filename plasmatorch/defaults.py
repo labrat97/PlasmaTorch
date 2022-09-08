@@ -93,18 +93,19 @@ def isSmearAll(x:t.Tensor) -> Tuple[bool, bool]:
     return isSmear(x), isOneD(x)
 
 @ts
-def xbias(n:int, bias:int=0) -> t.Tensor:
+def xbias(n:int, bias:int=0, device:t.device=DEFAULT_FAST_DEV) -> t.Tensor:
     """Creates the torch equivalent of a `range()` call in python, n elements long
     starting at `bias` as a value.
 
     Args:
         n (int): The number of samples to iterate and save for the function.
         bias (int, optional): The number to start iterating at. Defaults to 0.
+        device (t.device, optional): The device to store the bias on. Defaults to DEFAULT_FAST_DEV.
 
     Returns:
         t.Tensor: The unit stepping, summing, iterated tensor.
     """
-    composer = t.zeros((n)).add(bias)
+    composer = t.zeros((n), dtype=t.int64, device=device)
     for i in range(n):
-        composer[i].add_(i)
-    return composer
+        composer[i] = i
+    return composer.add(bias)

@@ -6,7 +6,7 @@ class Smear(nn.Module):
     Turns every single point of a tensor into a linear spread to "smear" the signal.
     """
     def __init__(self, samples:int=DEFAULT_FFT_SAMPLES, lowerScalar:float=1./16, 
-        upperScalar:float=1./16, dtype:t.dtype=DEFAULT_DTYPE):
+        upperScalar:float=1./16, dtype:t.dtype=DEFAULT_DTYPE, device:t.device=DEFAULT_FAST_DEV):
         """Initializes the Smear module.
 
         Args:
@@ -14,15 +14,16 @@ class Smear(nn.Module):
             lowerScalar (float, optional): The lower scalar to the input points to create the spread with. Defaults to 1./16.
             upperScalar (float, optional): The upper scalar to the input points to create the spread with. Defaults to 1./16.
             dtype (t.dtype, optional): The datatype to create the smears with. Defaults to DEFAULT_DTYPE.
+            device (t.device): The device to use for the module. Defaults to DEFAULT_FAST_DEV.
         """
         super(Smear, self).__init__()
 
         # Store the parameters of the system
-        self.smearBias:nn.Parameter = nn.Parameter(t.zeros(1, dtype=dtype))
-        self.smearWindow:nn.Parameter = nn.Parameter(t.tensor([-lowerScalar, upperScalar]).type(dtype))
+        self.smearBias:nn.Parameter = nn.Parameter(t.zeros(1, dtype=dtype, device=device))
+        self.smearWindow:nn.Parameter = nn.Parameter(t.tensor([-lowerScalar, upperScalar], dtype=dtype, device=device))
 
         # Cache a bias generation for later modification
-        self.__iter__ = nn.Parameter(xbias(n=samples, bias=0) / (samples-1), requires_grad=False)
+        self.__iter__ = nn.Parameter(xbias(n=samples, bias=0, device=device) / (samples-1), requires_grad=False)
     
     def forward(self, x:t.Tensor) -> t.Tensor:
         """The default forward call of the module.
@@ -151,17 +152,18 @@ class RealObserver(nn.Module):
     """
     Folds a potentially complex signal into a real value when called.
     """
-    def __init__(self, units:int = 1, dtype:t.dtype = DEFAULT_DTYPE):
+    def __init__(self, units:int = 1, dtype:t.dtype = DEFAULT_DTYPE, device:t.device=DEFAULT_FAST_DEV):
         """Initialize the real observation system.
 
         Args:
             units (int, optional): The amount of reals to observe for each element. Defaults to 1.
             dtype (t.dtype, optional): The datatype for the polarization parameter. Defaults to DEFAULT_DTYPE.
+            device (t.device): The device to use for the module. Defaults to DEFAULT_FAST_DEV.
         """
         super(RealObserver, self).__init__()
 
         # Create the polarization parameter and type check
-        self.polarization:nn.Parameter = nn.Parameter(t.zeros((2, units), dtype=dtype))
+        self.polarization:nn.Parameter = nn.Parameter(t.zeros((2, units), dtype=dtype, device=device))
         assert self.polarization.is_complex() == False
     
     def forward(self, x:t.Tensor) -> t.Tensor:
@@ -185,17 +187,18 @@ class ComplexObserver(nn.Module):
     """
     Folds a real signal into a complex signal when called.
     """
-    def __init__(self, units:int = 1, dtype:t.dtype = DEFAULT_DTYPE):
+    def __init__(self, units:int = 1, dtype:t.dtype = DEFAULT_DTYPE, device:t.device=DEFAULT_FAST_DEV):
         """Initialize the complex observation system.
 
         Args:
             units (int, optional): The amount of complex numbers to observe for each element. Defaults to 1.
             dtype (t.dtype, optional): The datatype for the polarization parameter. Defaults to DEFAULT_DTYPE.
+            device (t.device): The device to use for the module. Defaults to DEFAULT_FAST_DEV.
         """
         super(ComplexObserver, self).__init__()
 
         # Create the polarization parameter then type check
-        self.polarization:nn.Parameter = nn.Parameter(t.zeros((2, units), dtype=dtype))
+        self.polarization:nn.Parameter = nn.Parameter(t.zeros((2, units), dtype=dtype, device=device))
         assert self.polarization.is_complex() == False
 
     def forward(self, x:t.Tensor) -> t.Tensor:

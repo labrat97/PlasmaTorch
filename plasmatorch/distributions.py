@@ -80,7 +80,7 @@ def irregularGauss(x:t.Tensor, mean:t.Tensor, lowStd:t.Tensor, highStd:t.Tensor,
                 the defined mean. The size must be broadcastable upon x.
             highStd (t.Tensor): The standard deviation to use when the function is
                 above the defined mean. The size must be broadcastable upon x.
-            reg (bool): Apply the regularization needed for the cdf to approach 1. Defaults to False.
+            reg (bool, optional): Apply the regularization needed for the cdf to approach 1. Defaults to False.
 
     Returns:
             t.Tensor: A sampled set of values with the same size as the input.
@@ -90,8 +90,8 @@ def irregularGauss(x:t.Tensor, mean:t.Tensor, lowStd:t.Tensor, highStd:t.Tensor,
     assert not highStd.is_complex()
 
     # Constants for evaluation
-    PHI:t.Tensor = phi()
-    TAU:t.Tensor = tau()
+    PHI:t.Tensor = phi(device=x.device)
+    TAU:t.Tensor = tau(device=x.device)
 
     # Grab the correct side of the curve
     belowMean:t.Tensor = t.le(x, mean).type(t.uint8, non_blocking=True)
@@ -117,27 +117,31 @@ def irregularGauss(x:t.Tensor, mean:t.Tensor, lowStd:t.Tensor, highStd:t.Tensor,
     regulator = 1. / (bottom * t.sqrt(TAU))
     return result * regulator
 
+
+
 class LinearGauss(nn.Module):
     """
     A linearly tuned irregular gaussian function to be used as an activation layer of sorts.
     """
-    def __init__(self, channels:int, dtype:t.dtype = DEFAULT_DTYPE):
+    def __init__(self, channels:int, dtype:t.dtype = DEFAULT_DTYPE, device:t.device=DEFAULT_FAST_DEV):
         """Builds a new LinearGauss structure.
 
         Args:
                 channels (int): The amount of linear gausses to build together. Must be broadcastable to
                     the provided set of channels.
                 dtype (t.dtype): The type of the parameters used to calculate the gaussian curves.
+                device (t.device): The device to use for the module. Defaults to DEFAULT_FAST_DEV.
         """
         super(LinearGauss, self).__init__()
 
         self.channels:int = channels
 
-        self.mean:nn.Parameter = nn.Parameter(t.zeros((self.channels), dtype=dtype))
-        self.lowStd:nn.Parameter = nn.Parameter(t.zeros((self.channels), dtype=dtype))
-        self.highStd:nn.Parameter = nn.Parameter(t.zeros((self.channels), dtype=dtype))
+        self.mean:nn.Parameter = nn.Parameter(t.zeros((self.channels), dtype=dtype, device=device))
+        self.lowStd:nn.Parameter = nn.Parameter(t.zeros((self.channels), dtype=dtype, device=device))
+        self.highStd:nn.Parameter = nn.Parameter(t.zeros((self.channels), dtype=dtype, device=device))
         
         self.isComplex:bool = t.is_complex(self.mean)
+
 
     def forward(self, x: t.Tensor) -> t.Tensor:
         """The default forward call of the module.
@@ -180,7 +184,6 @@ class LinearGauss(nn.Module):
 
             return t.view_as_complex(t.stack((real, imag), dim=-1))
         
-
         # Calculate most default result
         result = irregularGauss(x=x, mean=self.mean, lowStd=self.lowStd, highStd=self.highStd)
         

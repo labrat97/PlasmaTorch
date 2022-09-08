@@ -31,7 +31,8 @@ class Entangle(nn.Module):
     """
     def __init__(self, inputSignals:int, curveChannels:int = DEFAULT_SPACE_PRIME, \
         samples:int = DEFAULT_FFT_SAMPLES, useKnowledgeMask:bool = True, \
-        outputMode:EntangleOutputMode = EntangleOutputMode.BOTH, dtype:t.dtype = DEFAULT_COMPLEX_DTYPE):
+        outputMode:EntangleOutputMode = EntangleOutputMode.BOTH, dtype:t.dtype = DEFAULT_COMPLEX_DTYPE, \
+        device:t.device=DEFAULT_FAST_DEV):
         """Create a new Entangle object, specifying functionality before runtime.
 
         Args:
@@ -39,6 +40,7 @@ class Entangle(nn.Module):
                 curveChannels (int, optional): The amount of dimensions in the curve/knot. Defaults to DEFAULT_SPACE_PRIME.
                 useKnowledgeMask (bool, optional): Use a knowledge mask on a superposition of the signals. Defaults to True.
                 dtype (t.dtype, optional): Specify the data type of the module. Defaults to DEFAULT_COMPLEX_DTYPE.
+                device (t.device): The device to use for the module. Defaults to DEFAULT_FAST_DEV.
         """
         super(Entangle, self).__init__()
 
@@ -49,18 +51,18 @@ class Entangle(nn.Module):
         self.outputMode:EntangleOutputMode = outputMode
 
         # Hold the entanglement parameters
-        self.entangleActivation:nn.ModuleList = nn.ModuleList([LinearGauss(1, dtype=dtype) for _ in range(inputSignals)])
+        self.entangleActivation:nn.ModuleList = nn.ModuleList([LinearGauss(1, dtype=dtype, device=device) for _ in range(inputSignals)])
         self.entanglePolarization:nn.Parameter = nn.Parameter(t.zeros(
-            (inputSignals), dtype=dtype
+            (inputSignals), dtype=dtype, device=device
         ))
 
         # If requested, use a knowledge mask at the end of the forward() call
         self.knowledgeMask:nn.Parameter = None
         if useKnowledgeMask:
             # This should broadcast an identity matrix over the knowledge mask for collapsing
-            iEye:t.Tensor = t.eye(samples, dtype=dtype, requires_grad=False)
+            iEye:t.Tensor = t.eye(samples, dtype=dtype, requires_grad=False, device=device)
             self.knowledgeMask = nn.Parameter(
-                t.zeros((inputSignals, curveChannels, samples, samples), dtype=dtype) \
+                t.zeros((inputSignals, curveChannels, samples, samples), dtype=dtype, device=device) \
                 + iEye)
     
     def forward(self, x:t.Tensor) -> Tuple[t.Tensor]:
@@ -99,7 +101,7 @@ class Entangle(nn.Module):
         # Store where the signals are going
         y:t.Tensor = t.zeros_like(x)
         s:t.Tensor = t.zeros((inputSize[0], self.signalCount, self.curveChannels, self.samples, self.samples), \
-            dtype=toComplex(x).dtype)
+            dtype=toComplex(x).dtype, device=x.device)
         for idx in range(self.signalCount):
             signal = signals[:,idx]
             polarization:t.Tensor = self.entanglePolarization[idx]
@@ -178,7 +180,7 @@ def collapse(x:t.Tensor, polarization:t.Tensor) -> t.Tensor:
     eigv = t.linalg.eigvals(x)
 
     # Perform a three phase collapse
-    iter = 2. * pi() / 3.
+    iter = 2. * pi(device=x.device) / 3.
 
     # The eigvals will be the one vals as they represent the solved roots of the
     #   input matrix
