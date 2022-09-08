@@ -31,29 +31,29 @@ class LissajousTest(unittest.TestCase):
         # Test the 23 curve pass
         lx = lisa.forward(x, oneD=True)
         lxl = lisa.forward(x, oneD=False)
-        self.assertTrue(lx.size() == (1, test.TBATCH, test.TBATCH, 1), msg=f'size: {lx.size()}')
+        self.assertTrue(lx.size() == (1, test.TBATCH, 1, test.TBATCH), msg=f'size: {lx.size()}')
         self.assertTrue(lxl.size() == (1, test.TBATCH, 1), msg=f'size: {lxl.size()}')
 
         lxc = lisac.forward(xc, oneD=True)
         lxcl = lisac.forward(xc, oneD=False)
-        self.assertTrue(lxc.size() == (1, test.TBATCH, test.TBATCH, 1), msg=f'size: {lxc.size()}')
+        self.assertTrue(lxc.size() == (1, test.TBATCH, 1, test.TBATCH), msg=f'size: {lxc.size()}')
         self.assertTrue(lxcl.size() == (1, test.TBATCH, 1), msg=f'size: {lxcl.size()}')
 
         # Test the signle logit pass
         lone = lisa.forward(one, oneD=True)
         lonec = lisac.forward(onec, oneD=True)
-        self.assertTrue(lone.size() == (1, 1, test.TBATCH, 1), msg=f'size: {lone.size()}')
-        self.assertTrue(lonec.size() == (1, 1, test.TBATCH, 1), msg=f'size: {lonec.size()}')
+        self.assertTrue(lone.size() == (1, 1, 1, test.TBATCH), msg=f'size: {lone.size()}')
+        self.assertTrue(lonec.size() == (1, 1, 1, test.TBATCH), msg=f'size: {lonec.size()}')
 
         # Test the 23 smear-curve pass
         ls = lisa.forward(s, oneD=True)
         lsl = lisa.forward(s, oneD=False)
-        self.assertTrue(ls.size() == (1, test.TBATCH, test.TBATCH, s.size()[-1]), msg=f'size: {ls.size()}')
+        self.assertTrue(ls.size() == (1, test.TBATCH, s.size()[-1], test.TBATCH), msg=f'size: {ls.size()}')
         self.assertTrue(lsl.size() == (1, test.TBATCH, s.size()[-1]), msg=f'size: {lsl.size()}')
 
         lsc = lisac.forward(sc, oneD=True)
         lscl = lisac.forward(sc, oneD=False)
-        self.assertTrue(lsc.size() == (1, test.TBATCH, test.TBATCH, sc.size()[-1]), msg=f'size: {lsc.size()}')
+        self.assertTrue(lsc.size() == (1, test.TBATCH, sc.size()[-1], test.TBATCH), msg=f'size: {lsc.size()}')
         self.assertTrue(lscl.size() == (1, test.TBATCH, sc.size()[-1]), msg=f'size: {lscl.size()}')
 
 
@@ -152,35 +152,35 @@ class KnotTest(unittest.TestCase):
 
         # Test sizing for testing chunk 0
         kx = knot.forward(x, oneD=True)
-        self.assertTrue(kx.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, 1), msg=f'size: {kx.size()}')
+        self.assertTrue(kx.size() == (test.TBATCH, 1, DEFAULT_SPACE_PRIME), msg=f'size: {kx.size()}')
         kxll = knot.forward(xl, oneD=True)
-        self.assertTrue(kxll.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, DEFAULT_SPACE_PRIME, 1), msg=f'size: {kxll.size()}')
+        self.assertTrue(kxll.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, 1, DEFAULT_SPACE_PRIME), msg=f'size: {kxll.size()}')
         kxl = knot.forward(xl, oneD=False)
         self.assertTrue(kxl.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, 1), msg=f'size: {kxl.size()}')
         kxc = knotc.forward(xc, oneD=True)
-        self.assertTrue(kxc.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, 1), msg=f'size: {kxc.size()}')
+        self.assertTrue(kxc.size() == (test.TBATCH, 1, DEFAULT_SPACE_PRIME), msg=f'size: {kxc.size()}')
         kxcll = knotc.forward(xcl, oneD=True)
-        self.assertTrue(kxcll.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, DEFAULT_SPACE_PRIME, 1), msg=f'size: {kxcll.size()}')
+        self.assertTrue(kxcll.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, 1, DEFAULT_SPACE_PRIME), msg=f'size: {kxcll.size()}')
         kxcl = knotc.forward(xcl, oneD=False)
         self.assertTrue(kxcl.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, 1), msg=f'size: {kxcl.size()}')
 
         # Test sizing for testing chunk 1
         ks = knot.forward(s, oneD=True)
-        self.assertTrue(ks.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, s.size()[-1]), msg=f'size: {ks.size()}')
+        self.assertTrue(ks.size() == (test.TBATCH, s.size()[-1], DEFAULT_SPACE_PRIME), msg=f'size: {ks.size()}')
         ksc = knotc.forward(sc, oneD=True)
-        self.assertTrue(ksc.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, sc.size()[-1]), msg=f'size: {ksc.size()}')
+        self.assertTrue(ksc.size() == (test.TBATCH, sc.size()[-1], DEFAULT_SPACE_PRIME), msg=f'size: {ksc.size()}')
 
         # Test sizing for testing chunk 2
         kxs = knot.forward(xSmear, oneD=True)
-        self.assertTrue(kxs.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, xSmear.size()[-1]), msg=f'size: {kxs.size()}')
+        self.assertTrue(kxs.size() == (test.TBATCH, xSmear.size()[-1], DEFAULT_SPACE_PRIME), msg=f'size: {kxs.size()}')
         kxls = knot.forward(xlSmear, oneD=True)
-        self.assertTrue(kxls.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, DEFAULT_SPACE_PRIME, xlSmear.size()[-1]), msg=f'size: {kxls.size()}')
+        self.assertTrue(kxls.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, xlSmear.size()[-1], DEFAULT_SPACE_PRIME), msg=f'size: {kxls.size()}')
         kxlsl = knot.forward(xlSmear, oneD=False)
         self.assertTrue(kxlsl.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, xlSmear.size()[-1]), msg=f'size: {kxlsl.size()}')
         kxcs = knotc.forward(xcSmear, oneD=True)
-        self.assertTrue(kxcs.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, xcSmear.size()[-1]), msg=f'size: {kxcs.size()}')
+        self.assertTrue(kxcs.size() == (test.TBATCH, xcSmear.size()[-1], DEFAULT_SPACE_PRIME), msg=f'size: {kxcs.size()}')
         kxcls = knotc.forward(xclSmear, oneD=True)
-        self.assertTrue(kxcls.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, DEFAULT_SPACE_PRIME, xclSmear.size()[-1]), msg=f'size: {kxcls.size()}')
+        self.assertTrue(kxcls.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, xclSmear.size()[-1], DEFAULT_SPACE_PRIME), msg=f'size: {kxcls.size()}')
         kxclsl = knotc.forward(xclSmear, oneD=False)
         self.assertTrue(kxclsl.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, xclSmear.size()[-1]), msg=f'size: {kxlsl.size()}')
 
@@ -209,11 +209,10 @@ class KnotTest(unittest.TestCase):
         knotc.knotRadii = nn.Parameter(torch.randn_like(knot.knotRadii))
         
         # No change from these values should occur according to the lissajous tests
-        dummy = torch.zeros((1), dtype=DEFAULT_DTYPE)
-        dummyc = torch.zeros((1), dtype=DEFAULT_COMPLEX_DTYPE)
-        d = knot.forward(dummy, oneD=True)
-        dc = knotc.forward(dummyc, oneD=True)
-
+        d = knot.forward(t.zeros_like(x[0]), oneD=True)
+        dc = knotc.forward(t.zeros_like(xc[0]), oneD=True)
+        dl = knot.forward(t.zeros_like(xl[0]), oneD=False)
+        dcl = knotc.forward(t.zeros_like(xcl[0]).unsqueeze(0), oneD=False)
 
         # I don't even know how to begin to handle these fucking values...
         # Like, I just dealt with testing lissajous shit, now I have to do the
@@ -222,35 +221,35 @@ class KnotTest(unittest.TestCase):
         # Fuck boilerplate code, if you can be automated by an AI you weren't a very
         # good one.
         kx = knot.forward(x, oneD=True)
-        self.assertTrue(torch.all(kx == d))
+        self.assertTrue(torch.all((kx - d).abs() <= 1e-4))
         kxll = knot.forward(xl, oneD=True)
-        self.assertTrue(torch.all(kxll == d))
+        self.assertTrue(torch.all((kxll - d).abs() <= 1e-4))
         kxl = knot.forward(xl, oneD=False)
-        self.assertTrue(torch.all(kxl == d))
+        self.assertTrue(torch.all((kxl - dl).abs() <= 1e-4))
         kxc = knotc.forward(xc, oneD=True)
-        self.assertTrue(torch.all(kxc == dc))
+        self.assertTrue(torch.all((kxc - dc).abs() <= 1e-4))
         kxcll = knotc.forward(xcl, oneD=True)
-        self.assertTrue(torch.all(kxcll == dc))
+        self.assertTrue(torch.all((kxcll - dc).abs() <= 1e-4))
         kxcl = knotc.forward(xcl, oneD=False)
-        self.assertTrue(torch.all(kxcl == dc))
+        self.assertTrue(torch.all((kxcl - dcl).abs() <= 1e-4))
 
         ks = knot.forward(s, oneD=True)
-        self.assertTrue(torch.all(ks == d))
+        self.assertTrue(torch.all((ks - d).abs() <= 1e-4))
         ksc = knotc.forward(sc, oneD=True)
-        self.assertTrue(torch.all(ksc == dc))
+        self.assertTrue(torch.all((ksc - dc).abs() <= 1e-4))
 
         kxs = knot.forward(xSmear, oneD=True)
-        self.assertTrue(torch.all(kxs == d))
+        self.assertTrue(torch.all((kxs - d).abs() <= 1e-4))
         kxls = knot.forward(xlSmear, oneD=True)
-        self.assertTrue(torch.all(kxls == d))
+        self.assertTrue(torch.all((kxls - d).abs() <= 1e-4))
         kxlsl = knot.forward(xlSmear, oneD=False)
-        self.assertTrue(torch.all(kxlsl == d))
+        self.assertTrue(torch.all((kxlsl - dl).abs() <= 1e-4))
         kxcs = knotc.forward(xcSmear, oneD=True)
-        self.assertTrue(torch.all(kxcs == dc))
+        self.assertTrue(torch.all((kxcs - dc).abs() <= 1e-4))
         kxcls = knotc.forward(xclSmear, oneD=True)
-        self.assertTrue(torch.all(kxcls == dc))
+        self.assertTrue(torch.all((kxcls - dc).abs() <= 1e-4))
         kxclsl = knotc.forward(xclSmear, oneD=False)
-        self.assertTrue(torch.all(kxclsl == dc))
+        self.assertTrue(torch.all((kxclsl - dcl).abs() <= 1e-4))
 
 
     def testHarmonicPhaseStacking(self):
