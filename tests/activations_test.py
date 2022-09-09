@@ -8,6 +8,8 @@ import torch.nn.functional as nnf
 from plasmatorch import *
 from random import randint
 
+
+
 class LissajousTest(unittest.TestCase):
     def testSizing(self):
         # Default conversions and logits
@@ -29,30 +31,31 @@ class LissajousTest(unittest.TestCase):
         # Test the 23 curve pass
         lx = lisa.forward(x, oneD=True)
         lxl = lisa.forward(x, oneD=False)
-        self.assertTrue(lx.size() == (1, test.TBATCH, test.TBATCH, 1), msg=f'size: {lx.size()}')
+        self.assertTrue(lx.size() == (1, test.TBATCH, 1, test.TBATCH), msg=f'size: {lx.size()}')
         self.assertTrue(lxl.size() == (1, test.TBATCH, 1), msg=f'size: {lxl.size()}')
 
         lxc = lisac.forward(xc, oneD=True)
         lxcl = lisac.forward(xc, oneD=False)
-        self.assertTrue(lxc.size() == (1, test.TBATCH, test.TBATCH, 1), msg=f'size: {lxc.size()}')
+        self.assertTrue(lxc.size() == (1, test.TBATCH, 1, test.TBATCH), msg=f'size: {lxc.size()}')
         self.assertTrue(lxcl.size() == (1, test.TBATCH, 1), msg=f'size: {lxcl.size()}')
 
         # Test the signle logit pass
         lone = lisa.forward(one, oneD=True)
         lonec = lisac.forward(onec, oneD=True)
-        self.assertTrue(lone.size() == (1, 1, test.TBATCH, 1), msg=f'size: {lone.size()}')
-        self.assertTrue(lonec.size() == (1, 1, test.TBATCH, 1), msg=f'size: {lonec.size()}')
+        self.assertTrue(lone.size() == (1, 1, 1, test.TBATCH), msg=f'size: {lone.size()}')
+        self.assertTrue(lonec.size() == (1, 1, 1, test.TBATCH), msg=f'size: {lonec.size()}')
 
         # Test the 23 smear-curve pass
         ls = lisa.forward(s, oneD=True)
         lsl = lisa.forward(s, oneD=False)
-        self.assertTrue(ls.size() == (1, test.TBATCH, test.TBATCH, s.size()[-1]), msg=f'size: {ls.size()}')
+        self.assertTrue(ls.size() == (1, test.TBATCH, s.size()[-1], test.TBATCH), msg=f'size: {ls.size()}')
         self.assertTrue(lsl.size() == (1, test.TBATCH, s.size()[-1]), msg=f'size: {lsl.size()}')
 
         lsc = lisac.forward(sc, oneD=True)
         lscl = lisac.forward(sc, oneD=False)
-        self.assertTrue(lsc.size() == (1, test.TBATCH, test.TBATCH, sc.size()[-1]), msg=f'size: {lsc.size()}')
+        self.assertTrue(lsc.size() == (1, test.TBATCH, sc.size()[-1], test.TBATCH), msg=f'size: {lsc.size()}')
         self.assertTrue(lscl.size() == (1, test.TBATCH, sc.size()[-1]), msg=f'size: {lscl.size()}')
+
 
     def testValues(self):
         x = torch.randn((test.TBATCH, DEFAULT_SPACE_PRIME, test.TEST_FFT_SMALL_SAMPLES), dtype=DEFAULT_DTYPE)
@@ -87,14 +90,14 @@ class LissajousTest(unittest.TestCase):
         ll10 = lisa.forward(torch.zeros_like(x), oneD=False)
         ll11 = lisa.forward(x, oneD=False)
         self.assertFalse(torch.all(ll10 == ll11), msg="Frequency delta not working (!oneD, real).")
-        self.assertTrue(torch.all(ll11 == torch.sin(x)), msg="Sin values don't check out for real values.")
+        self.assertTrue(torch.all((ll11 - torch.sin(x)).abs() < 1e-4), msg="Sin values don't check out for real values.")
         lc10 = lisac.forward(torch.zeros_like(xc), oneD=True)
         lc11 = lisac.forward(xc, oneD=True)
         self.assertFalse(torch.all(lc10 == lc11), msg="Frequency delta not working (oneD, complex).")
         lcl10 = lisac.forward(torch.zeros_like(xc), oneD=False)
         lcl11 = lisac.forward(xc, oneD=False)
         self.assertFalse(torch.all(lcl10 == lcl11), msg="Frequency delta not working (!oneD, complex).")
-        self.assertTrue(torch.all(lcl11 == isin(xc)), \
+        self.assertTrue(torch.all((lcl11 - csin(xc)).abs() < 1e-4), \
             msg="Sin values don't check out for complex values.")
 
         # Phase testing
@@ -113,7 +116,7 @@ class LissajousTest(unittest.TestCase):
         self.assertTrue(torch.all(phic0[:,:,:,:-1] == phic0[:,:,:,1:]), msg='Phi not consistent (oneD, complex).')
         phicl0 = lisac.forward(torch.zeros_like(xc), oneD=False)
         self.assertTrue(torch.all(phicl0[:,:,:-1] == phicl0[:,:,1:]), msg='Phi not consistent (!oneD, complex).')
-        self.assertTrue(torch.all(phicl0 == isin(torch.ones_like(xc))), msg="Phi values don't check out for complex values.")
+        self.assertTrue(torch.all(phicl0 == csin(torch.ones_like(xc))), msg="Phi values don't check out for complex values.")
 
         # Final value testing, both phase and frequency
         lisa.frequency = nn.Parameter(lisa.frequency + 1)
@@ -121,9 +124,10 @@ class LissajousTest(unittest.TestCase):
 
         final0 = lisa.forward(x, oneD=False)
         finalc0 = lisac.forward(xc, oneD=False)
-        self.assertTrue(torch.all(final0 == torch.sin(x+1)), msg="Composite values don't check out for real values.")
-        self.assertTrue(torch.all(finalc0 == isin(xc+1)), \
+        self.assertTrue(torch.all((final0 - torch.sin(x+1)).abs() < 1e-4), msg="Composite values don't check out for real values.")
+        self.assertTrue(torch.all((finalc0 - csin(xc+1)).abs() < 1e-4), \
             msg="Composite values don't check out for complex values.")
+
 
 
 class KnotTest(unittest.TestCase):
@@ -148,37 +152,38 @@ class KnotTest(unittest.TestCase):
 
         # Test sizing for testing chunk 0
         kx = knot.forward(x, oneD=True)
-        self.assertTrue(kx.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, 1), msg=f'size: {kx.size()}')
+        self.assertTrue(kx.size() == (test.TBATCH, 1, DEFAULT_SPACE_PRIME), msg=f'size: {kx.size()}')
         kxll = knot.forward(xl, oneD=True)
-        self.assertTrue(kxll.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, DEFAULT_SPACE_PRIME, 1), msg=f'size: {kxll.size()}')
+        self.assertTrue(kxll.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, 1, DEFAULT_SPACE_PRIME), msg=f'size: {kxll.size()}')
         kxl = knot.forward(xl, oneD=False)
         self.assertTrue(kxl.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, 1), msg=f'size: {kxl.size()}')
         kxc = knotc.forward(xc, oneD=True)
-        self.assertTrue(kxc.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, 1), msg=f'size: {kxc.size()}')
+        self.assertTrue(kxc.size() == (test.TBATCH, 1, DEFAULT_SPACE_PRIME), msg=f'size: {kxc.size()}')
         kxcll = knotc.forward(xcl, oneD=True)
-        self.assertTrue(kxcll.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, DEFAULT_SPACE_PRIME, 1), msg=f'size: {kxcll.size()}')
+        self.assertTrue(kxcll.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, 1, DEFAULT_SPACE_PRIME), msg=f'size: {kxcll.size()}')
         kxcl = knotc.forward(xcl, oneD=False)
         self.assertTrue(kxcl.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, 1), msg=f'size: {kxcl.size()}')
 
         # Test sizing for testing chunk 1
         ks = knot.forward(s, oneD=True)
-        self.assertTrue(ks.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, s.size()[-1]), msg=f'size: {ks.size()}')
+        self.assertTrue(ks.size() == (test.TBATCH, s.size()[-1], DEFAULT_SPACE_PRIME), msg=f'size: {ks.size()}')
         ksc = knotc.forward(sc, oneD=True)
-        self.assertTrue(ksc.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, sc.size()[-1]), msg=f'size: {ksc.size()}')
+        self.assertTrue(ksc.size() == (test.TBATCH, sc.size()[-1], DEFAULT_SPACE_PRIME), msg=f'size: {ksc.size()}')
 
         # Test sizing for testing chunk 2
         kxs = knot.forward(xSmear, oneD=True)
-        self.assertTrue(kxs.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, xSmear.size()[-1]), msg=f'size: {kxs.size()}')
+        self.assertTrue(kxs.size() == (test.TBATCH, xSmear.size()[-1], DEFAULT_SPACE_PRIME), msg=f'size: {kxs.size()}')
         kxls = knot.forward(xlSmear, oneD=True)
-        self.assertTrue(kxls.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, DEFAULT_SPACE_PRIME, xlSmear.size()[-1]), msg=f'size: {kxls.size()}')
+        self.assertTrue(kxls.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, xlSmear.size()[-1], DEFAULT_SPACE_PRIME), msg=f'size: {kxls.size()}')
         kxlsl = knot.forward(xlSmear, oneD=False)
         self.assertTrue(kxlsl.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, xlSmear.size()[-1]), msg=f'size: {kxlsl.size()}')
         kxcs = knotc.forward(xcSmear, oneD=True)
-        self.assertTrue(kxcs.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, xcSmear.size()[-1]), msg=f'size: {kxcs.size()}')
+        self.assertTrue(kxcs.size() == (test.TBATCH, xcSmear.size()[-1], DEFAULT_SPACE_PRIME), msg=f'size: {kxcs.size()}')
         kxcls = knotc.forward(xclSmear, oneD=True)
-        self.assertTrue(kxcls.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, DEFAULT_SPACE_PRIME, xclSmear.size()[-1]), msg=f'size: {kxcls.size()}')
+        self.assertTrue(kxcls.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, xclSmear.size()[-1], DEFAULT_SPACE_PRIME), msg=f'size: {kxcls.size()}')
         kxclsl = knotc.forward(xclSmear, oneD=False)
         self.assertTrue(kxclsl.size() == (test.TBATCH, DEFAULT_SPACE_PRIME, xclSmear.size()[-1]), msg=f'size: {kxlsl.size()}')
+
 
     def testValues(self):
         # Generate all testing datatypes
@@ -204,11 +209,10 @@ class KnotTest(unittest.TestCase):
         knotc.knotRadii = nn.Parameter(torch.randn_like(knot.knotRadii))
         
         # No change from these values should occur according to the lissajous tests
-        dummy = torch.zeros((1), dtype=DEFAULT_DTYPE)
-        dummyc = torch.zeros((1), dtype=DEFAULT_COMPLEX_DTYPE)
-        d = knot.forward(dummy, oneD=True)
-        dc = knotc.forward(dummyc, oneD=True)
-
+        d = knot.forward(t.zeros_like(x[0]), oneD=True)
+        dc = knotc.forward(t.zeros_like(xc[0]), oneD=True)
+        dl = knot.forward(t.zeros_like(xl[0]), oneD=False)
+        dcl = knotc.forward(t.zeros_like(xcl[0]).unsqueeze(0), oneD=False)
 
         # I don't even know how to begin to handle these fucking values...
         # Like, I just dealt with testing lissajous shit, now I have to do the
@@ -217,35 +221,36 @@ class KnotTest(unittest.TestCase):
         # Fuck boilerplate code, if you can be automated by an AI you weren't a very
         # good one.
         kx = knot.forward(x, oneD=True)
-        self.assertTrue(torch.all(kx == d))
+        self.assertTrue(torch.all((kx - d).abs() <= 1e-4))
         kxll = knot.forward(xl, oneD=True)
-        self.assertTrue(torch.all(kxll == d))
+        self.assertTrue(torch.all((kxll - d).abs() <= 1e-4))
         kxl = knot.forward(xl, oneD=False)
-        self.assertTrue(torch.all(kxl == d))
+        self.assertTrue(torch.all((kxl - dl).abs() <= 1e-4))
         kxc = knotc.forward(xc, oneD=True)
-        self.assertTrue(torch.all(kxc == dc))
+        self.assertTrue(torch.all((kxc - dc).abs() <= 1e-4))
         kxcll = knotc.forward(xcl, oneD=True)
-        self.assertTrue(torch.all(kxcll == dc))
+        self.assertTrue(torch.all((kxcll - dc).abs() <= 1e-4))
         kxcl = knotc.forward(xcl, oneD=False)
-        self.assertTrue(torch.all(kxcl == dc))
+        self.assertTrue(torch.all((kxcl - dcl).abs() <= 1e-4))
 
         ks = knot.forward(s, oneD=True)
-        self.assertTrue(torch.all(ks == d))
+        self.assertTrue(torch.all((ks - d).abs() <= 1e-4))
         ksc = knotc.forward(sc, oneD=True)
-        self.assertTrue(torch.all(ksc == dc))
+        self.assertTrue(torch.all((ksc - dc).abs() <= 1e-4))
 
         kxs = knot.forward(xSmear, oneD=True)
-        self.assertTrue(torch.all(kxs == d))
+        self.assertTrue(torch.all((kxs - d).abs() <= 1e-4))
         kxls = knot.forward(xlSmear, oneD=True)
-        self.assertTrue(torch.all(kxls == d))
+        self.assertTrue(torch.all((kxls - d).abs() <= 1e-4))
         kxlsl = knot.forward(xlSmear, oneD=False)
-        self.assertTrue(torch.all(kxlsl == d))
+        self.assertTrue(torch.all((kxlsl - dl).abs() <= 1e-4))
         kxcs = knotc.forward(xcSmear, oneD=True)
-        self.assertTrue(torch.all(kxcs == dc))
+        self.assertTrue(torch.all((kxcs - dc).abs() <= 1e-4))
         kxcls = knotc.forward(xclSmear, oneD=True)
-        self.assertTrue(torch.all(kxcls == dc))
+        self.assertTrue(torch.all((kxcls - dc).abs() <= 1e-4))
         kxclsl = knotc.forward(xclSmear, oneD=False)
-        self.assertTrue(torch.all(kxclsl == dc))
+        self.assertTrue(torch.all((kxclsl - dcl).abs() <= 1e-4))
+
 
     def testHarmonicPhaseStacking(self):
         # Generate all testing datatypes
@@ -294,9 +299,9 @@ class KnotTest(unittest.TestCase):
             self.assertTrue(torch.all(cout[idx] == rout[idx]))
 
             if torch.is_complex(cout[idx]):
-                self.assertTrue(torch.all(cout[idx].real - isin(torch.ones((1)) * -2) < 0.0001))
+                self.assertTrue(torch.all(cout[idx].real - csin(torch.ones((1)) * -2) < 0.0001))
             else:
-                self.assertTrue(torch.all(cout[idx] - isin(torch.ones((1)) * -2) < 0.0001))
+                self.assertTrue(torch.all(cout[idx] - csin(torch.ones((1)) * -2) < 0.0001))
 
         # Make sure that the phasing of the signal is stacking at a rate of phi
         phaseProto = torch.zeros_like(knot.phases)
@@ -314,7 +319,7 @@ class KnotTest(unittest.TestCase):
         # Test phase with three phases seeded according to phi
         cout = [knotc.forward(c) if torch.is_complex(c) else knot.forward(c) for c in CONSTANTS]
         rout = [knotc.forward(c) if torch.is_complex(c) else knot.forward(c) for c in RANDOMS]
-        stackedVal = (isin(torch.ones((1))) + isin(torch.ones((1)) * 2) + ((test.TBATCH - 2) * isin(torch.ones((1)) * 3))) / test.TBATCH
+        stackedVal = (csin(torch.ones((1))) + csin(torch.ones((1)) * 2) + ((test.TBATCH - 2) * csin(torch.ones((1)) * 3))) / test.TBATCH
 
         # Because of frequency zeroing, all values should be equal
         for idx in range(len(cout)):
@@ -324,6 +329,7 @@ class KnotTest(unittest.TestCase):
                 self.assertTrue(torch.all(cout[idx].real - stackedVal < 0.0001))
             else:
                 self.assertTrue(torch.all(cout[idx] - stackedVal < 0.0001))
+
 
     def testHarmonicFrequencyStacking(self):
         # Generate all testing datatypes
@@ -357,10 +363,10 @@ class KnotTest(unittest.TestCase):
             self.assertFalse(torch.all(cout[idx] == rout[idx]))
 
             if torch.is_complex(cout[idx]):
-                self.assertTrue(torch.all(cout[idx].real - isin(toComplex(torch.ones((1)))).real < 0.0001))
-                self.assertTrue(torch.all(cout[idx].imag - isin(toComplex(torch.ones((1)))).imag < 0.0001))
+                self.assertTrue(torch.all(cout[idx].real - csin(toComplex(torch.ones((1)))).real < 0.0001))
+                self.assertTrue(torch.all(cout[idx].imag - csin(toComplex(torch.ones((1)))).imag < 0.0001))
             else:
-                self.assertTrue(torch.all(cout[idx] - isin(torch.ones((1))) < 0.0001))
+                self.assertTrue(torch.all(cout[idx] - csin(torch.ones((1))) < 0.0001))
         
         # Add stacked frequency definition
         freqProto = torch.zeros_like(knot.frequencies)
@@ -378,7 +384,7 @@ class KnotTest(unittest.TestCase):
         # Verify frequency stacking property
         cout = [knotc.forward(c) if torch.is_complex(c) else knot.forward(c) for c in CONSTANTS]
         rout = [knotc.forward(c) if torch.is_complex(c) else knot.forward(c) for c in RANDOMS]
-        stackedVal = (isin(torch.ones((1))) + isin(torch.ones((1)) * 2) + ((test.TBATCH - 2) * isin(torch.ones((1)) * 3))) / test.TBATCH
+        stackedVal = (csin(torch.ones((1))) + csin(torch.ones((1)) * 2) + ((test.TBATCH - 2) * csin(torch.ones((1)) * 3))) / test.TBATCH
         
         for idx in range(len(cout)):
             self.assertFalse(torch.all(cout[idx] == rout[idx]))
@@ -387,6 +393,7 @@ class KnotTest(unittest.TestCase):
                 self.assertTrue(torch.all(cout[idx].real - stackedVal < 0.0001))
             else:
                 self.assertTrue(torch.all(cout[idx] - stackedVal < 0.0001))
+
 
 
 class RingingTest(unittest.TestCase):
@@ -399,23 +406,25 @@ class RingingTest(unittest.TestCase):
         FORKS:int = SIZE[-1] - FORK_DISP
 
         # Generate the control tensors to test against
-        x = torch.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
+        x = torch.randn(SIZE, dtype=DEFAULT_DTYPE)
+        xc = torch.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Construct the required classes for Ringing
         ring = Ringing(forks=FORKS, dtype=DEFAULT_DTYPE)
         ringc = Ringing(forks=FORKS, dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Compute the ringing results
-        xr = ring.forward(x, stopTime=False)
-        xc = ringc.forward(x, stopTime=False)        
-        sxr = ring.forward(x, stopTime=True)
-        sxc = ringc.forward(x, stopTime=True)
+        xrr = ring.forward(x)
+        xrc = ringc.forward(x)
+        xcr = ring.forward(xc)
+        xcc = ringc.forward(xc)
 
         # Make sure the sizes translated through properly
-        self.assertEqual(x.size(), xr.size())
-        self.assertEqual(x.size(), xc.size())
-        self.assertEqual(x.size(), sxr.size())
-        self.assertEqual(x.size(), sxc.size())
+        self.assertEqual(x.size(), xrr.size())
+        self.assertEqual(x.size(), xrc.size())
+        self.assertEqual(x.size(), xcr.size())
+        self.assertEqual(x.size(), xcc.size())
+
 
     def testViewSizing(self):
         # Generate random sizing
@@ -438,7 +447,8 @@ class RingingTest(unittest.TestCase):
         # Make sure that all of the lengths that come out have the appropriate samples and dims
         self.assertTrue(vr.size() == vc.size())
         self.assertEqual(len(vc.size()), 1)
-    
+
+
     def testSmallSizing(self):
         # Are these next tests useful to output? Not really from what I can see, however
         # they are quite good for stability reasons
@@ -464,16 +474,21 @@ class RingingTest(unittest.TestCase):
         self.assertTrue(xr.size() == xc.size() == vr.size() == vc.size())
         self.assertTrue(x.size() == xr.size())
     
+
     def testViewValues(self):
         # Generate random sizing
         SIZELEN:int = randint(1, 5)
-        SIZESCALAR:int = randint(6, 10)
+        SIZE:int = randint(5, 32)
         FORK_DISP:int = 2
-        SIZE = torch.Size(((torch.randn((SIZELEN), dtype=DEFAULT_DTYPE)).type(dtype=torch.int64).abs() + 1) * SIZESCALAR)
-        FORKS:int = SIZE[-1] - FORK_DISP
+        FORKS:int = SIZE - FORK_DISP
+        DECAYSCALAR:t.Tensor = phi().pow(-1)
+        GAIN:t.Tensor = t.zeros_like(DECAYSCALAR)
+        for n in range(0, SIZELEN+1):
+            GAIN.add_(DECAYSCALAR.pow(n))
+        DECAY:t.Tensor = DECAYSCALAR.pow(SIZELEN)
 
         # Generate the control tensors to test against
-        x = isigmoid(torch.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE))
+        x = csigmoid(t.stack([torch.randn(SIZE, dtype=DEFAULT_COMPLEX_DTYPE)]*SIZELEN, dim=0))
 
         # Construct the required classes for Ringing
         ring = Ringing(forks=FORKS, dtype=DEFAULT_DTYPE)
@@ -482,32 +497,33 @@ class RingingTest(unittest.TestCase):
         v0c = ringc.view(samples=x.size()[-1])
 
         # Make sure there is no default ringing in the forks
-        self.assertTrue(torch.all(v0r.abs() < 1e-4), msg='Latent ringing with real initialization.')
-        self.assertTrue(torch.all(v0c.abs() < 1e-4), msg='Latent ringing with complex initalization.')
+        self.assertTrue(torch.all(v0r.abs() < 1e-4), msg=f'Latent ringing with real initialization.\t{v0r}')
+        self.assertTrue(torch.all(v0c.abs() < 1e-4), msg=f'Latent ringing with complex initalization.\t{v0c}')
 
         # Compute the ringing results
-        _ = ring.forward(x, stopTime=False)
-        _ = ringc.forward(x, stopTime=False)
+        _ = ring.forward(x[0]) # Don't compound the decay
+        _ = ringc.forward(x[0]) # Don't compound the decay
         vr = ring.view(samples=x.size()[-1])
         vc = ringc.view(samples=x.size()[-1])
-        _ = ring.forward(x, stopTime=False)
-        _ = ringc.forward(x, stopTime=False)
+        _ = ring.forward(x)
+        _ = ringc.forward(x)
         vr2 = ring.view(samples=x.size()[-1])
         vc2 = ringc.view(samples=x.size()[-1])
-        _ = ring.forward(torch.zeros_like(x), stopTime=False)
-        _ = ringc.forward(torch.zeros_like(x), stopTime=False)
+        _ = ring.forward(torch.zeros_like(x))
+        _ = ringc.forward(torch.zeros_like(x))
         vr3 = ring.view(samples=x.size()[-1])
         vc3 = ringc.view(samples=x.size()[-1])
 
         # Check for proper signal degredations on forks
-        self.assertTrue(torch.all((vr2 - (vr * phi())).abs() < 1e-4), \
-            msg=f'build degredation: vr2/vr ({(vr2/vr).abs()}) != phi ({phi()})')
-        self.assertTrue(torch.all((vc2 - (vc * phi())).abs() < 1e-4), \
-            msg=f'build degredation: vc2/vc ({(vc2/vc).abs()}) != phi ({phi()})')
-        self.assertTrue(torch.all((vr3 - (vr2 * (1/phi()))).abs() < 1e-4), \
-            msg=f'decay degredation: vr3/vr2 ({(vr3/vr2).abs()}) != 1/phi ({1/phi()})')
-        self.assertTrue(torch.all((vc3 - (vc2 * (1/phi()))).abs() < 1e-4), \
-            msg=f'decay degredation: vc3/vc2 ({(vc3/vc2).abs()}) != 1/phi ({1/phi()})')
+        self.assertTrue(torch.all((vr2 - (vr * GAIN)).abs() < 1e-4), \
+            msg=f'build degredation: vr2/vr ({(vr2/vr).abs()}) != GAIN ({GAIN})')
+        self.assertTrue(torch.all((vc2 - (vc * GAIN)).abs() < 1e-4), \
+            msg=f'build degredation: vc2/vc ({(vc2/vc).abs()}) != GAIN ({GAIN})')
+        self.assertTrue(torch.all((vr3 - (vr2 * DECAY)).abs() < 1e-4), \
+            msg=f'decay degredation: vr3/vr2 ({(vr3/vr2).abs()}) != DECAY ({DECAY})')
+        self.assertTrue(torch.all((vc3 - (vc2 * DECAY)).abs() < 1e-4), \
+            msg=f'decay degredation: vc3/vc2 ({(vc3/vc2).abs()}) != DECAY ({DECAY})')
+
 
     def testForwardValues(self):
         # Generate random sizing
@@ -527,8 +543,8 @@ class RingingTest(unittest.TestCase):
         ringc = Ringing(forks=FORKS, dtype=DEFAULT_COMPLEX_DTYPE)
 
         # Do a latent oscillation test
-        z0r = ring.forward(z, stopTime=False)
-        z0c = ringc.forward(z, stopTime=False)
+        z0r = ring.forward(z)
+        z0c = ringc.forward(z)
         v0r = ring.view(samples=SIZE[-1])
         v0c = ringc.view(samples=SIZE[-1])
 
@@ -541,20 +557,15 @@ class RingingTest(unittest.TestCase):
         # Compute the ringing results
         controlTensors = [z, o, r]
         results = torch.zeros((len(controlTensors), 2, *SIZE), dtype=DEFAULT_COMPLEX_DTYPE)
-        resultsReg = torch.zeros_like(results)
         for idx, control in enumerate(controlTensors):
-            results[idx, 0] = ring.forward(control, stopTime=True, regBatchInput=False)
-            results[idx, 1] = ringc.forward(control, stopTime=True, regBatchInput=False)
-            resultsReg[idx, 0] = ring.forward(control, stopTime=True, regBatchInput=True)
-            resultsReg[idx, 1] = ringc.forward(control, stopTime=True, regBatchInput=True)
+            results[idx, 0] = ring.forward(control)
+            results[idx, 1] = ringc.forward(control)
         
         # Assert that the forward signal decay is appropriate (assuming view testing at different
         #   times is working).
         # If zeros start putting out any sort of signalling, something is really wrong
         self.assertTrue(torch.all(results[0, :].abs() < 1e-4), \
             msg=f'Zeros carrying noise for some reason.')
-        self.assertTrue(torch.all(resultsReg[0, :].abs() < 1e-4), \
-            msg=f'Regularized zeros are carrying noise for some reason.')
         
         # The output signal of the ringing should look something along the lines of
         #   the input signal multiplied by some decay between (0., 1.), added to a
@@ -562,40 +573,29 @@ class RingingTest(unittest.TestCase):
         #   sized/sampled output tensor. The lower bound of the multiple from the input
         #   should be roughly 1/phi, with the top bound being roughly phi (1 + (1/phi)).
         sumControl = []
-        meanControl = []
         for idx, control in enumerate(controlTensors):
             if len(control.size()) <= 1:
                 sumControl.append(control)
-                meanControl.append(control)
                 continue
 
             # Create copies for output
             # I know the max doesn't necessarily match the normal type of output calculated using mean,
             # however, creating the output signal this way can garuntee atleast the lack of a total runaway
             tempSum = (torch.fft.fft(control, dim=-1).transpose(-1, 0)).abs()
-            tempMax = (torch.zeros_like(tempSum) + tempSum).abs()
 
             # Regularize for testing
             for _ in range(len(tempSum.size()) - 1):
                 tempSum = torch.sum(tempSum, dim=1)
-                tempMax = torch.max(tempMax, dim=1)[0]
-            tempMax = torch.max(tempMax, dim=-1)[0] * torch.ones_like(tempMax)
             tempSum = torch.max(tempSum, dim=-1)[0] * torch.ones_like(tempSum)
 
             # Add to test sets
             sumControl.append(torch.max(torch.fft.ifft(tempSum, dim=-1).abs(), dim=-1)[0])
-            meanControl.append(torch.max(torch.fft.ifft(tempMax, dim=-1).abs(), dim=-1)[0])
 
         # Run tests for other prior tensors accordingly
         for idx in range(1, len(controlTensors)):
-            mControl = meanControl[idx]
             sControl = sumControl[idx].unsqueeze(0)
 
             normalDiff = (results[idx, :] - (phi() * (controlTensors[idx]))).abs()
             normalResult = torch.all(normalDiff.abs() <= torch.max(phi() * sControl.abs()) + 1e-4)
-            regularDiff = (results[idx, :] - (phi() * (controlTensors[idx]))).abs()
-            regularResult = torch.all(regularDiff.abs() <= torch.max(phi() * mControl.abs()) + 1e-4)
             self.assertTrue(normalResult, \
                 msg=f'[idx:{idx}] A value higher than a non-regularized value added to the forks has appeared.\n|{normalDiff}| <= {phi() * sControl.abs() + 1e-4}')
-            self.assertTrue(regularResult, \
-                msg=f'[idx:{idx}] A value higher than a regularized value added to the forks has appeared.\n|{regularDiff}| <= {phi() * mControl.abs() + 1e-4}')

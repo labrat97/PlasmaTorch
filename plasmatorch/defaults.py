@@ -2,9 +2,13 @@ import torch as t
 import torch.nn as nn
 import torch.nn.functional as nnf
 import torch.fft as tfft
-from torch.jit import script as ts
+import torch.cuda as tc
+from torch.jit import script as ts, fork as tfork, wait as twait, Future as tFuture
 
-from typing import Tuple, List, Dict, Union
+from typing import Tuple, List, Dict, Union, Callable
+from .memory import *
+
+
 
 # Ensure some level of default precision
 DEFAULT_DTYPE:t.dtype = t.float32
@@ -40,11 +44,15 @@ DEFAULT_SPACE_PRIME:int = 11
 DEFAULT_PADDING:str = 'circular'
 
 # The default amount of samples to use in lenses
-DEFAULT_SIGNAL_LENS_PADDING:int = 5
-DEFAULT_SIGNAL_LENS_SAMPLES:int = DEFAULT_FFT_SAMPLES
+DEFAULT_SIGNAL_LENS_SAMPLES:int = GREISS_SAMPLES
 
 # The normal amount of lenses used in a signal aggregation system
 AGGREGATE_LENSES:int = 7
+
+# Figure out the most effective devices to use by default
+DEFAULT_FAST_DEV:t.device = t.device('cuda' if tc.is_available() else 'cpu')
+DEFAULT_MEM_DEV:t.device = t.device('cuda' if getCudaMemory() > getSystemMemory() else 'cpu')
+
 
 
 @ts
@@ -85,18 +93,19 @@ def isSmearAll(x:t.Tensor) -> Tuple[bool, bool]:
     return isSmear(x), isOneD(x)
 
 @ts
-def xbias(n:int, bias:int=0) -> t.Tensor:
+def xbias(n:int, bias:int=0, device:t.device=DEFAULT_FAST_DEV) -> t.Tensor:
     """Creates the torch equivalent of a `range()` call in python, n elements long
     starting at `bias` as a value.
 
     Args:
         n (int): The number of samples to iterate and save for the function.
         bias (int, optional): The number to start iterating at. Defaults to 0.
+        device (t.device, optional): The device to store the bias on. Defaults to DEFAULT_FAST_DEV.
 
     Returns:
         t.Tensor: The unit stepping, summing, iterated tensor.
     """
-    composer = t.zeros((n)).add(bias)
+    composer = t.zeros((n), dtype=t.int64, device=device)
     for i in range(n):
-        composer[i].add_(i)
-    return composer
+        composer[i] = i
+    return composer.add(bias)

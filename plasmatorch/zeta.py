@@ -1,7 +1,8 @@
-from .defaults import *
-from .math import asigphi, i, pi, isigmoid
+from .__defimp__ import *
+from .math import csigmoid
 from .conversions import toComplex
 from .sizing import resignal
+
 
 
 @ts
@@ -28,7 +29,7 @@ def hzetae(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.Tensor=t.tenso
         s (t.Tensor): The `s` value of the Hurwitz Zeta function.
         a (t.Tensor): The `a` value of the Hurwitz Zeta function.
         res (t.Tensor, optional): The amount of residual evaluation used to determine the output value. This
-            value is piped through the isigmoid() fuction. A full activation means
+            value is piped through the csigmoid() fuction. A full activation means
             a normal evaluation of the zeta function, as where a 0 activation means
             something closer to just the evaluation of the delta value. Defaults to asigphi().
         aeps (t.Tensor, optional): The arc-epsilon value. If the delta value is less
@@ -41,23 +42,23 @@ def hzetae(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.Tensor=t.tenso
             the Hurwitz Zeta function.
     """
     # Set up the parameters for residual evaluation
-    epsig:t.Tensor = isigmoid(res)
+    epsig:t.Tensor = csigmoid(res.to(device=s.device, non_blocking=True))
     idx:int = 1
     epsigexp:t.Tensor = t.ones_like(epsig)
 
     # Generate the first value
     delta:t.Tensor = __hzetaitr(s=s, a=a, n=0)
-    result:t.Tensor = t.ones_like(delta) * delta
+    result:t.Tensor = delta
     keepGoing:t.Tensor = (result.abs() >= aeps.abs()).type(t.int64)
 
     # Progress each value forward to convergence or max iteration
-    while t.all(keepGoing) and idx < maxiter:
+    while t.any(keepGoing) and idx < maxiter:
         # Find and apply the changes according to the aeps variable
         # Multiplying s by keepGoing allows for a quicker exponential eval potentially
         # on the finished values
-        delta = __hzetaitr(s=(s * keepGoing), a=a, n=idx)
+        delta = __hzetaitr(s=s, a=a, n=idx)
         epsigexp = t.pow(epsig, float(idx) / (maxiter - 1))
-        result = (keepGoing * ((epsigexp * delta) + result)) + ((1 - keepGoing) * result)
+        result.add_(epsigexp * delta)
 
         # Check to see if the values are still needing iteration
         keepGoing = (result.abs() >= aeps.abs()).type(t.int64)
@@ -73,7 +74,7 @@ def hzetas(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blankSamples:int=0,
         s (t.Tensor): The `s` value of the Hurwitz Zeta function.
         a (t.Tensor): The `a` value of the Hurwitz Zeta function.
         res (t.Tensor, optional): The amount of residual evaluation used to determine the output value. This
-            value is piped through the isigmoid() fuction. A full activation means
+            value is piped through the csigmoid() fuction. A full activation means
             a normal evaluation of the zeta function, as where a 0 activation means
             something closer to just the evaluation of the delta value. Defaults to asigphi().
         blankSamples (int, optional): The amount of samples to ignore at the start. Defaults to 0.
@@ -86,10 +87,10 @@ def hzetas(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blankSamples:int=0,
             in a new last dimension through the Hurwitz Zeta function.
     """
     # Make the result the size of the input with the output sample channels
-    result:t.Tensor = toComplex(s.unsqueeze(-1) @ t.zeros((1, samples), dtype=s.dtype))
+    result:t.Tensor = toComplex(s.unsqueeze(-1) @ t.zeros((1, samples), dtype=s.dtype, device=s.device))
 
     # Set up running parameters
-    epsig:t.Tensor = isigmoid(res)
+    epsig:t.Tensor = csigmoid(res.to(device=s.device, non_blocking=True))
     idx:int = 1
     epsigexp:t.Tensor = t.ones_like(epsig)
     totsamples:int = blankSamples + samples
@@ -113,6 +114,8 @@ def hzetas(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blankSamples:int=0,
         return resignal(result, samples=result.size(-1), dim=-1)
     return result
 
+
+
 @ts
 def __lerchitr(lam:t.Tensor, s:t.Tensor, a:t.Tensor, n:int) -> t.Tensor:
     """Returns just the value being infinitely summed in the Lerch Zeta function.
@@ -127,7 +130,7 @@ def __lerchitr(lam:t.Tensor, s:t.Tensor, a:t.Tensor, n:int) -> t.Tensor:
         t.Tensor: The value to be summed for the provided iteration of the function.
     """
     # Modify the hzeta itr with the provided exponent
-    hzetaexp:t.Tensor = 2 * pi() * n
+    hzetaexp:t.Tensor = 2 * pi(device=lam.device) * n
 
     # If the lambda value is complex, account for the phase angle in the production of z
     if t.is_complex(lam):
@@ -136,7 +139,7 @@ def __lerchitr(lam:t.Tensor, s:t.Tensor, a:t.Tensor, n:int) -> t.Tensor:
         hzetaexp = hzetaexp * lam
     
     # Multiply the numerator of the hzeta itr to create the final itr result
-    return t.exp(hzetaexp * i()) * __hzetaitr(s=s, a=a, n=n)
+    return t.exp(hzetaexp * 1j) * __hzetaitr(s=s, a=a, n=n)
 
 @ts
 def lerche(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.Tensor=t.tensor(1e-8), maxiter:int=1024) -> t.Tensor:
@@ -148,7 +151,7 @@ def lerche(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.
         s (t.Tensor): The `s` value of the Lerch Zeta function.
         a (t.Tensor): The `a` value of the Lerch Zeta function.
         res (t.Tensor, optional): The amount of residual evaluation used to determine the output value. This
-            value is piped through the isigmoid() fuction. A full activation means
+            value is piped through the csigmoid() fuction. A full activation means
             a normal evaluation of the zeta function, as where a 0 activation means
             something closer to just the evaluation of the delta value. Defaults to asigphi().
         aeps (t.Tensor, optional): The arc-epsilon value. If the delta value is less than
@@ -161,23 +164,23 @@ def lerche(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.
             the Lerch Zeta function.
     """
     # Set up the running parameters
-    epsig:t.Tensor = isigmoid(res)
+    epsig:t.Tensor = csigmoid(res.to(device=s.device, non_blocking=True))
     idx:int = 1
     epsigexp:t.Tensor = t.ones_like(epsig)
 
     # Generate the first value
     delta:t.Tensor = __lerchitr(lam=lam, s=s, a=a, n=0)
-    result:t.Tensor = t.ones_like(delta) * delta
+    result:t.Tensor = delta
     keepGoing:t.Tensor = (result.abs() >= aeps.abs()).type(t.int64)
 
     # Progress each element forward to convergence or max iteration
-    while t.all(keepGoing) and idx < maxiter:
+    while t.any(keepGoing) and idx < maxiter:
         # Find and apply the changes according to the aeps variable
         # Multiplying lam & s by keepGoing allows for a quicker exponential eval potentially
         # on the finished values
-        delta = __lerchitr(lam=(lam * keepGoing), s=(s * keepGoing), a=a, n=idx)
+        delta = __lerchitr(lam=lam, s=s, a=a, n=idx)
         epsigexp = t.pow(epsig, float(idx) / (maxiter - 1))
-        result = (keepGoing * ((epsigexp * delta) + result)) + ((1 - keepGoing) * result)
+        result.add_(epsigexp * delta)
 
         # Check to see if the values are still needing iteration
         keepGoing = (result.abs() >= aeps.abs()).type(t.int64)
@@ -194,7 +197,7 @@ def lerchs(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blank
         s (t.Tensor): The `s` value of the Lerch Zeta function.
         a (t.Tensor): The `a` value of the Lerch Zeta function.
         res (t.Tensor, optional): The amount of residual evaluation used to determine the output value. This
-            value is piped through the isigmoid() fuction. A full activation means
+            value is piped through the csigmoid() fuction. A full activation means
             a normal evaluation of the zeta function, as where a 0 activation means
             something closer to just the evaluation of the delta value. Defaults to asigphi()*3.
         blankSamples (int, optional): The amount of samples to ignore at the start. Defaults to 0.
@@ -207,10 +210,10 @@ def lerchs(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blank
             in a new last dimension through the Lerch Zeta function.
     """
     # Make the result the size of the input with the output samples channels
-    result:t.Tensor = toComplex(s.unsqueeze(-1) @ t.zeros((1, samples), dtype=s.dtype))
+    result:t.Tensor = toComplex(s.unsqueeze(-1) @ t.zeros((1, samples), dtype=s.dtype, device=s.device))
 
     # Set up running parameters
-    epsig:t.Tensor = isigmoid(res)
+    epsig:t.Tensor = csigmoid(res.to(device=s.device, non_blocking=True))
     idx:int = 1
     epsigexp:t.Tensor = t.ones_like(epsig)
     totsamples:int = blankSamples + samples

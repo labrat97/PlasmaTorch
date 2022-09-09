@@ -1,0 +1,18 @@
+1. 
+Go through all things marked for verification
+XXX 1.1.
+XXX `entanglement_test.py`
+XXX 1.2.
+XXX `math_test.py`
+
+2.
+Make tests for:
+XXX sizing
+XXX lens
+XXX toroidallin
+... turbulence
+
+3.
+Make tests for:
+knowledge.*
+losses

@@ -69,8 +69,8 @@ class KnowledgeFilter(nn.Module, ABC):
             t.Tensor: The average correlation accross the samples, curves, and vectors.
         """
         # Calculate the self correlation based on the internal positioning keyBasis
-        selfCarry = isigmoid(self.keyCarry)
-        selfCorr = isigmoid((selfCarry * self.keyBasis) + self.corrBias)
+        selfCarry = csigmoid(self.keyCarry)
+        selfCorr = csigmoid((selfCarry * self.keyBasis) + self.corrBias)
 
         # Assert the input signal is signal compatible with the correlation signal
         if x.size(-1) != self.keySamples:
@@ -222,8 +222,8 @@ class KnowledgeCollider(nn.Module, ABC):
             t.Tensor: The average correlation accross the samples, curves, and vectors.
         """
         # Put the self correlation into an easy to process bounds, processing from the key
-        selfCarry = isigmoid(self.keyCarry)
-        selfCorr = isigmoid((selfCarry * self.keyBasis) + self.corrBias)
+        selfCarry = csigmoid(self.keyCarry)
+        selfCorr = csigmoid((selfCarry * self.keyBasis) + self.corrBias)
 
         # Resample the input vectors if needed
         if a.size(-1) != self.keySamples:
@@ -433,4 +433,4 @@ class KnowledgeRouter(KnowledgeCollider):
             result[sdx].div_(topcorrs[sdx].numel())
 
         # Unflatten the resultant signals back to the relevant size
-        return nn.Unflatten(0, aflat.size()[:-1])(result)
+        return result.unflatten(dim=0, sizes=aflat.size()[:-1])
