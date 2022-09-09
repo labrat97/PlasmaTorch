@@ -1,4 +1,4 @@
-from .defaults import *
+from .__defimp__ import *
 from .entanglement import superposition
 from .math import hmean
 

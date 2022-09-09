@@ -3,6 +3,92 @@ import unittest
 import torch as t
 from plasmatorch import *
 
+from random import random, randint
+
+
+
+class LinspaceTest(unittest.TestCase):
+    def testSizingTyping(self):
+        # Create the testing numbers
+        a:float = random()
+        b:float = abs(random()) + a
+        steps:int = randint(2, 196884)
+
+        # Create testing tensors
+        lfn = linspace(start=a, end=b, steps=steps)
+        lf1 = linspace(start=a, end=b, steps=1)
+        lcn = linspace(start=complex(a), end=complex(b), steps=steps)
+        lc1 = linspace(start=complex(a), end=complex(b), steps=1)
+        ltfn = linspace(start=t.tensor(a, dtype=DEFAULT_DTYPE), end=t.tensor(b, dtype=DEFAULT_DTYPE), steps=steps)
+        ltf1 = linspace(start=t.tensor(a, dtype=DEFAULT_DTYPE), end=t.tensor(b, dtype=DEFAULT_DTYPE), steps=1)
+        ltcn = linspace(start=t.tensor(a, dtype=DEFAULT_COMPLEX_DTYPE), end=t.tensor(b, dtype=DEFAULT_COMPLEX_DTYPE), steps=steps)
+        ltc1 = linspace(start=t.tensor(a, dtype=DEFAULT_COMPLEX_DTYPE), end=t.tensor(b, dtype=DEFAULT_COMPLEX_DTYPE), steps=1)
+
+        # Test the types of the tensors
+        self.assertFalse(lfn.is_complex())
+        self.assertFalse(lf1.is_complex())
+        self.assertTrue(lcn.is_complex())
+        self.assertTrue(lc1.is_complex())
+        self.assertFalse(ltfn.is_complex())
+        self.assertFalse(ltf1.is_complex())
+        self.assertTrue(ltcn.is_complex())
+        self.assertTrue(ltc1.is_complex())
+
+        # Test the sizes of the tensors
+        self.assertEqual(list(lfn.size()), [steps])
+        self.assertEqual(list(lcn.size()), [steps])
+        self.assertEqual(list(ltfn.size()), [steps])
+        self.assertEqual(list(ltcn.size()), [steps])
+        self.assertEqual(list(lf1.size()), [1])
+        self.assertEqual(list(lc1.size()), [1])
+        self.assertEqual(list(ltf1.size()), [1])
+        self.assertEqual(list(ltc1.size()), [1])
+
+    def testConsistency(self):
+        # Create the testing numbers
+        a:float = random()
+        ac:complex = a + (random() * 1j)
+        b:float = abs(random()) + a
+        bc:complex = b + (random() * 1j)
+        steps:int = randint(2, 196884)
+
+        # Create testing tensors
+        lfn = linspace(start=a, end=b, steps=steps)
+        lcn = linspace(start=ac, end=bc, steps=steps)
+        ltfn = linspace(start=t.tensor(a, dtype=DEFAULT_DTYPE), end=t.tensor(b, dtype=DEFAULT_DTYPE), steps=steps)
+        ltcn = linspace(start=t.tensor(ac, dtype=DEFAULT_COMPLEX_DTYPE), end=t.tensor(bc, dtype=DEFAULT_COMPLEX_DTYPE), steps=steps)
+
+        # Create the control tensors
+        cfn = t.linspace(start=a, end=b, steps=steps)
+        ccn = t.linspace(start=ac, end=bc, steps=steps)
+
+        # Test against the control tensors
+        self.assertTrue(t.all((lfn - cfn).abs() <= 1e-4))
+        self.assertTrue(t.all((ltfn - cfn).abs() <= 1e-4))
+        self.assertTrue(t.all((lcn - ccn).abs() <= 1e-4))
+        self.assertTrue(t.all((ltcn - ccn).abs() <= 1e-4))
+    
+    def testSingleValues(self):
+        # Create the testing numbers
+        a:float = random()
+        ac:complex = a + (random() * 1j)
+        b:float = abs(random()) + a
+        bc:complex = b + (random() * 1j)
+        avg:float = (a + b) / 2.
+        avgc:complex = (ac + bc) / 2.
+
+        # Create testing tensors
+        lf1 = linspace(start=a, end=b, steps=1)
+        lc1 = linspace(start=ac, end=bc, steps=1)
+        ltf1 = linspace(start=t.tensor(a, dtype=DEFAULT_DTYPE), end=t.tensor(b, dtype=DEFAULT_DTYPE), steps=1)
+        ltc1 = linspace(start=t.tensor(ac, dtype=DEFAULT_COMPLEX_DTYPE), end=t.tensor(bc, dtype=DEFAULT_COMPLEX_DTYPE), steps=1)
+
+        # Test the results against the straight averages
+        self.assertTrue(t.all((lf1 - avg).abs() <= 1e-4))
+        self.assertTrue(t.all((lc1 - avgc).abs() <= 1e-4))
+        self.assertTrue(t.all((ltf1 - avg).abs() <= 1e-4))
+        self.assertTrue(t.all((ltc1 - avgc).abs() <= 1e-4))
+
 
 
 class IrregularGaussTest(unittest.TestCase):

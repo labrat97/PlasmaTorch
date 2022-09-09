@@ -1,11 +1,11 @@
-from .defaults import *
+from .__defimp__ import *
 from .conversions import *
 from .math import *
 
 
 
 @ts
-def lissajous(x:t.Tensor, freqs:t.Tensor, phases:t.Tensor, oneD:bool = True) -> t.Tensor:
+def lissajous(x:t.Tensor, freqs:t.Tensor, phases:t.Tensor, oneD:bool=True, dims:Tuple[int, int]=(-2, -1)) -> t.Tensor:
     """Create a lissajous curve sampled at position `x` with the associated frequencies
     and phases.
 
@@ -15,29 +15,50 @@ def lissajous(x:t.Tensor, freqs:t.Tensor, phases:t.Tensor, oneD:bool = True) -> 
             phases (t.Tensor): The phase offsets for the curve(s).
             oneD (bool, optional): All sampling positions are considered independent for the frequencies
             and phases provided. Defaults to True.
+            dims (Tuple[int]): The curve and sample dimensions to operate on respectively if not `oneD`.
 
     Returns:
             t.Tensor: The sampled lissajous curve.
     """
+    # Quick error checking
     assert freqs.size() == phases.size()
-    
+
+    # Handle the easier to prep `oneD` case
     if oneD:
         # Manipulate dimensions to broadcast in 1D sense
-        x = t.unsqueeze(x, -1)
-        sinpos:t.Tensor = (x @ freqs) + (t.ones_like(x) @ phases)
-    else:
-        # Put curves in the right spot
-        assert x.size()[-2] == freqs.size()[-1]
-        x = x.transpose(-1,-2)
+        x = x.unsqueeze(-1)
 
-        # Maniupulate dimensions to broadcast in per-curve sense
-        sinpos:t.Tensor = (x * freqs.unsqueeze(0)) + (t.ones_like(x) * phases.unsqueeze(0))
+        # Perform the computation for the inner component of the csin function
+        sinpos:t.Tensor = (x @ freqs.unsqueeze(0)) + (t.ones_like(x) @ phases.unsqueeze(0))
+
+        # Compute the curve and return
+        return csin(sinpos)
+
+    # Quick error checking for not `oneD`
+    assert x.dim() >= 2
+    assert freqs.dim() <= x.dim()-1
+    assert dims[0] != dims[1]
+
+    # Prepare x for curve broadcast
+    wx:t.Tensor = x.movedim(dims, [-1, -2])
+
+    # Make sure the f/p tensors can be broadcasted
+    if (freqs.dim() >= 2) and (freqs.size(-2) != 1):
+        assert freqs.size()[:-1] == wx.size()[:-2]
+    assert freqs.size(-1) == wx.size(-1)
+
+    # Make the f/p tensors have a 1 in the place of the sample dim
+    wf:t.Tensor = freqs.unsqueeze(-2)
+    wp:t.Tensor = phases.unsqueeze(-2)
+
+    # Broadcast the frequencies in a per element sense
+    sinpos:t.Tensor = (wx * wf) + (t.ones_like(wx) * wp)
 
     # Activate in curve's embedding space depending on the working datatype.
     # This is done due to the non-converging nature of the non-convergence of the
     # cos function during the operation on complex numbers. To solve this, a sin function
     # is called in the imaginary place to emulate the e^ix behavior for sinusoidal signals.
-    return csin(sinpos).transpose(-1, -2)
+    return csin(sinpos).movedim([-1, -2], dims)
 
 
 
@@ -46,7 +67,7 @@ class Lissajous(nn.Module):
     Holds a Lissajous-like curve to be used as a sort of activation layer as a unit
         of knowledge.
     """
-    def __init__(self, size:int, dtype:t.dtype = DEFAULT_DTYPE):
+    def __init__(self, size:int, dtype:t.dtype=DEFAULT_DTYPE, device:t.device=DEFAULT_FAST_DEV):
         """Builds a new Lissajous-like curve structure.
 
         Args:
@@ -55,8 +76,8 @@ class Lissajous(nn.Module):
         super(Lissajous, self).__init__()
 
         self.size:int = size
-        self.frequency:nn.Parameter = nn.Parameter(t.zeros([1, size], dtype=dtype))
-        self.phase:nn.Parameter = nn.Parameter(t.zeros([1, size], dtype=dtype))
+        self.frequency:nn.Parameter = nn.Parameter(t.zeros([size], dtype=dtype, device=device))
+        self.phase:nn.Parameter = nn.Parameter(t.zeros([size], dtype=dtype, device=device))
 
 
     def forward(self, x:t.Tensor, oneD:bool = True) -> t.Tensor:
@@ -85,7 +106,7 @@ class Knot(nn.Module):
         which allows the knot to have its parameters later entangled, modulated, and
         transformed through conventional methods.
     """
-    def __init__(self, knotSize:int, knotDepth:int, dtype:t.dtype=DEFAULT_DTYPE):
+    def __init__(self, knotSize:int, knotDepth:int, dtype:t.dtype=DEFAULT_DTYPE, device:t.device=DEFAULT_FAST_DEV):
         """Constructs a Knot for later use generating all weights and storing internally.
 
         Args:
@@ -93,6 +114,7 @@ class Knot(nn.Module):
                 knotDepth (int): The amount of lissajous-like curves to be added together.
                 dtype (t.dtype): The type of the housed parameters used for modifying
                     the value of the contained lissajous structures.
+                device (t.device): The device to use for the module. Defaults to DEFAULT_FAST_DEV.
         """
         super(Knot, self).__init__()
 
@@ -102,15 +124,16 @@ class Knot(nn.Module):
 
         # Add some linearly trained weighted goodness
         self.dtype:t.dtype = dtype
-        paramSize:List[int] = [self.knotDepth, self.knotSize, 1]
-        self.regWeights:nn.Parameter = nn.Parameter(t.ones(paramSize, dtype=dtype) / self.knotDepth)
+        self.device:t.device = device
+        paramSize:List[int] = [self.knotDepth, self.knotSize]
+        self.regWeights:nn.Parameter = nn.Parameter(t.ones(paramSize, dtype=dtype, device=device) / self.knotDepth)
         
-        self.frequencies:nn.Parameter = nn.Parameter(t.zeros((self.knotSize, self.knotDepth), dtype=dtype))
-        self.phases:nn.Parameter = nn.Parameter(t.zeros((self.knotSize, self.knotDepth), dtype=dtype))
-        self.__triu:t.Tensor = t.triu(t.ones((self.knotDepth, self.knotDepth), dtype=dtype), diagonal=0).detach()
-        self.__latticeParams:t.Tensor = latticeParams(self.knotDepth)
+        self.frequencies:nn.Parameter = nn.Parameter(t.zeros((self.knotSize, self.knotDepth), dtype=dtype, device=device))
+        self.phases:nn.Parameter = nn.Parameter(t.zeros((self.knotSize, self.knotDepth), dtype=dtype, device=device))
+        self.__triu:t.Tensor = t.triu(t.ones((self.knotDepth, self.knotDepth), dtype=dtype, device=device), diagonal=0).detach()
+        self.__latticeParams:t.Tensor = latticeParams(self.knotDepth, device=self.device)
 
-        self.knotRadii:nn.Parameter = nn.Parameter(t.zeros(paramSize[1:], dtype=dtype))
+        self.knotRadii:nn.Parameter = nn.Parameter(t.zeros(paramSize[1:], dtype=dtype, device=device))
 
 
     def forward(self, x:t.Tensor, oneD:bool = True) -> t.Tensor:
@@ -129,32 +152,37 @@ class Knot(nn.Module):
                     [Batches,::,Samples] -> [Batches,::,Curves,Samples]
         """
         # Create the expanded dimensions required in the output tensor
+        # Also add in the knot radii for each curvature dimension
         if oneD:
             outputSize:t.Size = t.Size(list(x.size()) + [self.knotSize])
-            result:t.Tensor = t.zeros(outputSize, dtype=self.dtype).transpose(-1, -2)
+            result:t.Tensor = t.zeros(outputSize, dtype=self.dtype, device=self.device) \
+                + self.knotRadii
+            regSqueeze:int = 0
         else:
             outputSize:t.Size = x.size()
-            result:t.Tensor = t.zeros(outputSize, dtype=self.dtype)
+            result:t.Tensor = t.zeros(outputSize, dtype=self.dtype, device=self.device) \
+                + self.knotRadii.unsqueeze(-1)
+            regSqueeze:int = -1
         
         # Add the frequencies together
-        freqs:t.Tensor = ((self.frequencies * self.__latticeParams) @ self.__triu).transpose(0, 1)
-        phases:t.Tensor = ((self.phases * self.__latticeParams) @ self.__triu).transpose(0, 1)
+        freqs:t.Tensor = ((self.frequencies * self.__latticeParams) @ self.__triu)
+        phases:t.Tensor = ((self.phases * self.__latticeParams) @ self.__triu)
+
+        # Put the curve dimension in the terminal (-1) position
+        freqs.transpose_(0, 1)
+        phases.transpose_(0, 1)
 
         # Add all of the curves together
         for idx in range(self.knotDepth):
             # Pass the frequencies to the curves
-            freqn:t.Tensor = freqs[idx].unsqueeze(0)
-            phasen:t.Tensor = phases[idx].unsqueeze(0)
-            regn:t.Tensor = self.regWeights[idx]
+            freqn:t.Tensor = freqs[idx]
+            phasen:t.Tensor = phases[idx]
+            regn:t.Tensor = self.regWeights[idx].unsqueeze(regSqueeze)
 
             # Each lissajous curve-like structure has different weights, and therefore 
             curve:t.Tensor = regn * lissajous(x=x, freqs=freqn, phases=phasen, oneD=oneD)
             result.add_(curve)
-
-        # Add the radius of the knot to the total of the sum of the curves
-        result.add_(self.knotRadii)
         
-        # Swap the position of the curve and the sample (so the samples are on the rear)
         return result
 
 
@@ -165,22 +193,23 @@ class Ringing(nn.Module):
         time is not really relevant here, this is actually dampening over forward iteration
         unless specified not to.
     """
-    def __init__(self, forks:int=DEFAULT_FFT_SAMPLES, dtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
+    def __init__(self, forks:int=DEFAULT_FFT_SAMPLES, dtype:t.dtype=DEFAULT_COMPLEX_DTYPE, device:t.device=DEFAULT_FAST_DEV):
         """Initialize the ringing module.
 
         Args:
                 forks (int, optional): The amount of forks to ring in the module. Defaults to DEFAULT_FFT_SAMPLES.
                 dtype (t.dtype, optional): The default datatype for ringing parameters; supports complex values. Defaults to DEFAULT_COMPLEX_DTYPE.
+                device (t.device): The device to use for the module. Defaults to DEFAULT_FAST_DEV.
         """
         super(Ringing, self).__init__()
 
         # The positions and values of the enclosed forks
         forks = int(forks)
-        DECAY_SEED = (asigphi()).type(dtype) # After a sigmoid eval this should come to 1/phi()
-        self.forkPos = nn.Parameter(toComplex(t.zeros((forks), dtype=dtype)).real)
-        self.forkVals = nn.Parameter(toComplex(t.zeros((forks), dtype=dtype)), requires_grad=False)
-        self.forkDecay = nn.Parameter(t.ones((forks), dtype=dtype) * DECAY_SEED)
-        self.signalDecay = nn.Parameter(t.ones((1), dtype=dtype) * DECAY_SEED)
+        DECAY_SEED = asigphi(dtype=dtype, device=device) # After a sigmoid eval this should come to 1/phi()
+        self.forkPos = nn.Parameter(toComplex(t.zeros((forks), dtype=dtype, device=device)).real)
+        self.forkVals = nn.Parameter(toComplex(t.zeros((forks), dtype=dtype, device=device)), requires_grad=False)
+        self.forkDecay = nn.Parameter(t.ones((forks), dtype=dtype, device=device) * DECAY_SEED)
+        self.signalDecay = nn.Parameter(t.ones((1), dtype=dtype, device=device) * DECAY_SEED)
 
 
     def __createOutputSignal__(self, xfft:t.Tensor, posLow:t.Tensor, posHigh:t.Tensor, posMix:t.Tensor) -> t.Tensor:
@@ -224,7 +253,7 @@ class Ringing(nn.Module):
         posLow = positions.type(t.int64)
         posHigh = (posLow + 1).clamp_max(samples - 1)
         posMix = positions - posLow
-        xfft = t.zeros((samples), dtype=self.forkVals.dtype)
+        xfft = t.zeros((samples), dtype=self.forkVals.dtype, device=self.forkVals.device)
 
         # Generate the output signal
         yfft = self.__createOutputSignal__(xfft=xfft, posLow=posLow, posHigh=posHigh, posMix=posMix)

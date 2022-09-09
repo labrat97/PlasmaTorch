@@ -90,7 +90,7 @@ class PipelineFilter(KnowledgeCollider):
                 result[batch].add(accum[idx] * lattice[idx])
         
         # Unflatten and return the accumulated result
-        return nn.Unflatten(dim=0, unflattened_size=a.size()[:-1])(result)    
+        return result.unflatten(dim=0, sizes=a.size()[:-1])    
 
     def addPipe(self, pipe:KnowledgeCollider):
         # Add the pipe, simple enough. Do a little error checking while you're at it
