@@ -1,9 +1,8 @@
-from .defaults import *
+from .__defimp__ import *
 from .activations import *
 from .entanglement import *
 from .math import *
 from .lens import *
-from .sizing import unflatten
 
 
 
@@ -45,10 +44,11 @@ def turbulence(ego:t.Tensor, world:t.Tensor, mask:t.Tensor) -> t.Tensor:
         attn = lens(attn, lens=flatego.imag, dim=-1)
 
     # Reshape the attention to have the appropriate superbatch size
-    return unflatten(x=attn, dim=0, size=presize)
+    return attn.unflatten(dim=0, sizes=presize)
 
 
 
+# TODO: Make this system call the above function `turbulence()`
 class Turbulence(nn.Module):
     """
     Pays attention to a continuous signal by multiple methods. Three methods are primarily used, the
