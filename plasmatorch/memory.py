@@ -27,17 +27,23 @@ def getCudaMemory(cudaIdx:int=0) -> int:
 
 
 
-def collect():
+def collect() -> int:
     """Run various garbage collection systems in Python and other libraries (if needed
     and available) while hiding the output from the terminal as this is meant to be
-    called potentially quite frequently.
+    called potentially quite frequently. No device is needed to be set here,
+    as the various other devices referenced by the current Python instance should
+    also be garbage collected.
+
+    Returns:
+        int: The number of objects collected.
     """
     # Set up the lack of printing
     debug = gc.get_debug()
     gc.set_debug(0)
 
     # Collection code
-    gc.collect(generation=2)
+    result:int = gc.collect(generation=2)
 
     # Return the garbage collector to the original state
     gc.set_debug(debug)
+    return result

@@ -433,4 +433,4 @@ class KnowledgeRouter(KnowledgeCollider):
             result[sdx].div_(topcorrs[sdx].numel())
 
         # Unflatten the resultant signals back to the relevant size
-        return nn.Unflatten(0, aflat.size()[:-1])(result)
+        return result.unflatten(dim=0, sizes=aflat.size()[:-1])

@@ -5,39 +5,6 @@ from .distributions import linspace
 
 
 @ts
-def unflatten(x:t.Tensor, dim:int, size:List[int]) -> t.Tensor:
-    """Run the equivalent of a functional unflatten on the provided signal.
-
-    Args:
-        x (t.Tensor): The signal to unflatten.
-        dim (int): The dimension to unflatten in the signal.
-        size (List[int]): The new expanded size of the unflattened dimension.
-
-    Returns:
-        t.Tensor: The unflattened signal.
-    """
-    # Assert that the tensor unflattens to the appropriate size at the provided dim
-    numel:int = 1
-    for n in size:
-        numel = numel * n
-    assert numel == x.size(dim), f'{numel} != {x.size(dim)}'
-
-    # Accumulate the result
-    y:t.Tensor = x
-    xdim:int = x.dim()
-
-    # Unfold the specified dimension for each descriptive dimension of size
-    # The dimensions must be unflattened in a queue, so flip the order of the list
-    #   and reverse the indexing system to be end-relative
-    for idx, n in enumerate(size[::-1]):
-        target:int = -xdim + dim - idx
-        y = y.unfold(target, n, n).movedim(-1, target)
-
-    # Return fully unflattened tensor, squeezing the leftover element dim
-    return y.squeeze(dim)
-
-
-@ts
 def resignal(x:t.Tensor, samples:int, dim:int=-1) -> t.Tensor:
     """Takes the input signal, finds the basis frequency responses for the signal, then applies said
     responses to a properly sized dimension.
@@ -71,6 +38,7 @@ def resignal(x:t.Tensor, samples:int, dim:int=-1) -> t.Tensor:
         y:t.Tensor = tfft.irfft(xfft, dim=dim, n=samples, norm='ortho')
 
     return y
+
 
 
 @ts
@@ -113,10 +81,11 @@ def paddim(x:t.Tensor, lowpad:int, highpad:int, dim:int, mode:str=DEFAULT_PADDIN
         xpad:t.Tensor = nnf.pad(wx, pad=padform, mode=mode)
 
     # Put the dimension structure back in the appropriate place
-    xpad = unflatten(xpad, dim=0, size=chunkShape)
+    xpad = xpad.unflatten(dim=0, sizes=chunkShape)
     for _ in range(unsqueezes):
         xpad.squeeze_(0)
     return xpad.transpose(dim, -1)
+
 
 
 @ts
@@ -143,6 +112,7 @@ def dimmatch(a:t.Tensor, b:t.Tensor, dim:int) -> Tuple[t.Tensor, t.Tensor]:
         return a, resignal(b, samples=asize, dim=dim)
     # ==
     return a, b
+
 
 
 @ts 
@@ -227,7 +197,7 @@ def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True, ring
     
     # Keep the normal [-1.0, 1.0] corner alignment
     else:
-        ortholut:t.Tensor = t.zeros([1, result.size(-1)]) # [1, positions]
+        ortholut:t.Tensor = t.zeros([1, result.size(-1)], device=x.device) # [1, positions]
     
     ortholut = t.stack([ortholut, t.zeros_like(ortholut)], dim=-1) # [1, p] -> [1, p, [x, (y)0]]
 
@@ -252,7 +222,7 @@ def weightedResample(x:t.Tensor, pos:t.Tensor, dim:int=-1, ortho:bool=True, ring
     # Restore original size
     if batchOffset == 0: # [b, F, p] -> [..., F, p]
         result = result.squeeze(0)
-    result = unflatten(result, batchOffset, flatsize) # [..., b, y] -> [..., y]
+    result = result.unflatten(dim=batchOffset, sizes=flatsize) # [..., b, y] -> [..., y]
 
     # Reapply the computed dimension to the appropriate dimension according to the
     #   seeding tensor.

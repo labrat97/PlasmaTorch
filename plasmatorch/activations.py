@@ -131,7 +131,7 @@ class Knot(nn.Module):
         self.frequencies:nn.Parameter = nn.Parameter(t.zeros((self.knotSize, self.knotDepth), dtype=dtype, device=device))
         self.phases:nn.Parameter = nn.Parameter(t.zeros((self.knotSize, self.knotDepth), dtype=dtype, device=device))
         self.__triu:t.Tensor = t.triu(t.ones((self.knotDepth, self.knotDepth), dtype=dtype, device=device), diagonal=0).detach()
-        self.__latticeParams:t.Tensor = latticeParams(self.knotDepth)
+        self.__latticeParams:t.Tensor = latticeParams(self.knotDepth, device=self.device)
 
         self.knotRadii:nn.Parameter = nn.Parameter(t.zeros(paramSize[1:], dtype=dtype, device=device))
 

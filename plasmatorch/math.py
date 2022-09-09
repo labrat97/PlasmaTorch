@@ -17,7 +17,7 @@ def sgn(x:t.Tensor) -> t.Tensor:
         t.Tensor: The resultant unit tensor defining direction.
     """
     preres:t.Tensor = nantonum(x, nan=t.nan).sgn()
-    addval:t.Tensor = (preres.abs() < 1e-4).to(x.dtype)
+    addval:t.Tensor = (preres.abs() < 1e-4).type(x.dtype, non_blocking=True)
 
     return preres + addval
 
@@ -85,7 +85,7 @@ def csin(x:t.Tensor) -> t.Tensor:
 
 
 @ts
-def latticeParams(n:int, basisParam:t.Tensor=phi()) -> t.Tensor:
+def latticeParams(n:int, basisParam:t.Tensor=phi(), device:t.device=DEFAULT_FAST_DEV) -> t.Tensor:
     """Creates a set of parameters that decrease their power of the `basisParam` argument
     from 0 to `1-n`. The default value of Phi for the basis parameter makes the lattice parameters
     have a weight that decays with the golden ratio.
@@ -93,12 +93,13 @@ def latticeParams(n:int, basisParam:t.Tensor=phi()) -> t.Tensor:
     Args:
         n (int): The amount of units to decay (including the zero decay unit).
         basisParam (t.Tensor, optional): The parameter to be put through a series of power. Defaults to phi().
+        device (t.device, optional): The device to compute the result on. Defaults to DEFAULT_FAST_DEV.
 
     Returns:
         t.Tensor: The requested, decaying, parameters.
     """
-    powers = xbias(n=n, bias=0)
-    return basisParam ** (-powers)
+    powers = xbias(n=n, bias=0, device=device)
+    return basisParam.to(device=device, non_blocking=True) ** (-powers)
 
 
 
@@ -145,7 +146,7 @@ def nsoftunit(x:t.Tensor, dims:List[int]) -> t.Tensor:
 
 
 @ts
-def primishvals(n:int, base:Union[t.Tensor, None]=None, gaussApprox:bool=False) -> t.Tensor:
+def primishvals(n:int, base:Union[t.Tensor, None]=None, gaussApprox:bool=False, device:t.device=DEFAULT_FAST_DEV) -> t.Tensor:
     """Gets a set of `n` values of primish numbers (6k+-1) or Gaussian primish numbers
     (4k+-1) optionally using a base of primish values to build off of. The first three prime numbers,
     ([1, 2, 3]) are given as uncalculated constants.
@@ -155,6 +156,7 @@ def primishvals(n:int, base:Union[t.Tensor, None]=None, gaussApprox:bool=False) 
         base (Union[t.Tensor, None], optional): If provided, primish values will build after this sequence at
         the appropriate index. Defaults to None.
         gaussApprox (bool, optional): If True, 4k+-1 prime approximation is used instead of 6k+-1. Defaults to False.
+        device (t.device, optional): The device to perform the computation on. Defaults to DEFAULT_FAST_DEV.
 
     Returns:
         t.Tensor: The primish numbers of sequence length `n`.
@@ -162,17 +164,17 @@ def primishvals(n:int, base:Union[t.Tensor, None]=None, gaussApprox:bool=False) 
     # Not in the 6x -+ 1 domain, or starting domain
     # Initialize the base of the primish values tensor
     if base is None:
-        base = t.tensor([1, 2, 3])
+        base = t.tensor([1, 2, 3], device=device)
     # Invalid base, rebuild
     elif base.size(-1) < 3:
-        base = t.tensor([1, 2, 3], dtype=base.dtype)
+        base = t.tensor([1, 2, 3], dtype=base.dtype, device=device)
 
     # No need to calculate if the amount of samples is below 
     if n <= base.size(-1):
         return base[:n]
     
     # Construct the output values
-    result:t.Tensor = t.zeros((n), dtype=t.int64).detach()
+    result:t.Tensor = t.zeros((n), dtype=t.int64, device=device)
     result[:base.size(-1)] = base
 
     # Set up main calculation iterators
@@ -237,7 +239,7 @@ def realprimishdist(x:t.Tensor, relative:bool=True, gaussApprox:bool=False) -> t
 
     # Collect the primes into one tensor, add the special primes to the tensor, sort
     primish:t.Tensor = t.cat((primishTop, primishBot), dim=-1)
-    specialPrimes:t.Tensor = t.ones_like(primish)[...,:4] * t.tensor([-1, 1, 2, 3])
+    specialPrimes:t.Tensor = t.ones_like(primish)[...,:4] * t.tensor([-1, 1, 2, 3], device=primish.device)
     primish = t.cat((primish, specialPrimes), dim=-1)
     primish = primish.sort(dim=-1, descending=False).values
 
@@ -343,7 +345,7 @@ def quadcheck(x:t.Tensor, boolChannel:bool=False) -> t.Tensor:
         t.Tensor: The occupied quadrants in t.uint8 datatype.
     """
     # Cache local Pi tensor
-    PI:t.Tensor = pi()
+    PI:t.Tensor = pi(device=x.device)
 
     # Gather the angle of the complex numbers unit-wise
     xang:t.Tensor = toComplex(x).angle()
@@ -359,7 +361,7 @@ def quadcheck(x:t.Tensor, boolChannel:bool=False) -> t.Tensor:
         return quadint
     
     # Turn into channel-wise output
-    result:t.Tensor = t.empty(x.size() + [4], dtype=t.uint8)
+    result:t.Tensor = t.empty(x.size() + [4], dtype=t.uint8, device=x.device)
     for idx in range(4):
         result[..., idx] = (quadint == idx).type(t.uint8)
 
@@ -400,7 +402,7 @@ def csigmoid(x:t.Tensor) -> t.Tensor:
         return t.sigmoid(x)
 
     # Extract/calculate required basic parameters
-    PI2 = pi() / 2
+    PI2 = pi(device=x.device) / 2
     xsgn = sgn(x)
     ang = xsgn.angle()
     xabs = x.abs()
@@ -453,14 +455,12 @@ def hmean(x:t.Tensor, dim:int=-1) -> t.Tensor:
     
     # Calculate the harmonic mean
     result:t.Tensor = (vals / invx.sum(dim=dim)) * t.exp(xang.sum(dim=dim) * 1j)
-    if x.is_complex():
-        return result
-    return result.real
+    return result if x.is_complex() else result.real
 
 
 
 @ts
-def harmonicvals(n:int, noSum:bool=False, useZero:bool=False) -> t.Tensor:
+def harmonicvals(n:int, noSum:bool=False, useZero:bool=False, device:t.device=DEFAULT_FAST_DEV) -> t.Tensor:
     """Calculates `n` values of the harmonic series optionally not summing the result of the system.
     If not summing (`nosum` is True) the values will come out in ascending order (to match the order of the summed
     values).
@@ -469,6 +469,7 @@ def harmonicvals(n:int, noSum:bool=False, useZero:bool=False) -> t.Tensor:
         n (int): The amount of hamonic values to generate.
         noSum (bool, optional): If True, turn off the summation that actually builds the harmonic values and reverse the unsummed factors. Defaults to False.
         useZero (bool, optional): If True, zero is added as the first value. Defaults to False.
+        device (t.device, optional): The device to perform the computation on. Defaults to DEFAULT_FAST_DEV.
 
     Returns:
         t.Tensor: The set of `n` harmonic series values with a size of `n`.
@@ -478,9 +479,9 @@ def harmonicvals(n:int, noSum:bool=False, useZero:bool=False) -> t.Tensor:
 
     # Find all of the 1/n values to be summed
     zeroint = int(useZero) # 0 false, 1 true
-    factors:t.Tensor = (1. / xbias(n=n-zeroint, bias=1))
+    factors:t.Tensor = (1. / xbias(n=n-zeroint, bias=1, device=device))
     if useZero:
-        factors = t.cat([t.zeros((1)), factors], dim=-1)
+        factors = t.cat([t.zeros((1), dtype=factors.dtype, device=device), factors], dim=-1)
 
     # Break early if skipping the final summation
     if noSum:
@@ -524,7 +525,7 @@ def harmonicdist(x:t.Tensor) -> t.Tensor:
         xabs:t.Tensor = x.abs()
 
     # Gather constants for evaluation
-    em:t.Tensor = egamma()
+    em:t.Tensor = egamma(device=x.device)
 
     # Take the inverse harmonic index of the input values and flatten them after for indexing
     inverse:t.Tensor = t.round(t.exp(xabs - em)).type(t.int64, non_blocking=True)
@@ -532,7 +533,7 @@ def harmonicdist(x:t.Tensor) -> t.Tensor:
 
     # Find the needed harmonics for producing the final value
     maxn:t.Tensor = finv.max()+1
-    harmonics:t.Tensor = harmonicvals(n=maxn, useZero=True)
+    harmonics:t.Tensor = harmonicvals(n=maxn, useZero=True, device=x.device)
     
     # Find the closest harmonic value, refold the shape, then calculate the result
     highest:t.Tensor = xabs - harmonics[finv].unflatten(0, inverse.size())
@@ -558,7 +559,7 @@ def realfold(x:t.Tensor, phase:t.Tensor=pi()) -> t.Tensor:
         t.Tensor: The folded values from the input tensor `x`.
     """
     if x.is_complex():
-        return x.real + (ccos(phase) * x.imag)
+        return x.real + (ccos(phase.to(x.device, non_blocking=True)) * x.imag)
     return x
 
 

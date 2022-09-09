@@ -4,6 +4,7 @@ from .conversions import toComplex
 from .sizing import paddim, resignal
 
 
+
 @ts
 def correlation(x:t.Tensor, y:t.Tensor, dim:int=-1, isbasis:bool=False) -> t.Tensor:
     """Find the standard cross-correlation between the natural signals provided.
@@ -37,6 +38,7 @@ def correlation(x:t.Tensor, y:t.Tensor, dim:int=-1, isbasis:bool=False) -> t.Ten
 
     # Calculate the correlation
     return ifft(xfft * yfft.conj(), n=samples, dim=dim)
+
 
 
 @ts
@@ -140,6 +142,7 @@ def HYDX_CORRMSE() -> int:
     return 5
 
 
+
 @ts
 def entropy(x:t.Tensor, softmax:bool=True, startdim:int=0, countrot:bool=True) -> t.Tensor:
     """Gets the entropy of a matrix from the startdim on using a variation of Shannon Entropy.
@@ -178,6 +181,7 @@ def entropy(x:t.Tensor, softmax:bool=True, startdim:int=0, countrot:bool=True) -
     nits:t.Tensor = density * t.log2(density)
     return -1. * nits.sum(dim=-1)
     
+
 
 @ts
 def skeeter(teacher:t.Tensor, student:t.Tensor, center:t.Tensor, teacherTemp:float=1., \
@@ -228,6 +232,7 @@ def skeeter(teacher:t.Tensor, student:t.Tensor, center:t.Tensor, teacherTemp:flo
     # Get the harmonic mean of the extracted values, and the higher the mean, the lower the loss
     stackedResult = t.stack((corrmean, corrmedian, corrmode, corrmse), dim=-1)
     return -1 * hmean(stackedResult, dim=-1)
+
 
 
 def bloodmuck(teacher:nn.Module, student:nn.Module, sigma:t.Tensor):

@@ -4,6 +4,7 @@ from .conversions import toComplex
 from .sizing import resignal
 
 
+
 @ts
 def __hzetaitr(s:t.Tensor, a:t.Tensor, n:int) -> t.Tensor:
     """Returns just the value inside that is being infinitely summed
@@ -41,7 +42,7 @@ def hzetae(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.Tensor=t.tenso
             the Hurwitz Zeta function.
     """
     # Set up the parameters for residual evaluation
-    epsig:t.Tensor = csigmoid(res)
+    epsig:t.Tensor = csigmoid(res.to(device=s.device, non_blocking=True))
     idx:int = 1
     epsigexp:t.Tensor = t.ones_like(epsig)
 
@@ -86,10 +87,10 @@ def hzetas(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blankSamples:int=0,
             in a new last dimension through the Hurwitz Zeta function.
     """
     # Make the result the size of the input with the output sample channels
-    result:t.Tensor = toComplex(s.unsqueeze(-1) @ t.zeros((1, samples), dtype=s.dtype))
+    result:t.Tensor = toComplex(s.unsqueeze(-1) @ t.zeros((1, samples), dtype=s.dtype, device=s.device))
 
     # Set up running parameters
-    epsig:t.Tensor = csigmoid(res)
+    epsig:t.Tensor = csigmoid(res.to(device=s.device, non_blocking=True))
     idx:int = 1
     epsigexp:t.Tensor = t.ones_like(epsig)
     totsamples:int = blankSamples + samples
@@ -113,6 +114,8 @@ def hzetas(s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blankSamples:int=0,
         return resignal(result, samples=result.size(-1), dim=-1)
     return result
 
+
+
 @ts
 def __lerchitr(lam:t.Tensor, s:t.Tensor, a:t.Tensor, n:int) -> t.Tensor:
     """Returns just the value being infinitely summed in the Lerch Zeta function.
@@ -127,7 +130,7 @@ def __lerchitr(lam:t.Tensor, s:t.Tensor, a:t.Tensor, n:int) -> t.Tensor:
         t.Tensor: The value to be summed for the provided iteration of the function.
     """
     # Modify the hzeta itr with the provided exponent
-    hzetaexp:t.Tensor = 2 * pi() * n
+    hzetaexp:t.Tensor = 2 * pi(device=lam.device) * n
 
     # If the lambda value is complex, account for the phase angle in the production of z
     if t.is_complex(lam):
@@ -161,7 +164,7 @@ def lerche(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi(), aeps:t.
             the Lerch Zeta function.
     """
     # Set up the running parameters
-    epsig:t.Tensor = csigmoid(res)
+    epsig:t.Tensor = csigmoid(res.to(device=s.device, non_blocking=True))
     idx:int = 1
     epsigexp:t.Tensor = t.ones_like(epsig)
 
@@ -207,10 +210,10 @@ def lerchs(lam:t.Tensor, s:t.Tensor, a:t.Tensor, res:t.Tensor=asigphi()*3, blank
             in a new last dimension through the Lerch Zeta function.
     """
     # Make the result the size of the input with the output samples channels
-    result:t.Tensor = toComplex(s.unsqueeze(-1) @ t.zeros((1, samples), dtype=s.dtype))
+    result:t.Tensor = toComplex(s.unsqueeze(-1) @ t.zeros((1, samples), dtype=s.dtype, device=s.device))
 
     # Set up running parameters
-    epsig:t.Tensor = csigmoid(res)
+    epsig:t.Tensor = csigmoid(res.to(device=s.device, non_blocking=True))
     idx:int = 1
     epsigexp:t.Tensor = t.ones_like(epsig)
     totsamples:int = blankSamples + samples

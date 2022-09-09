@@ -22,8 +22,8 @@ def lens(x:t.Tensor, lens:t.Tensor, dim:int=-1) -> t.Tensor:
 
     # Constants for evaluation
     TAU:t.Tensor = tau(device=x.device)
-    ONE:t.Tensor = t.ones(1)
-    ZERO:t.Tensor = t.zeros(1)
+    ONE:t.Tensor = t.ones(1, device=x.device)
+    ZERO:t.Tensor = t.zeros(1, device=x.device)
     DAMPED_SPACE:t.Tensor = linspace(start=-TAU, end=TAU, steps=2*x.size(dim), device=x.device).unsqueeze(0)
 
     # Create the edges of the signal by flipping a dimension and multiplying by a decay of the signal length
