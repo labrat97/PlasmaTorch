@@ -80,7 +80,7 @@ class Aggregator(nn.Module):
 
     def __keyToSelection__(self, collider:KnowledgeCollider) -> t.Tensor:
         # Turn the key basis vector into something that can be maximally remapped through Greiss algebra
-        greissKey:t.Tensor = ifft(itanh(collider.keyBasis), n=GREISS_SAMPLES, dim=-1)
+        greissKey:t.Tensor = ifft(ctanh(collider.keyBasis), n=GREISS_SAMPLES, dim=-1)
 
         # Matmul the Greiss key into the latent type used to select lenses
         return ifft(greissKey @ self.lensSelectorProj, n=self.lensSelectorProj.size(-1), dim=-1)

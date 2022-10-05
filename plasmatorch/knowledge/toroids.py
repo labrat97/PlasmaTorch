@@ -1,5 +1,6 @@
 from ..defaults import *
 from ..toroidallin import *
+from ..sizing import resignal
 
 class ToroidalLinear(nn.Linear):
     """

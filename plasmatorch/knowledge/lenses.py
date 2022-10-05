@@ -18,7 +18,7 @@ class PolarLens(KnowledgeFilter):
     needed for the application. If the lens is viewed in the opposite direction, the distortion
     is reversed. It should be noted that this distortion can be incredibly lossy.
     """
-    def __init__(self, samples:int=DEFAULT_SIGNAL_LENS_SAMPLES, padding:int=DEFAULT_SIGNAL_LENS_PADDING,
+    def __init__(self, samples:int=DEFAULT_SIGNAL_LENS_SAMPLES,
         keySamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
         # The attentive resample system is essentially a shitty lens that isn't a module
         #   used as a parameter in the super class for resizing incoming signals.
@@ -33,9 +33,6 @@ class PolarLens(KnowledgeFilter):
 
         # Store the direction of the lens evaluation, defined by the above enum
         self.lensDir:nn.Parameter = nn.Parameter((2 * int(PolarLensDirection.NS)) - 1 + t.zeros((1), dtype=t.int8), requires_grad=False)
-
-        # Store how much padding to add to the signal before the lensing, circularly
-        self.signalPadding:nn.Parameter = nn.Parameter(abs(padding) + t.zeros((1), dtype=t.int64), requires_grad=False)
 
 
     def setDirection(self, dir:PolarLensDirection) -> PolarLensDirection:
@@ -74,7 +71,7 @@ class PolarLens(KnowledgeFilter):
         lensIntrinsics:t.Tensor = self.lensDir * tfft.irfft(softlens, n=softlens.size(-1), dim=-1, norm='ortho')
         
         # Push the lens through the lens() equation
-        return lens(x=x, lens=lensIntrinsics, padding=self.signalPadding[0], dim=-1)
+        return lens(x=x, lens=lensIntrinsics, dim=-1)
 
 
 
@@ -94,15 +91,15 @@ class InterferringLens(KnowledgeCollider):
     grouping temporarily, then compressed through a prism like lens into the size and distortion
     needed for the application. Viewing the lens through an opposite direction
     """
-    def __init__(self, samples:int=DEFAULT_SIGNAL_LENS_SAMPLES, padding:int=DEFAULT_SIGNAL_LENS_PADDING,
+    def __init__(self, samples:int=DEFAULT_SIGNAL_LENS_SAMPLES,
         keySamples:int=DEFAULT_FFT_SAMPLES, cdtype:t.dtype=DEFAULT_COMPLEX_DTYPE):
 
         super(InterferringLens, self).__init__(keySamples=keySamples, inputSamples=-1, outputSamples=samples, 
             attentiveResample=False, cdtype=cdtype)
 
         # Hold two PolarLenses internally and route accordingly
-        self.nsLens:PolarLens = PolarLens(samples=samples, padding=padding, keySamples=keySamples, cdtype=self.cdtype)
-        self.weLens:PolarLens = PolarLens(samples=samples, padding=padding, keySamples=keySamples, cdtype=self.cdtype)
+        self.nsLens:PolarLens = PolarLens(samples=samples, keySamples=keySamples, cdtype=self.cdtype)
+        self.weLens:PolarLens = PolarLens(samples=samples, keySamples=keySamples, cdtype=self.cdtype)
 
 
     def setDirection(self, dir:InterferringLensDirection):
