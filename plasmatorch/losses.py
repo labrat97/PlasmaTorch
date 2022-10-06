@@ -64,7 +64,7 @@ def energyGain(x:t.Tensor, y:t.Tensor, dim:Union[int, List[int]]=-1, keepElement
     result:t.Tensor = yrms / xrms
 
     # Create the replacement infinities and negative infinities
-    infmask:t.Tensor = (yrms.sgn() * t.inf) * (result == t.nan).type(result.type, non_blocking=True)
+    infmask:t.Tensor = (yrms.sgn() * t.inf) * (result == t.nan).type(dtype=result.dtype, non_blocking=True)
 
     # Apply the infinities to the nans
     return nantonum(result) + infmask
