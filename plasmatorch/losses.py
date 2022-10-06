@@ -2,6 +2,72 @@ from .__defimp__ import *
 from .activations import *
 from .conversions import toComplex
 from .sizing import paddim, resignal
+from .math import rms
+
+
+
+@ts
+def energyLoss(x:t.Tensor, y:t.Tensor, dim:Union[int, List[int]]=-1, keepElements:bool=False) -> t.Tensor:
+    """Calculate the energy lost between the signals in terms of the difference
+    between `y` and `x`  root means squared (being the regular value multiplied times the conjugate) 
+    values. The actual calculation ends up being 'yrms - xrms'.
+
+    Args:
+        x (t.Tensor): The starting tensor for calculating the loss.
+        y (t.Tensor): The resulting tensor for calculating the loss.
+        dim (Union[int, List[int]], optional): The dimension(s) to perform the mean on. Defaults to -1.
+        keepElements (bool, optional): If True, the root mean ratio squared function \
+            (`rmrs()`) is used as opposed to the root mean squared function \
+            (`rms()`). Defaults to False.
+
+    Returns:
+        t.Tensor: The real valued result of the rms difference calculations.
+    """
+    if keepElements:
+        xrms:t.Tensor = rmrs(x, dim=dim)
+        yrms:t.Tensor = rmrs(y, dim=dim)
+    else:
+        # `keepdim` enabled to maintain resultant dim count, ignoring function selection
+        xrms:t.Tensor = rms(x, dim=dim, keepdim=True)
+        yrms:t.Tensor = rms(y, dim=dim, keepdim=True)
+
+    return yrms - xrms
+
+
+
+@ts
+def energyGain(x:t.Tensor, y:t.Tensor, dim:Union[int, List[int]]=-1, keepElements:bool=False) -> t.Tensor:
+    """Calculate the energy gain from the `x` signal to the `y` signal as a real
+    valued scalar. The resulting value will is filtered from NaN's to 1 for decibel
+    like calculations.
+
+    Args:
+        x (t.Tensor): The starting tensor to use for calculating the gain.
+        y (t.Tensor): The resulting tensor to use for calculating the gain.
+        dim (Union[int, List[int]], optional): The dimension(s) to perform the mean on. Defaults to -1.
+        keepElements (bool, optional): If True, the root mean ratio squared function \
+            (`rmrs()`) is used as opposed to the root mean squared function \
+            (`rms()`). Defaults to False.
+        
+    Returns:
+        t.Tensor: The real valued scalar representing the gain on the rms values.
+    """
+    if keepElements:
+        xrms:t.Tensor = rmrs(x, dim=dim)
+        yrms:t.Tensor = rmrs(y, dim=dim)
+    else:
+        # `keepdim` enabled to maintain resultant dim count, ignoring function selection
+        xrms:t.Tensor = rms(x, dim=dim, keepdim=True)
+        yrms:t.Tensor = rms(y, dim=dim, keepdim=True)
+
+    # Calculate the result, leaving nans for infinite replacement
+    result:t.Tensor = yrms / xrms
+
+    # Create the replacement infinities and negative infinities
+    infmask:t.Tensor = (yrms.sgn() * t.inf) * (result == t.nan).type(result.type, non_blocking=True)
+
+    # Apply the infinities to the nans
+    return nantonum(result) + infmask
 
 
 
