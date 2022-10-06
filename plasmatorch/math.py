@@ -652,3 +652,70 @@ def ifft(x:t.Tensor, n:Union[int, List[int], None]=-1, dim:Union[int, List[int],
     # Invalid arguments were provided
     else:
         raise ValueError('n and dim must have the same type and be either ints or tuples of ints')
+
+
+
+# TODO: Needs testing
+@ts
+def rms(x:t.Tensor, dim:Union[int, List[int]]=-1, keepdim:bool=False) -> t.Tensor:
+    """Calculate the root mean squared value of the tensor on the dim provided.
+    Instead of performing a normal square though, multiply the tensor by the conjugate
+    of itself.
+
+    Args:
+        x (t.Tensor): The tensor to perform the operation on.
+        dim (Union[int, List[int]], optional): The dimension(s) to perform the mean on. Defaults to -1.
+        keepdim (bool, optional): If True, keeps the dim at size 1. Defaults to False.
+
+    Returns:
+        t.Tensor: The R.M.S. value calculated from the input tensor `x`.
+    """
+    # Square, removing the imaginary value
+    buffer:t.Tensor = (x * x.conj()).real
+    
+    # Take the mean
+    # This is dumb but handles the type system for torchscript
+    if isinstance(dim, int):
+        # This one is an `int` which gets turned into an `_int`
+        buffer = buffer.mean(dim=dim, keepdim=keepdim)
+    else:
+        # This one is a `List[int]` which gets turned into a `_size`
+        buffer = buffer.mean(dim=dim, keepdim=keepdim)
+
+    # Root
+    return buffer.sqrt() 
+
+
+
+# TODO: Needs testing
+@ts
+def rmrs(x:t.Tensor, dim:Union[int, List[int]]=-1) -> t.Tensor:
+    """Calculate the root mean ratio squared value of the tensor on the dim(s) provided.
+    Instead of performing a normal square, multiply the tensor by the conjugate of itself.
+    Also, to keep each element of the tensor in place, divide each element by the mean and
+    zeroing out if the mean ends up zero still.
+
+    Args:
+        x (t.Tensor): The tensor to perform the operation on.
+        dim (Union[int, List[int]], optional): The dimension(s) to perform the mean on. Defaults to -1.
+
+    Returns:
+        t.Tensor: The R.Mr.S. value calculated from the input tensor `x`.
+    """
+    # Square, removing the imaginary value
+    buffer:t.Tensor = (x * x.conj()).real
+    
+    # Take the mean
+    # This is dumb but handles the type system for torchscript
+    if isinstance(dim, int):
+        # This one is an `int` which gets turned into an `_int`
+        mean:t.Tensor = buffer.mean(dim=dim, keepdim=True)
+    else:
+        # This one is a `List[int]` which gets turned into a `_size`
+        mean:t.Tensor = buffer.mean(dim=dim, keepdim=True)
+
+    # Inverts the mean and scales the buffer to create the mean ratio
+    buffer = buffer * nantonum(1. / mean, nan=0.)
+
+    # Root
+    return buffer.sqrt()
